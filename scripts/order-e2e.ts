@@ -96,8 +96,29 @@ async function main() {
     t = await api.table(a.id);
     check('a pending line can be removed', activeLines(t.order).filter((l) => l.variantId === latte.variantId).length === 1);
 
+    // "Customize Your Order" actions on the rice line (now cooking): note with a charge,
+    // manual discount, serve, and options off/on. Totals are kh-pos's own sums.
+    const orderId = t.order!.orderId;
+    const riceId = riceLine.orderDetailId;
+    const riceNow = async () => activeLines((await api.table(a.id)).order).find((l) => l.orderDetailId === riceId)!;
+    await api.updateNote(orderId, { orderDetailId: riceId, notes: 'extra spicy', price: 1 });
+    let r = await riceNow();
+    check('note updated with an extra charge', lineExtras(r, names).note === 'extra spicy' && Number(r.totalAmount) === ricePrice + 1, r.totalAmount);
+    await api.setManualDiscount(orderId, { itemId: riceId, amount: 10, discountType: 'PERCENTAGE' });
+    r = await riceNow();
+    check('10% manual discount applied', Math.abs(Number(r.totalAmount) - (ricePrice + 1) * 0.9) < 0.01, r.totalAmount);
+    await api.moveStatus(orderId, [{ orderDetailId: riceId, fromStatus: 'cooking', toStatus: 'served', qty: 1 }]);
+    r = await riceNow();
+    check('Serve moves preparing to served', statusQty(r, 'served') === 1 && statusQty(r, 'cooking') === 0);
+    await api.removeModifier(orderId, { orderDetailId: riceId, modifierItemId: egg.id });
+    r = await riceNow();
+    check('option removed, total recalculated', Math.abs(Number(r.totalAmount) - (Number(rice.price) + 1) * 0.9) < 0.01, r.totalAmount);
+    await api.addModifier(orderId, { orderDetailId: riceId, modifierItemId: egg.id, price: Number(egg.price) });
+    check('promotions list loads', Array.isArray(await api.promotionsFor(rice.productId)));
+    const expected2 = (ricePrice + 1) * 0.9 + 2 * Number(latte.price);
+
     const row = (await api.tables()).find((x) => x.id === a.id)!;
-    check('tables list shows the order', row.status === 'order_taken' && Number(row.order?.totalAmount) === expected);
+    check('tables list shows the order', row.status === 'order_taken' && Math.abs(Number(row.order?.totalAmount) - expected2) < 0.01, row.order?.totalAmount);
 
     // Two phones add to the same free table at the same moment.
     const freeB = await api.table(b.id);

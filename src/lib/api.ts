@@ -31,7 +31,8 @@ export interface StaffUser {
   fullname: string | null;
   currentWarehouseId: string | null;
   warehouse: { id: string; name: string } | null;
-  role: { role: string } | null;
+  /** permissions: resource → "create,read,update" (null for roles without a list, e.g. OWNER). */
+  role: { role: string; permissions?: Record<string, string | string[]> | null } | null;
 }
 
 export interface Setting {
@@ -81,9 +82,38 @@ export interface OrderLine {
   title: string;
   qty: number;
   price: string;
+  /** Discount on the whole line, worked out by kh-pos. */
+  discountAmount?: string;
+  /** Options and paid notes on the whole line (kh-pos spelling). */
+  modiferAmount?: string;
   totalAmount: string;
   status?: { status: ItemStatus; qty: number }[];
   orderModifiers?: { orderDetailId: string; modifierItemId: string; price?: number; notes?: string | null }[];
+  discounts?: LineDiscount[];
+}
+
+export interface LineDiscount {
+  /** "manual" for the manual discount, otherwise the kh-pos discount id. */
+  discountId: string;
+  name: string;
+  discountType?: 'PERCENTAGE' | 'AMOUNT';
+  value?: number;
+  isManualDiscount?: boolean;
+}
+
+/** A discount that can be applied to a product (GET /api/discount/applies). */
+export interface PromotionOption {
+  discountId: string;
+  discount?: { title?: string; discountType?: 'PERCENTAGE' | 'AMOUNT'; value?: number } | null;
+}
+
+export type CountableStatus = 'pending' | 'cooking' | 'served';
+
+export interface StatusMove {
+  orderDetailId: string;
+  fromStatus: 'pending' | 'cooking';
+  toStatus: 'cooking' | 'served';
+  qty: number;
 }
 
 /** A table's open (DRAFT) order. kh-pos sends camelCase aliases next to the raw columns. */
@@ -282,12 +312,44 @@ export class KhPosApi {
   }
 
   /** Sets how many portions of a line are still pending (not sent to the kitchen). */
-  async setPendingQty(orderId: string, orderDetailId: string, qty: number): Promise<void> {
-    await this.request('PUT', `/api/pos/order/${encodeURIComponent(orderId)}/update-item-status`, {
-      orderDetailId,
-      status: 'pending',
-      qty,
-    });
+  setPendingQty(orderId: string, orderDetailId: string, qty: number): Promise<void> {
+    return this.setStatusQty(orderId, orderDetailId, 'pending', qty);
+  }
+
+  /** Sets the number of portions of a line in one status (web: Quantity Management edit). */
+  async setStatusQty(orderId: string, orderDetailId: string, status: CountableStatus, qty: number): Promise<void> {
+    await this.request('PUT', `/api/pos/order/${encodeURIComponent(orderId)}/update-item-status`, { orderDetailId, status, qty });
+  }
+
+  /** Moves portions between statuses: pending → cooking ("Prepare"), cooking → served ("Serve"). */
+  async moveStatus(orderId: string, moves: StatusMove[]): Promise<void> {
+    await this.request('POST', `/api/pos/order/${encodeURIComponent(orderId)}/update-item-status`, moves);
+  }
+
+  async removeModifier(orderId: string, input: { orderDetailId: string; modifierItemId: string }): Promise<void> {
+    await this.request('DELETE', `/api/pos/order/${encodeURIComponent(orderId)}/modifier`, input);
+  }
+
+  /** Changes the line's existing note (special instructions) and its extra charge. */
+  async updateNote(orderId: string, input: { orderDetailId: string; notes: string; price: number }): Promise<void> {
+    await this.request('PUT', `/api/pos/order/${encodeURIComponent(orderId)}/modifier`, { ...input, modifierItemId: 'notes' });
+  }
+
+  async setManualDiscount(orderId: string, input: { itemId: string; amount: number; discountType: 'PERCENTAGE' | 'AMOUNT' }): Promise<void> {
+    await this.request('PUT', `/api/pos/order/${encodeURIComponent(orderId)}/promotion`, [input]);
+  }
+
+  async promotionsFor(productId: string): Promise<PromotionOption[]> {
+    const json = await this.request<{ result?: PromotionOption[] }>('GET', `/api/discount/applies?productId=${encodeURIComponent(productId)}`);
+    return json.result ?? [];
+  }
+
+  async addPromotion(orderId: string, input: { itemId: string; discountId: string }): Promise<void> {
+    await this.request('POST', `/api/pos/order/${encodeURIComponent(orderId)}/promotion`, input);
+  }
+
+  async removePromotion(orderId: string, input: { itemId: string; discountId: string }): Promise<void> {
+    await this.request('DELETE', `/api/pos/order/${encodeURIComponent(orderId)}/promotion`, input);
   }
 
   async removeLine(orderId: string, orderDetailId: string): Promise<void> {
@@ -295,8 +357,8 @@ export class KhPosApi {
   }
 
   /** Pending portions → cooking. kh-pos queues the kitchen tickets for the printer itself. */
-  async sendToKitchen(orderId: string, moves: KitchenMove[]): Promise<void> {
-    await this.request('POST', `/api/pos/order/${encodeURIComponent(orderId)}/update-item-status`, moves);
+  sendToKitchen(orderId: string, moves: KitchenMove[]): Promise<void> {
+    return this.moveStatus(orderId, moves);
   }
 
   /** Product image URLs may be relative to the kh-pos server. */

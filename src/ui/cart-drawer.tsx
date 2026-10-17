@@ -24,6 +24,7 @@ export function CartDrawer({
   onSetPending,
   onRemove,
   onSend,
+  onOpenLine,
 }: {
   visible: boolean;
   tableName: string;
@@ -35,6 +36,8 @@ export function CartDrawer({
   onSetPending: (line: OrderLine, qty: number) => void;
   onRemove: (line: OrderLine) => void;
   onSend: () => void;
+  /** Tapping a line opens "Customize Your Order" for it. */
+  onOpenLine: (line: OrderLine) => void;
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -94,7 +97,13 @@ export function CartDrawer({
             const served = statusQty(line, 'served');
             return (
               <View key={line.orderDetailId} style={styles.line}>
-                <View style={styles.lineTop}>
+                <Pressable
+                  onPress={() => onOpenLine(line)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${line.qty} × ${name}`}
+                  accessibilityHint={t('cart.openLineHint')}
+                  style={({ pressed }) => [styles.lineTop, pressed && styles.pressed]}
+                >
                   <View style={styles.flex}>
                     <Text style={styles.lineName}>
                       {line.qty} × {name}
@@ -104,7 +113,8 @@ export function CartDrawer({
                     {note ? <Text style={styles.note}>“{note}”</Text> : null}
                   </View>
                   <Text style={styles.lineTotal}>{formatMoney(line.totalAmount, currency)}</Text>
-                </View>
+                  <Text style={styles.chevron}>›</Text>
+                </Pressable>
                 <View style={styles.badges}>
                   {pending > 0 ? <Badge tone="warning" text={`${t('itemStatus.pending')} ${pending}`} /> : null}
                   {cooking > 0 ? <Badge tone="info" text={`${t('itemStatus.cooking')} ${cooking}`} /> : null}
@@ -177,7 +187,9 @@ const styles = StyleSheet.create({
   empty: { textAlign: 'center', paddingVertical: space.xl },
   list: { padding: space.lg, gap: space.md },
   line: { gap: space.sm, paddingBottom: space.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  lineTop: { flexDirection: 'row', gap: space.md },
+  lineTop: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
+  pressed: { opacity: 0.6 },
+  chevron: { fontSize: 22, lineHeight: 22, color: colors.mutedForeground },
   lineName: { fontSize: font.body, fontWeight: '600', color: colors.foreground, lineHeight: font.lineHeight },
   note: { fontSize: font.small, color: colors.foreground, fontStyle: 'italic' },
   lineTotal: { fontSize: font.body, fontWeight: '700', color: colors.foreground },

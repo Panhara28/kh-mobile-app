@@ -13,7 +13,13 @@ Update this file when a decision changes.
     - Adding follows the web POS: the first item marks the table taken, gets the next invoice number and opens the order. The same plain item still pending raises its quantity. Anything else, or anything with options or a note, is a new line, followed by its options and note.
     - Prices for staff orders are the menu prices, sent by the app (kh-pos trusts staff, as with the web POS). Option prices come from the modifier items.
     - **Send to kitchen** moves all pending portions to cooking in one call. kh-pos writes the kitchen tickets to `print_queue` for the printer bridge, so the phone never prints.
-    - Staff can change the pending quantity of a line, and remove lines the kitchen hasn't started. Marking items served, transfers, discounts and checkout stay on the web POS for now.
+    - Staff can change the pending quantity of a line, and remove lines the kitchen hasn't started.
+    - **Customize Your Order** (opened by tapping a cart line, which closes the drawer; closing it returns to the cart) copies the web POS sheet and its rules:
+      - Prepare (pending → cooking) and Serve (all cooking → served).
+      - Editing counts: pending always; cooking or served only with order-preparation update + delete, or the OWNER role. At least one portion must remain, and zeroing preparing or served asks for confirmation.
+      - Options on/off, a note with an extra charge (added the first time, updated after that), a manual discount ($ or %) and promotions (`/api/discount/applies`).
+      - The manual discount isn't limited by role, the same as the web POS. Restricting it is a business decision.
+    - Transfers and checkout stay on the web POS for now.
 - Next steps are decided one at a time.
 - Staff accounts use a kh-pos role named **"Staff"**, created by `scripts/seed-dev.mjs`. Its permissions: order, restaurant and order-preparation (create, read, update), plus product and category (read).
 - The server address comes from `EXPO_PUBLIC_KHPOS_URL` (`.env.local`). During development this is the PC's Wi-Fi address.

@@ -5,7 +5,10 @@ Staff mobile app for [kh-pos](https://github.com/sokphaladam/kh-pos), working li
 1. **Log in** with a kh-pos username and password.
 2. **Tables:** the branch's tables, each with its status, open order total and items not yet sent.
 3. **Tap a table** to see the menu. **Tapping a dish adds it to the cart at once.** Tapping again adds more, and each card shows how many are in the cart. **Hold a dish** to choose options and add a note.
-4. **The 🛒 cart button** (with a count) opens a drawer from the right with the table's order: each line with its kitchen status (not sent, cooking, served). Staff can change or remove items that haven't been sent, then **Send to kitchen**. kh-pos queues the kitchen tickets for the kitchen printer itself.
+4. **The 🛒 cart button** (with a count) opens a drawer from the right with the table's order: each line with its kitchen status (not sent, cooking, served). Staff can change or remove items that haven't been sent, then **Send to kitchen**.
+5. **Tap an item in the cart** to open **Customize Your Order**, the same screen as the web POS:
+   - **Quantity Management:** Prepare, Serve, and editing the pending, preparing and served counts. Editing preparing or served counts needs the role's order-preparation update and delete permissions, as on the web.
+   - **Options**, **Special Instructions** (with an optional extra charge), **Manual Discount** and **Promotions**. kh-pos queues the kitchen tickets for the kitchen printer itself.
 
 Payment is taken at the POS.
 

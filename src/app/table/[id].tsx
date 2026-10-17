@@ -10,6 +10,7 @@ import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button } from '@/ui/components';
 import { CartDrawer } from '@/ui/cart-drawer';
+import { CustomizeLine } from '@/ui/customize-line';
 import { MenuBrowser } from '@/ui/menu-browser';
 import { ProductSheet, type ProductChoice } from '@/ui/product-sheet';
 import { errorKind, ErrorState, LoadingState } from '@/ui/states';
@@ -24,13 +25,15 @@ const REFRESH_MS = 15_000;
 export default function TableScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { api } = useSession();
+  const { api, user } = useSession();
   const { warehouseId, currency } = useBranch();
 
   const [table, setTable] = useState<RestaurantTable | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
   const [product, setProduct] = useState<MenuProduct | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+  /** Cart line open in "Customize Your Order". */
+  const [openLineId, setOpenLineId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [products, setProducts] = useState<MenuProduct[]>([]);
   /** Taps queued but not yet saved, per variant: shown at once on the badges. */
@@ -147,6 +150,17 @@ export default function TableScreen() {
   }
 
   const cartCount = counts.portions + queuedTotal;
+  const openLine = activeLines(table.order).find((l) => l.orderDetailId === openLineId) ?? null;
+
+  function openCustomize(line: OrderLine) {
+    setCartOpen(false);
+    setOpenLineId(line.orderDetailId);
+  }
+
+  function closeCustomize() {
+    setOpenLineId(null);
+    setCartOpen(true); // back to the cart
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -215,7 +229,21 @@ export default function TableScreen() {
         onSetPending={setPending}
         onRemove={remove}
         onSend={() => void send()}
+        onOpenLine={openCustomize}
       />
+      {openLine ? (
+        <CustomizeLine
+          line={openLine}
+          orderId={table.order?.orderId ?? null}
+          product={products.find((p) => p.variantId === openLine.variantId)}
+          user={user}
+          api={api}
+          currency={currency}
+          busy={busy}
+          run={run}
+          onClose={closeCustomize}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
