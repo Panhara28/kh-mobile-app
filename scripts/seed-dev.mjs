@@ -9,7 +9,8 @@
  * Creates:
  *  - a "Staff" role (orders, tables, kitchen; read-only products and categories),
  *  - a staff user in the admin's branch (password generated and printed if not given),
- *  - a small sample menu (Drinks, Food, Desserts).
+ *  - a small sample menu (Drinks, Food, Desserts) with two modifier groups,
+ *  - restaurant tables "Table 1" to "Table 6".
  * Never point this at a production server.
  */
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -51,6 +52,28 @@ const MENU = [
     items: [{ title: 'Mango Sticky Rice', price: 2, cost: 0.8 }],
   },
 ];
+
+const MODIFIERS = [
+  {
+    title: 'Sugar level',
+    items: [
+      { name: 'No sugar', price: 0 },
+      { name: 'Less sugar', price: 0 },
+      { name: 'Extra sugar', price: 0 },
+    ],
+    products: ['Iced Latte', 'Lemon Tea'],
+  },
+  {
+    title: 'Add-ons',
+    items: [
+      { name: 'Fried egg', price: 0.5 },
+      { name: 'Extra rice', price: 0.75 },
+    ],
+    products: ['Fried Rice', 'Beef Lok Lak'],
+  },
+];
+
+const TABLES = ['Table 1', 'Table 2', 'Table 3', 'Table 4', 'Table 5', 'Table 6'];
 
 let token = '';
 
@@ -153,6 +176,33 @@ async function main() {
       });
       done(`created ${item.title} ($${item.price.toFixed(2)})`);
     }
+  }
+
+  // Modifier groups, bound to products by title
+  const modifiers = (await api('GET', '/api/modifier?limit=500&offset=0')).result?.data ?? [];
+  for (const group of MODIFIERS) {
+    if (modifiers.some((m) => m.title === group.title)) continue;
+    const id = randomUUID();
+    await api('POST', '/api/modifier', { id, title: group.title, description: '', items: group.items });
+    for (const title of group.products) {
+      const product = (await api('GET', `/api/product-v2/menu?search=${encodeURIComponent(title.toLowerCase())}&limit=10&offset=0&warehouse=${warehouseId}`, undefined, { auth: false })).result?.find((p) => p.productTitle?.startsWith(title));
+      if (product) await api('POST', `/api/modifier/${id}`, { productId: product.productId });
+    }
+    done(`created modifier "${group.title}" for ${group.products.join(', ')}`);
+  }
+
+  // Restaurant tables
+  const tables = (await api('GET', '/api/table')).result ?? [];
+  for (const name of TABLES) {
+    if (tables.some((t) => t.table_name === name)) continue;
+    await api('POST', '/api/table', {
+      tableNumber: name,
+      seatingCapacity: 4,
+      section: 'Main hall',
+      tableShape: 'square',
+      features: [],
+    });
+    done(`created ${name}`);
   }
 
   console.log('\nStaff login for the mobile app:');
