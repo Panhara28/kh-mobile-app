@@ -164,15 +164,25 @@ export function serveMoves(order: TableOrder | null | undefined): StatusMove[] {
 }
 
 /**
- * When a line was ordered, sent to the kitchen and served (kh-pos status times).
- * "Sent" and "served" only once something reached that stage.
+ * When a line was ordered, sent to the kitchen and served.
+ *
+ * kh-pos keeps one row per status and rewrites the time of BOTH rows whenever portions move
+ * (serving overwrites the "cooking" time), so the cooking row is not a send time. The real
+ * send time is the kitchen print log (first ticket printed). Without one (no kitchen printer),
+ * the cooking time is used only while nothing has been served yet, when it is still right;
+ * otherwise "sent" is left out rather than shown wrong.
  */
 export function lineTimes(line: OrderLine): { ordered: string | null; sent: string | null; served: string | null } {
   const entry = (s: ItemStatus) => (line.status ?? []).find((x) => x.status === s);
-  const reachedKitchen = statusQty(line, 'cooking') + statusQty(line, 'ready') + statusQty(line, 'served') > 0;
+  const cooking = statusQty(line, 'cooking') + statusQty(line, 'ready');
+  const served = statusQty(line, 'served');
+  const printed = (line.kitchenLogs ?? [])
+    .map((k) => k.printedAt)
+    .filter((t): t is string => !!t)
+    .sort()[0];
   return {
     ordered: line.createdAt ?? entry('pending')?.createdAt ?? null,
-    sent: reachedKitchen ? (entry('cooking')?.createdAt ?? null) : null,
-    served: statusQty(line, 'served') > 0 ? (entry('served')?.createdAt ?? null) : null,
+    sent: printed ?? (cooking > 0 && served === 0 ? (entry('cooking')?.createdAt ?? null) : null),
+    served: served > 0 ? (entry('served')?.createdAt ?? null) : null,
   };
 }

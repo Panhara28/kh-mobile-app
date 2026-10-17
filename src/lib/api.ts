@@ -98,6 +98,11 @@ export interface OrderLine {
   }[];
   orderModifiers?: { orderDetailId: string; modifierItemId: string; price?: number; notes?: string | null }[];
   discounts?: LineDiscount[];
+  /**
+   * One entry per kitchen ticket printed for the line (print_kitchen_log). printedAt is the
+   * real "sent to kitchen" time; kh-pos never overwrites it.
+   */
+  kitchenLogs?: { printedAt: string | null }[];
 }
 
 export interface LineDiscount {

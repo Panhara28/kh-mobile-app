@@ -183,17 +183,23 @@ describe('serve all and line times', () => {
     ]);
   });
 
-  it('gives ordered, sent and served times only once reached', () => {
-    const withTimes = (status: Record<string, [number, string]>): OrderLine => ({
+  it('uses the kitchen print log as the sent time, since kh-pos overwrites status times', () => {
+    const withTimes = (status: Record<string, [number, string]>, printed: string[] = []): OrderLine => ({
       ...line('a', 'v', Object.fromEntries(Object.entries(status).map(([s, [q]]) => [s, q]))),
       createdAt: '2026-10-17 23:13:46',
       status: Object.entries(status).map(([s, [qty, at]]) => ({ status: s as 'pending', qty, createdAt: at })),
+      kitchenLogs: printed.map((printedAt) => ({ printedAt })),
     });
+    // Not sent yet.
     expect(lineTimes(withTimes({ pending: [1, '2026-10-17 23:13'] }))).toEqual({ ordered: '2026-10-17 23:13:46', sent: null, served: null });
-    expect(lineTimes(withTimes({ pending: [0, '2026-10-17 23:20'], cooking: [1, '2026-10-17 23:20'] }))).toEqual({
-      ordered: '2026-10-17 23:13:46', sent: '2026-10-17 23:20', served: null,
+    // Sent, nothing served: the cooking time is still right.
+    expect(lineTimes(withTimes({ pending: [0, '2026-10-17 23:20'], cooking: [1, '2026-10-17 23:20'] })).sent).toBe('2026-10-17 23:20');
+    // Served: kh-pos overwrote the cooking time with the serve time, so without a print log "sent" is unknown.
+    expect(lineTimes(withTimes({ cooking: [0, '2026-10-17 23:31'], served: [1, '2026-10-17 23:31'] }))).toEqual({
+      ordered: '2026-10-17 23:13:46', sent: null, served: '2026-10-17 23:31',
     });
-    expect(lineTimes(withTimes({ pending: [0, 'x'], cooking: [0, '2026-10-17 23:20'], served: [1, '2026-10-17 23:31'] }))).toEqual({
+    // With the print log: the first printed ticket is the sent time, even after serving.
+    expect(lineTimes(withTimes({ cooking: [0, '2026-10-17 23:31'], served: [1, '2026-10-17 23:31'] }, ['2026-10-17 23:25', '2026-10-17 23:20']))).toEqual({
       ordered: '2026-10-17 23:13:46', sent: '2026-10-17 23:20', served: '2026-10-17 23:31',
     });
   });
