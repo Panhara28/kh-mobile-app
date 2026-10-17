@@ -38,6 +38,8 @@ export interface StaffUser {
 export interface Setting {
   option: string;
   value: string | null;
+  /** Branch the row is for; null for the global default. */
+  warehouse?: string | null;
 }
 
 export interface Category {
@@ -112,6 +114,8 @@ export interface LineDiscount {
   discountType?: 'PERCENTAGE' | 'AMOUNT';
   value?: number;
   isManualDiscount?: boolean;
+  /** Money off on the line from this discount. */
+  amount?: number;
 }
 
 /** A discount that can be applied to a product (GET /api/discount/applies). */

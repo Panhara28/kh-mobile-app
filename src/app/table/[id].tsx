@@ -26,7 +26,7 @@ export default function TableScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api, user } = useSession();
-  const { warehouseId, currency } = useBranch();
+  const { warehouseId, currency, capEnabled } = useBranch();
 
   const [table, setTable] = useState<RestaurantTable | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
@@ -91,7 +91,7 @@ export default function TableScreen() {
         const fresh = await api.table(id); // latest order: another phone may have changed it
         await addToTable(
           api,
-          { table: fresh, warehouseId, product: p, qty: choice.qty, options: choice.options, note: choice.note },
+          { table: fresh, warehouseId, product: p, qty: choice.qty, options: choice.options, note: choice.note, capEnabled },
           () => Crypto.randomUUID(),
           posInfoCache.current,
         );

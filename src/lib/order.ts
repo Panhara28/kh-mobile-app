@@ -38,15 +38,33 @@ export function kitchenMoves(order: TableOrder | null | undefined): KitchenMove[
 }
 
 /**
- * Line to add to instead of starting a new one: the same item, with no options or note, that
- * still has pending portions. Lines already in the kitchen or with options are left alone.
+ * Line to add a tapped dish to, or null for a new line. Same rule as the kh-pos web POS
+ * (RestaurantaAction.resolveAddTarget):
+ *  - same dish with no options or note → that line, whatever its kitchen status
+ *    (it gets one more pending portion, e.g. "Pending 1 · Served 1");
+ *  - except with the branch's "max quantity per line" discount cap on, for a dish with a
+ *    menu discount: reuse a line whose discount is already used up (amount 0), otherwise a new
+ *    line, so the extra portion is charged full price on its own line.
  */
-export function mergeTarget(order: TableOrder | null | undefined, variantId: string): OrderLine | null {
+export function mergeTarget(
+  order: TableOrder | null | undefined,
+  product: Pick<MenuProduct, 'variantId' | 'price' | 'discountedPrice'>,
+  capEnabled = false,
+): OrderLine | null {
+  const identical = activeLines(order).filter((l) => l.variantId === product.variantId && (l.orderModifiers ?? []).length === 0);
+  if (identical.length === 0) return null;
+  if (!capEnabled || !hasMenuDiscount(product)) return identical[0]!;
   return (
-    activeLines(order).find(
-      (l) => l.variantId === variantId && (l.orderModifiers ?? []).length === 0 && pendingQty(l) > 0 && !lineStarted(l),
-    ) ?? null
+    [...identical].reverse().find((l) => {
+      const d = (l.discounts ?? []).find((x) => x.discountId === 'variant');
+      return !!d && Number(d.amount ?? 0) === 0;
+    }) ?? null
   );
+}
+
+/** The dish has a product-variant menu discount (shown struck through on the menu). */
+export function hasMenuDiscount(product: Pick<MenuProduct, 'price' | 'discountedPrice'>): boolean {
+  return product.discountedPrice != null && Number(product.discountedPrice) < Number(product.price ?? 0);
 }
 
 /** Names of modifier options, from the menu data (order lines only carry option ids). */
@@ -90,6 +108,8 @@ export interface AddRequest {
   qty: number;
   options: ModifierItem[];
   note: string;
+  /** Branch ORDER_DISCOUNT_RULES "max quantity per line" is on (see mergeTarget). */
+  capEnabled?: boolean;
 }
 
 /**
@@ -134,7 +154,7 @@ export async function addToTable(
     }
   }
 
-  const target = plain ? mergeTarget(order, req.product.variantId) : null;
+  const target = plain ? mergeTarget(order, req.product, req.capEnabled) : null;
   if (target) {
     await api.setPendingQty(order.orderId, target.orderDetailId, pendingQty(target) + req.qty);
     return;

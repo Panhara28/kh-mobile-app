@@ -35,16 +35,29 @@ describe('order helpers', () => {
     expect(lineStarted(line('a', 'v', { pending: 1, cooking: 0 }))).toBe(false);
   });
 
-  it('merges only into a plain, still-pending, not-started line of the same item', () => {
+  it('adds to the same plain dish whatever its kitchen status, like the web POS', () => {
     const o = order([
-      line('started', 'v1', { pending: 1, cooking: 1 }),
+      line('served', 'v1', { served: 1 }),
+      line('cooking', 'v4', { cooking: 2 }),
       line('withNote', 'v2', { pending: 1 }, [{ orderDetailId: 'withNote', modifierItemId: 'notes', notes: 'x' }]),
       line('plain', 'v3', { pending: 2 }),
     ]);
-    expect(mergeTarget(o, 'v1')).toBeNull();
-    expect(mergeTarget(o, 'v2')).toBeNull();
-    expect(mergeTarget(o, 'v3')?.orderDetailId).toBe('plain');
-    expect(mergeTarget(null, 'v3')).toBeNull();
+    const p = (variantId: string) => ({ variantId, price: '5.00', discountedPrice: null });
+    expect(mergeTarget(o, p('v1'))?.orderDetailId).toBe('served');
+    expect(mergeTarget(o, p('v4'))?.orderDetailId).toBe('cooking');
+    expect(mergeTarget(o, p('v2'))).toBeNull(); // only line has a note
+    expect(mergeTarget(o, p('v3'))?.orderDetailId).toBe('plain');
+    expect(mergeTarget(null, p('v3'))).toBeNull();
+  });
+
+  it('with the branch discount cap on, a discounted dish only joins a line whose discount is used up', () => {
+    const discounted = { variantId: 'v1', price: '5.00', discountedPrice: 4 };
+    const used = { ...line('used', 'v1', { served: 2 }), discounts: [{ discountId: 'variant', name: 'Menu', amount: 0 }] };
+    const live = { ...line('live', 'v1', { pending: 1 }), discounts: [{ discountId: 'variant', name: 'Menu', amount: 1 }] };
+    expect(mergeTarget(order([live]), discounted, true)).toBeNull(); // new full-price line
+    expect(mergeTarget(order([live, used]), discounted, true)?.orderDetailId).toBe('used');
+    expect(mergeTarget(order([live]), discounted, false)?.orderDetailId).toBe('live'); // cap off: stack as usual
+    expect(mergeTarget(order([live]), { ...discounted, discountedPrice: null }, true)?.orderDetailId).toBe('live'); // no menu discount
   });
 
   it('describes options and notes with names from the menu', () => {
@@ -108,12 +121,20 @@ describe('addToTable (same steps as the kh-pos web POS)', () => {
     expect(calls).toEqual([['setPendingQty', ['o1', 'a', 3]]]);
   });
 
-  it('starts a new line when the item has options, or is already in the kitchen', async () => {
+  it('adds one more pending portion to a line already served or cooking', async () => {
     const { api, calls } = fakeApi();
-    const o = order([line('a', 'v1', { pending: 0, cooking: 2 })]);
-    await addToTable(api, { table: freeTable(o, 'order_taken'), warehouseId: 'w1', product, qty: 1, options: [], note: '' }, newId);
+    await addToTable(api, { table: freeTable(order([line('a', 'v1', { served: 1 })]), 'order_taken'), warehouseId: 'w1', product, qty: 1, options: [], note: '' }, newId);
+    await addToTable(api, { table: freeTable(order([line('b', 'v1', { pending: 1, cooking: 2 })]), 'order_taken'), warehouseId: 'w1', product, qty: 1, options: [], note: '' }, newId);
+    expect(calls).toEqual([
+      ['setPendingQty', ['o1', 'a', 1]],
+      ['setPendingQty', ['o1', 'b', 2]],
+    ]);
+  });
+
+  it('starts a new line when the dish gets options or a note', async () => {
+    const { api, calls } = fakeApi();
     await addToTable(api, { table: freeTable(order([line('b', 'v1', { pending: 1 })]), 'order_taken'), warehouseId: 'w1', product, qty: 1, options: [egg], note: '' }, newId);
-    expect(calls.map((c) => c[0])).toEqual(['addLine', 'addLine', 'addModifier']);
+    expect(calls.map((c) => c[0])).toEqual(['addLine', 'addModifier']);
   });
 
   it('adds to the order another phone opened a moment earlier', async () => {
