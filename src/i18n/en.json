@@ -6,7 +6,8 @@
     "retry": "Try again",
     "cancel": "Cancel",
     "logout": "Logout",
-    "back": "Back"
+    "back": "Back",
+    "close": "Close"
   },
   "login": {
     "title": "Login",
@@ -69,7 +70,6 @@
     "invoice": "Invoice #{{no}}",
     "empty": "Nothing ordered yet. Tap a dish to add it.",
     "total": "Total",
-    "view": "Order · {{count}} items",
     "sendToKitchen": "Send to kitchen ({{count}})",
     "allSent": "Everything has been sent to the kitchen",
     "remove": "Remove",
@@ -77,5 +77,11 @@
     "started": "In the kitchen: can't remove",
     "added": "Added {{name}}",
     "sent": "Sent to the kitchen"
+  },
+  "cart": {
+    "title": "Cart",
+    "open": "Open cart, {{count}} items",
+    "hint": "Tap a dish to add it · hold it for options and a note",
+    "sendHint": "Open the cart to send them to the kitchen"
   }
 }

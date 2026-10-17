@@ -1,5 +1,6 @@
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ModifierItem, OrderLine, TableOrder } from '@/lib/api';
 import { splitTitle } from '@/lib/menu';
@@ -8,8 +9,11 @@ import { activeLines, lineExtras, lineStarted, orderCounts, pendingQty, statusQt
 import { Badge, Button, Stepper } from './components';
 import { colors, font, radius, space } from './theme';
 
-/** The table's current order: lines with kitchen status, pending quantities, and Send to kitchen. */
-export function OrderSheet({
+/**
+ * Cart drawer, sliding in from the right: the table's order with kitchen status per line,
+ * pending quantities, remove, total and Send to kitchen.
+ */
+export function CartDrawer({
   visible,
   tableName,
   order,
@@ -34,8 +38,21 @@ export function OrderSheet({
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const drawerWidth = Math.min(width * 0.88, 420);
   const lines = activeLines(order);
   const counts = orderCounts(order);
+
+  // Slide in from the right; keep the modal mounted until the slide-out has finished.
+  const slide = useRef(new Animated.Value(0)).current;
+  const [mounted, setMounted] = useState(visible);
+  useEffect(() => {
+    if (visible) setMounted(true);
+    Animated.timing(slide, { toValue: visible ? 1 : 0, duration: 220, useNativeDriver: true }).start(({ finished }) => {
+      if (finished && !visible) setMounted(false);
+    });
+  }, [visible, slide]);
+  const translateX = slide.interpolate({ inputRange: [0, 1], outputRange: [drawerWidth, 0] });
 
   function confirmRemove(line: OrderLine) {
     const { name } = splitTitle(line.title);
@@ -46,18 +63,24 @@ export function OrderSheet({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('common.back')} />
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + space.md }]}>
-        <View style={styles.handle} />
+    <Modal visible={mounted} animationType="none" transparent onRequestClose={onClose}>
+      <Animated.View style={[styles.backdrop, { opacity: slide }]}>
+        <Pressable style={styles.fill} onPress={onClose} accessibilityLabel={t('common.close')} />
+      </Animated.View>
+      <Animated.View
+        style={[
+          styles.drawer,
+          { width: drawerWidth, paddingTop: insets.top, paddingBottom: insets.bottom + space.md, transform: [{ translateX }] },
+        ]}
+      >
         <View style={styles.header}>
           <View style={styles.flex}>
             <Text style={styles.title}>
-              {t('order.title')} · {tableName}
+              🛒 {t('cart.title')} · {tableName}
             </Text>
             {order ? <Text style={styles.muted}>{t('order.invoice', { no: order.invoiceNo })}</Text> : null}
           </View>
-          <Button title={t('common.back')} variant="ghost" size="sm" onPress={onClose} />
+          <Button title="✕" variant="ghost" size="sm" onPress={onClose} accessibilityLabel={t('common.close')} />
         </View>
 
         <ScrollView contentContainerStyle={styles.list}>
@@ -118,25 +141,29 @@ export function OrderSheet({
             <Text style={[styles.muted, styles.allSent]}>{t('order.allSent')}</Text>
           ) : null}
         </View>
-      </View>
+      </Animated.View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  fill: { flex: 1 },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: colors.overlay },
-  sheet: {
+  drawer: {
     position: 'absolute',
-    left: 0,
+    top: 0,
     right: 0,
     bottom: 0,
-    maxHeight: '92%',
     backgroundColor: colors.background,
-    borderTopLeftRadius: radius.lg * 1.5,
-    borderTopRightRadius: radius.lg * 1.5,
+    borderTopLeftRadius: radius.lg,
+    borderBottomLeftRadius: radius.lg,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: -2, height: 0 },
   },
-  handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border, marginTop: space.sm },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

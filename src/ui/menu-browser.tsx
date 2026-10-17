@@ -12,13 +12,15 @@ const PAGE_SIZE = 20;
 
 /**
  * The branch menu like the kh-pos web menu: search, category chips and a two-column grid.
- * Tapping a product calls `onSelect`.
+ * Tapping a product calls `onSelect`; holding it calls `onLongSelect`.
  */
 export function MenuBrowser({
   api,
   warehouseId,
   currency,
   onSelect,
+  onLongSelect,
+  inCart,
   onProducts,
   bottomInset = 0,
 }: {
@@ -26,9 +28,12 @@ export function MenuBrowser({
   warehouseId: string;
   currency: CurrencyCode;
   onSelect: (product: MenuProduct) => void;
+  onLongSelect?: (product: MenuProduct) => void;
+  /** Portions of each variant already in the cart, shown as a badge on its card. */
+  inCart?: Map<string, number>;
   /** Every product loaded so far (used to name modifier options on order lines). */
   onProducts?: (products: MenuProduct[]) => void;
-  /** Space to keep free at the bottom (e.g. for an order bar). */
+  /** Space to keep free at the bottom. */
   bottomInset?: number;
 }) {
   const { t } = useTranslation();
@@ -144,7 +149,14 @@ export function MenuBrowser({
           columnWrapperStyle={styles.row}
           contentContainerStyle={[items.length ? styles.grid : styles.gridEmpty, { paddingBottom: space.xl + bottomInset }]}
           renderItem={({ item }) => (
-            <ProductCard product={item} currency={currency} imageUrl={api.imageUrl(item.images?.[0]?.url)} onPress={() => onSelect(item)} />
+            <ProductCard
+              product={item}
+              currency={currency}
+              imageUrl={api.imageUrl(item.images?.[0]?.url)}
+              count={inCart?.get(item.variantId) ?? 0}
+              onPress={() => onSelect(item)}
+              onLongPress={onLongSelect ? () => onLongSelect(item) : undefined}
+            />
           )}
           onEndReached={() => void loadMore()}
           onEndReachedThreshold={0.5}
@@ -165,22 +177,35 @@ function ProductCard({
   product,
   currency,
   imageUrl,
+  count,
   onPress,
+  onLongPress,
 }: {
   product: MenuProduct;
   currency: CurrencyCode;
   imageUrl: string | null;
+  count: number;
   onPress: () => void;
+  onLongPress?: () => void;
 }) {
+  const { t } = useTranslation();
   const { name, variant } = splitTitle(product.productTitle);
   const { price, original } = cardPrice(product);
   return (
     <Pressable
       style={({ pressed }) => [styles.cardWrap, pressed && styles.pressed]}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={350}
       accessibilityRole="button"
-      accessibilityLabel={`${name} ${formatMoney(price, currency)}`}
+      accessibilityLabel={`${name} ${formatMoney(price, currency)}${count ? `, ${count}` : ''}`}
+      accessibilityHint={onLongPress ? t('cart.hint') : undefined}
     >
+      {count > 0 ? (
+        <View style={styles.countBadge}>
+          <Text style={styles.countText}>{count > 99 ? '99+' : count}</Text>
+        </View>
+      ) : null}
       <Card style={styles.card}>
         {imageUrl ? (
           <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" accessibilityIgnoresInvertColors />
@@ -226,6 +251,21 @@ const styles = StyleSheet.create({
   gridEmpty: { flexGrow: 1 },
   row: { gap: space.sm },
   cardWrap: { flex: 1 },
+  countBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    zIndex: 2,
+    elevation: 3,
+    minWidth: 26,
+    height: 26,
+    paddingHorizontal: 6,
+    borderRadius: 13,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countText: { color: colors.primaryForeground, fontSize: 13, fontWeight: '700' },
   pressed: { opacity: 0.7 },
   card: { flex: 1 },
   image: { width: '100%', aspectRatio: 1, backgroundColor: colors.muted },

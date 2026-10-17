@@ -2,38 +2,41 @@ import * as Crypto from 'expo-crypto';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { MenuProduct, OrderLine, PosInfo, RestaurantTable } from '@/lib/api';
-import { formatMoney } from '@/lib/money';
-import { addToTable, kitchenMoves, modifierNames, orderCounts } from '@/lib/order';
+import { activeLines, addToTable, kitchenMoves, modifierNames, orderCounts } from '@/lib/order';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button } from '@/ui/components';
+import { CartDrawer } from '@/ui/cart-drawer';
 import { MenuBrowser } from '@/ui/menu-browser';
-import { OrderSheet } from '@/ui/order-sheet';
 import { ProductSheet, type ProductChoice } from '@/ui/product-sheet';
 import { errorKind, ErrorState, LoadingState } from '@/ui/states';
 import { colors, font, space } from '@/ui/theme';
 
 const REFRESH_MS = 15_000;
-const BAR_HEIGHT = 72;
 
-/** One table: the menu to add items, and the table's order with Send to kitchen. */
+/**
+ * One table. Tapping a dish adds it to the cart at once (like the kh-pos web POS); holding it
+ * opens options and a note. The cart button opens a drawer with the order and Send to kitchen.
+ */
 export default function TableScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api } = useSession();
   const { warehouseId, currency } = useBranch();
-  const insets = useSafeAreaInsets();
 
   const [table, setTable] = useState<RestaurantTable | null>(null);
   const [loadError, setLoadError] = useState<unknown>(null);
   const [product, setProduct] = useState<MenuProduct | null>(null);
-  const [orderOpen, setOrderOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [products, setProducts] = useState<MenuProduct[]>([]);
+  /** Taps queued but not yet saved, per variant: shown at once on the badges. */
+  const [queued, setQueued] = useState<Map<string, number>>(new Map());
   const posInfoCache = useRef<{ posInfo?: PosInfo }>({});
+  const addQueue = useRef<Promise<void>>(Promise.resolve());
 
   const load = useCallback(async () => {
     try {
@@ -54,34 +57,65 @@ export default function TableScreen() {
 
   const names = useMemo(() => modifierNames(products), [products]);
   const counts = orderCounts(table?.order);
+  const queuedTotal = [...queued.values()].reduce((a, b) => a + b, 0);
 
-  /** Runs a change against kh-pos, then reloads the table from the server. */
+  /** Portions per dish in the cart, including taps still being saved. */
+  const inCart = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const l of activeLines(table?.order)) m.set(l.variantId, (m.get(l.variantId) ?? 0) + Number(l.qty));
+    for (const [v, n] of queued) m.set(v, (m.get(v) ?? 0) + n);
+    return m;
+  }, [table, queued]);
+
+  function showError(e: unknown) {
+    Alert.alert(t(`errors.${errorKind(e)}`), e instanceof Error && e.message !== errorKind(e) ? e.message : undefined);
+  }
+
+  const bump = (variantId: string, by: number) =>
+    setQueued((prev) => {
+      const next = new Map(prev);
+      const n = (next.get(variantId) ?? 0) + by;
+      if (n > 0) next.set(variantId, n);
+      else next.delete(variantId);
+      return next;
+    });
+
+  /** Adds one portion. Taps are saved one after another so none is lost or doubled. */
+  function quickAdd(p: MenuProduct, choice: ProductChoice = { qty: 1, options: [], note: '' }) {
+    bump(p.variantId, choice.qty);
+    const job = addQueue.current.then(async () => {
+      try {
+        const fresh = await api.table(id); // latest order: another phone may have changed it
+        await addToTable(
+          api,
+          { table: fresh, warehouseId, product: p, qty: choice.qty, options: choice.options, note: choice.note },
+          () => Crypto.randomUUID(),
+          posInfoCache.current,
+        );
+      } catch (e) {
+        showError(e);
+      } finally {
+        await load();
+        bump(p.variantId, -choice.qty);
+      }
+    });
+    addQueue.current = job;
+    return job;
+  }
+
+  /** Runs a cart change against kh-pos, then reloads the table from the server. */
   async function run(action: () => Promise<void>): Promise<boolean> {
     setBusy(true);
     try {
       await action();
       return true;
     } catch (e) {
-      Alert.alert(t(`errors.${errorKind(e)}`), e instanceof Error && e.message !== errorKind(e) ? e.message : undefined);
+      showError(e);
       return false;
     } finally {
       await load();
       setBusy(false);
     }
-  }
-
-  async function add(choice: ProductChoice) {
-    if (!table || !product) return;
-    const fresh = await api.table(table.id).catch(() => table); // latest order, in case another phone changed it
-    const ok = await run(() =>
-      addToTable(
-        api,
-        { table: fresh, warehouseId, product, qty: choice.qty, options: choice.options, note: choice.note },
-        () => Crypto.randomUUID(),
-        posInfoCache.current,
-      ),
-    );
-    if (ok) setProduct(null);
   }
 
   function setPending(line: OrderLine, qty: number) {
@@ -95,7 +129,9 @@ export default function TableScreen() {
   }
 
   async function send() {
-    const order = table?.order;
+    await addQueue.current; // include taps still being saved
+    const fresh = await api.table(id).catch(() => table);
+    const order = fresh?.order;
     const moves = kitchenMoves(order);
     if (!order || moves.length === 0) return;
     const ok = await run(() => api.sendToKitchen(order.orderId, moves));
@@ -110,6 +146,8 @@ export default function TableScreen() {
     );
   }
 
+  const cartCount = counts.portions + queuedTotal;
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
@@ -118,43 +156,62 @@ export default function TableScreen() {
           <Text style={styles.tableName} numberOfLines={1}>
             {table.table_name}
           </Text>
-          {table.order ? <Text style={styles.invoice}>{t('order.invoice', { no: table.order.invoiceNo })}</Text> : null}
+          <Text style={styles.sub} numberOfLines={1}>
+            {table.order ? t('order.invoice', { no: table.order.invoiceNo }) : t(`tableStatus.${table.status}`)}
+          </Text>
         </View>
-        <Badge text={t(`tableStatus.${table.status}`)} tone={table.status === 'order_taken' ? 'default' : 'outline'} />
+        <Pressable
+          onPress={() => setCartOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={t('cart.open', { count: cartCount })}
+          style={({ pressed }) => [styles.cartButton, pressed && styles.pressed]}
+        >
+          {queuedTotal > 0 ? <ActivityIndicator size="small" color={colors.foreground} /> : <Text style={styles.cartIcon}>🛒</Text>}
+          {cartCount > 0 ? (
+            <View style={styles.cartBadge}>
+              <Text style={styles.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
+            </View>
+          ) : null}
+        </Pressable>
       </View>
+
+      {counts.pending > 0 ? (
+        <Pressable onPress={() => setCartOpen(true)} style={styles.pendingBar} accessibilityRole="button">
+          <Badge tone="warning" text={t('tables.toSend', { count: counts.pending })} />
+          <Text style={styles.pendingHint}>{t('cart.sendHint')}</Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.hint}>{t('cart.hint')}</Text>
+      )}
 
       <MenuBrowser
         api={api}
         warehouseId={warehouseId}
         currency={currency}
-        onSelect={setProduct}
+        onSelect={(p) => void quickAdd(p)}
+        onLongSelect={setProduct}
+        inCart={inCart}
         onProducts={setProducts}
-        bottomInset={counts.lines > 0 ? BAR_HEIGHT : 0}
       />
 
-      {counts.lines > 0 ? (
-        <Pressable
-          onPress={() => setOrderOpen(true)}
-          accessibilityRole="button"
-          style={[styles.bar, { paddingBottom: insets.bottom + space.sm }]}
-        >
-          <View style={styles.flex}>
-            <Text style={styles.barTitle}>{t('order.view', { count: counts.portions })}</Text>
-            {counts.pending > 0 ? <Text style={styles.barPending}>{t('tables.toSend', { count: counts.pending })}</Text> : null}
-          </View>
-          <Text style={styles.barTotal}>{formatMoney(table.order?.totalAmount ?? 0, currency)}</Text>
-        </Pressable>
-      ) : null}
-
-      <ProductSheet product={product} currency={currency} busy={busy} onClose={() => setProduct(null)} onAdd={(c) => void add(c)} />
-      <OrderSheet
-        visible={orderOpen}
+      <ProductSheet
+        product={product}
+        currency={currency}
+        busy={false}
+        onClose={() => setProduct(null)}
+        onAdd={(choice) => {
+          if (product) void quickAdd(product, choice);
+          setProduct(null);
+        }}
+      />
+      <CartDrawer
+        visible={cartOpen}
         tableName={table.table_name}
         order={table.order}
         names={names}
         currency={currency}
-        busy={busy}
-        onClose={() => setOrderOpen(false)}
+        busy={busy || queuedTotal > 0}
+        onClose={() => setCartOpen(false)}
         onSetPending={setPending}
         onRemove={remove}
         onSend={() => void send()}
@@ -165,7 +222,6 @@ export default function TableScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.page },
-  flex: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -178,21 +234,47 @@ const styles = StyleSheet.create({
   },
   headerText: { flex: 1, minWidth: 0 },
   tableName: { fontSize: font.title, fontWeight: '700', color: colors.foreground },
-  invoice: { fontSize: 12, color: colors.mutedForeground },
-  bar: {
+  sub: { fontSize: 12, color: colors.mutedForeground },
+  cartButton: {
+    width: 48,
+    height: 42,
+    marginRight: space.xs,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+  },
+  pressed: { opacity: 0.6 },
+  cartIcon: { fontSize: 20 },
+  cartBadge: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    minHeight: BAR_HEIGHT,
+    top: -8,
+    right: -8,
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 5,
+    borderRadius: 11,
+    backgroundColor: colors.destructive,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartBadgeText: { color: colors.destructiveForeground, fontSize: 12, fontWeight: '700' },
+  hint: {
+    fontSize: 12,
+    color: colors.mutedForeground,
+    textAlign: 'center',
+    paddingVertical: 6,
+    backgroundColor: colors.card,
+  },
+  pendingBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
-    paddingHorizontal: space.lg,
-    paddingTop: space.sm,
-    backgroundColor: colors.primary,
+    gap: space.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: 6,
+    backgroundColor: colors.warningBg,
   },
-  barTitle: { fontSize: font.body, fontWeight: '700', color: colors.primaryForeground },
-  barPending: { fontSize: 12, color: '#fbbf24', marginTop: 2 },
-  barTotal: { fontSize: font.title, fontWeight: '700', color: colors.primaryForeground },
+  pendingHint: { flex: 1, fontSize: 12, color: colors.warning },
 });
