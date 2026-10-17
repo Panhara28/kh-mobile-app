@@ -27,7 +27,10 @@
     "search": "Search item",
     "all": "All",
     "empty": "No items found",
-    "emptySearch": "No items match \"{{query}}\"."
+    "emptySearch": "No items match \"{{query}}\".",
+    "searching": "Searching...",
+    "results": "{{count}} results for \"{{query}}\"",
+    "clear": "Clear search"
   },
   "session": {
     "unreachable": "Can't reach the KH POS server to check your login.",
@@ -120,5 +123,12 @@
     "promotions": "Promotions",
     "noPromotions": "No promotions available",
     "saved": "Saved"
+  },
+  "time": {
+    "now": "just now",
+    "min": "{{min}} min",
+    "hour": "{{h}} h {{min}} min",
+    "addedAgo": "{{time}} · {{ago}}",
+    "byAt": "{{who}} · {{time}}"
   }
 }

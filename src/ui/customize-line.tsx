@@ -9,6 +9,7 @@ import { formatMoney, type CurrencyCode } from '@/lib/money';
 import { modifierPrice, statusQty } from '@/lib/order';
 import { Button, Card, Input, Segmented, Stepper } from './components';
 import { colors, font, radius, space } from './theme';
+import { addedLabel, byAtLabel } from './time-label';
 
 /**
  * "Customize Your Order" for one cart line, like the kh-pos web restaurant POS: info,
@@ -81,6 +82,13 @@ export function CustomizeLine({
   const applied = appliedPromotionIds(line);
   const groups = (product?.modifiers ?? []).filter((g) => (g.items ?? []).length > 0);
   const id = line.orderDetailId;
+
+  /** "ban · 23:20": who last changed this status count, and when (as on the web). */
+  const changedBy = (s: CountableStatus) => {
+    const entry = (line.status ?? []).find((x) => x.status === s);
+    return entry ? byAtLabel(t, entry.createdBy, entry.createdAt) : null;
+  };
+  const added = addedLabel(t, line.createdAt);
 
   const statusLabel = (s: CountableStatus) =>
     t(s === 'pending' ? 'customize.pending' : s === 'cooking' ? 'customize.preparing' : 'customize.served');
@@ -196,6 +204,7 @@ export function CustomizeLine({
                 <View style={styles.flex}>
                   <Text style={styles.name}>{name}</Text>
                   {variant ? <Text style={styles.muted}>{variant}</Text> : null}
+                  {added ? <Text style={styles.statusWhen}>🕒 {added}</Text> : null}
                 </View>
               </View>
               <View style={styles.infoRow}>
@@ -219,7 +228,10 @@ export function CustomizeLine({
                 return (
                   <View key={row.status} style={styles.statusRow}>
                     <Text style={styles.statusIcon}>{row.icon}</Text>
-                    <Text style={styles.statusLabel}>{statusLabel(row.status)}</Text>
+                    <View>
+                      <Text style={styles.statusLabel}>{statusLabel(row.status)}</Text>
+                      {changedBy(row.status) ? <Text style={styles.statusWhen}>{changedBy(row.status)}</Text> : null}
+                    </View>
                     {isEditing ? (
                       <>
                         <Stepper value={editing.qty} min={0} onChange={(q) => setEditing({ status: row.status, qty: q })} disabled={busy} />
@@ -418,6 +430,7 @@ const styles = StyleSheet.create({
   },
   statusIcon: { fontSize: 16, width: 22, textAlign: 'center' },
   statusLabel: { fontSize: font.body, color: colors.foreground },
+  statusWhen: { fontSize: 11, color: colors.mutedForeground, marginTop: 1 },
   count: { minWidth: 26, paddingHorizontal: 6, height: 24, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   countPending: { backgroundColor: colors.warningBg },
   countServed: { backgroundColor: colors.successBg },

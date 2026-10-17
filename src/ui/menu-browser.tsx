@@ -121,12 +121,35 @@ export function MenuBrowser({
         <Input
           value={search}
           onChangeText={setSearch}
+          onSubmitEditing={() => setQuery(search)}
           placeholder={t('menu.search')}
           returnKeyType="search"
           autoCorrect={false}
+          autoCapitalize="none"
           style={styles.searchInput}
           accessibilityLabel={t('menu.search')}
         />
+        {search ? (
+          <Pressable
+            onPress={() => {
+              setSearch('');
+              setQuery('');
+            }}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={t('menu.clear')}
+            style={styles.clear}
+          >
+            <Text style={styles.clearText}>✕</Text>
+          </Pressable>
+        ) : null}
+        {query.trim() || search !== query ? (
+          <Text style={styles.searchStatus} accessibilityLiveRegion="polite">
+            {search !== query || status === 'loading'
+              ? t('menu.searching')
+              : t('menu.results', { count: items.length, query: query.trim() })}
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.chipsBar}>
@@ -243,8 +266,11 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     justifyContent: 'center',
   },
-  searchIcon: { position: 'absolute', left: space.md + 12, zIndex: 1, fontSize: 18, color: colors.mutedForeground },
-  searchInput: { paddingLeft: 36, borderRadius: radius.lg },
+  searchIcon: { position: 'absolute', left: space.md + 12, top: space.md + 10, zIndex: 1, fontSize: 18, color: colors.mutedForeground },
+  searchInput: { paddingLeft: 36, paddingRight: 40, borderRadius: radius.lg },
+  clear: { position: 'absolute', right: space.md + 10, top: space.md, height: 42, justifyContent: 'center', zIndex: 1 },
+  clearText: { fontSize: 16, color: colors.mutedForeground },
+  searchStatus: { fontSize: 12, color: colors.mutedForeground, marginTop: 6 },
   chipsBar: { backgroundColor: colors.card, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   chips: { gap: 6, paddingHorizontal: space.md, paddingVertical: space.sm },
   grid: { padding: space.sm, gap: space.sm },

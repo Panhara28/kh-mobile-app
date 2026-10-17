@@ -87,7 +87,15 @@ export interface OrderLine {
   /** Options and paid notes on the whole line (kh-pos spelling). */
   modiferAmount?: string;
   totalAmount: string;
-  status?: { status: ItemStatus; qty: number }[];
+  /** When the line was added, branch local time "YYYY-MM-DD HH:mm:ss". */
+  createdAt?: string | null;
+  status?: {
+    status: ItemStatus;
+    qty: number;
+    /** When this status count last changed, "YYYY-MM-DD HH:mm". */
+    createdAt?: string | null;
+    createdBy?: { fullname?: string | null; username?: string | null } | null;
+  }[];
   orderModifiers?: { orderDetailId: string; modifierItemId: string; price?: number; notes?: string | null }[];
   discounts?: LineDiscount[];
 }

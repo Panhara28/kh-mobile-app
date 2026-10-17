@@ -7,6 +7,7 @@ import { splitTitle } from '@/lib/menu';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
 import { activeLines, lineExtras, lineStarted, orderCounts, pendingQty, statusQty } from '@/lib/order';
 import { Badge, Button, Stepper } from './components';
+import { addedLabel } from './time-label';
 import { colors, font, radius, space } from './theme';
 
 /**
@@ -45,6 +46,15 @@ export function CartDrawer({
   const drawerWidth = Math.min(width * 0.88, 420);
   const lines = activeLines(order);
   const counts = orderCounts(order);
+
+  // Keep the "12 min" waiting times current while the cart is open.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!visible) return;
+    setNow(new Date());
+    const h = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(h);
+  }, [visible]);
 
   // Slide in from the right; keep the modal mounted until the slide-out has finished.
   const slide = useRef(new Animated.Value(0)).current;
@@ -111,6 +121,9 @@ export function CartDrawer({
                     </Text>
                     {options.length ? <Text style={styles.muted}>{options.join(', ')}</Text> : null}
                     {note ? <Text style={styles.note}>“{note}”</Text> : null}
+                    {addedLabel(t, line.createdAt, now) ? (
+                      <Text style={styles.time}>🕒 {addedLabel(t, line.createdAt, now)}</Text>
+                    ) : null}
                   </View>
                   <Text style={styles.lineTotal}>{formatMoney(line.totalAmount, currency)}</Text>
                   <Text style={styles.chevron}>›</Text>
@@ -189,6 +202,7 @@ const styles = StyleSheet.create({
   line: { gap: space.sm, paddingBottom: space.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   lineTop: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
   pressed: { opacity: 0.6 },
+  time: { fontSize: 12, color: colors.mutedForeground, marginTop: 2 },
   chevron: { fontSize: 22, lineHeight: 22, color: colors.mutedForeground },
   lineName: { fontSize: font.body, fontWeight: '600', color: colors.foreground, lineHeight: font.lineHeight },
   note: { fontSize: font.small, color: colors.foreground, fontStyle: 'italic' },
