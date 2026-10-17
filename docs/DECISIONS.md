@@ -22,8 +22,8 @@ Update this file when a decision changes.
     - Transfers and checkout stay on the web POS for now.
     - **Cart times:**
       - Ordered comes from the line's created time.
-      - **Sent comes from the kitchen print log** (`kitchenLogs[].printedAt`, the first ticket printed). kh-pos keeps one row per status and rewrites the time of both rows whenever portions move, so serving overwrites the "cooking" time. Without a print log (no kitchen printer, e.g. a local test server), the cooking time is used only while nothing is served yet; otherwise Sent is left out rather than shown wrong.
-      - Status rows in Customize show a time only while they hold portions.
+      - **Sent** is the first kitchen ticket printed (`kitchenLogs[].printedAt`), or else the time portions last went to cooking. That status time is reliable only with the kh-pos fix (commit "keep a status row's time when portions leave it"). Without that fix, serving overwrote it, so Sent equalled Served.
+      - Customize shows who/when on every status row, like the web.
     - The kh-pos MySQL must run in **UTC** like the production server. `print_kitchen_log.printed_at` is a TIMESTAMP column, and on a +07 server it reads 7 hours late.
 - Next steps are decided one at a time.
 - Staff accounts use a kh-pos role named **"Staff"**, created by `scripts/seed-dev.mjs`. Its permissions: order, restaurant and order-preparation (create, read, update), plus product and category (read).

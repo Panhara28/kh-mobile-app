@@ -183,24 +183,20 @@ describe('serve all and line times', () => {
     ]);
   });
 
-  it('uses the kitchen print log as the sent time, since kh-pos overwrites status times', () => {
+  it('sent = first printed kitchen ticket, else when it went to cooking; served once served', () => {
     const withTimes = (status: Record<string, [number, string]>, printed: string[] = []): OrderLine => ({
       ...line('a', 'v', Object.fromEntries(Object.entries(status).map(([s, [q]]) => [s, q]))),
       createdAt: '2026-10-17 23:13:46',
       status: Object.entries(status).map(([s, [qty, at]]) => ({ status: s as 'pending', qty, createdAt: at })),
       kitchenLogs: printed.map((printedAt) => ({ printedAt })),
     });
-    // Not sent yet.
     expect(lineTimes(withTimes({ pending: [1, '2026-10-17 23:13'] }))).toEqual({ ordered: '2026-10-17 23:13:46', sent: null, served: null });
-    // Sent, nothing served: the cooking time is still right.
-    expect(lineTimes(withTimes({ pending: [0, '2026-10-17 23:20'], cooking: [1, '2026-10-17 23:20'] })).sent).toBe('2026-10-17 23:20');
-    // Served: kh-pos overwrote the cooking time with the serve time, so without a print log "sent" is unknown.
-    expect(lineTimes(withTimes({ cooking: [0, '2026-10-17 23:31'], served: [1, '2026-10-17 23:31'] }))).toEqual({
-      ordered: '2026-10-17 23:13:46', sent: null, served: '2026-10-17 23:31',
-    });
-    // With the print log: the first printed ticket is the sent time, even after serving.
-    expect(lineTimes(withTimes({ cooking: [0, '2026-10-17 23:31'], served: [1, '2026-10-17 23:31'] }, ['2026-10-17 23:25', '2026-10-17 23:20']))).toEqual({
+    expect(lineTimes(withTimes({ pending: [0, '2026-10-17 23:13'], cooking: [1, '2026-10-17 23:20'] })).sent).toBe('2026-10-17 23:20');
+    // kh-pos keeps the cooking time when the item is served, so sent stays 23:20.
+    expect(lineTimes(withTimes({ cooking: [0, '2026-10-17 23:20'], served: [1, '2026-10-17 23:31'] }))).toEqual({
       ordered: '2026-10-17 23:13:46', sent: '2026-10-17 23:20', served: '2026-10-17 23:31',
     });
+    // A printed kitchen ticket wins (first one).
+    expect(lineTimes(withTimes({ cooking: [1, '2026-10-17 23:29'] }, ['2026-10-17 23:25', '2026-10-17 23:21'])).sent).toBe('2026-10-17 23:21');
   });
 });

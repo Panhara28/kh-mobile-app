@@ -85,10 +85,9 @@ export function CustomizeLine({
 
   /** "ban · 23:20": who last changed this status count, and when (as on the web). */
   const changedBy = (s: CountableStatus) => {
-    // kh-pos rewrites a status row's time whenever portions leave it, so a row with
-    // nothing left in it only shows a stale time: show times for rows with portions.
+    // When portions last entered this status, and who moved them (kept by kh-pos).
     const entry = (line.status ?? []).find((x) => x.status === s);
-    return entry && Number(entry.qty) > 0 ? byAtLabel(t, entry.createdBy, entry.createdAt) : null;
+    return entry ? byAtLabel(t, entry.createdBy, entry.createdAt) : null;
   };
   const added = addedLabel(t, line.createdAt);
 
