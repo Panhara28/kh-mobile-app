@@ -12,29 +12,46 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { isLanguage, type Language } from '@/i18n';
+import { KHPOS_URL } from '@/lib/config';
+import { useSession } from '@/lib/session';
 import { Button, Card, Field, Segmented } from '@/ui/components';
+import { errorKind } from '@/ui/states';
 import { colors, font, space } from '@/ui/theme';
 
 /**
  * Staff login, laid out like the kh-pos web login (/admin/login): a centred card with
- * username, password and a full-width Login button. UI only for now: not connected to kh-pos yet.
+ * username, password and a full-width Login button. Signs in through kh-pos /api/auth/login.
  */
 export default function Login() {
   const { t, i18n } = useTranslation();
+  const { login } = useSession();
   const language: Language = isLanguage(i18n.language) ? i18n.language : 'km';
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ username?: string; password?: string }>({});
+  const [failure, setFailure] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const passwordRef = useRef<TextInput>(null);
 
-  function submit() {
+  async function submit() {
+    if (busy) return;
     const next = {
       username: username.trim() ? undefined : t('login.usernameRequired'),
       password: password ? undefined : t('login.passwordRequired'),
     };
     setErrors(next);
-    // Connecting to the kh-pos login API is the next step.
+    setFailure(null);
+    if (next.username || next.password) return;
+
+    setBusy(true);
+    try {
+      // On success the session switches to the menu screen.
+      await login(username.trim(), password);
+    } catch (e) {
+      setFailure(t(`errors.${errorKind(e)}`));
+      setBusy(false);
+    }
   }
 
   return (
@@ -91,7 +108,7 @@ export default function Login() {
                 autoComplete="password"
                 textContentType="password"
                 returnKeyType="go"
-                onSubmitEditing={submit}
+                onSubmitEditing={() => void submit()}
                 right={
                   <Pressable
                     accessibilityRole="button"
@@ -104,9 +121,21 @@ export default function Login() {
                   </Pressable>
                 }
               />
-              <Button title={t('login.submit')} size="lg" onPress={submit} style={styles.submit} />
+              {failure ? (
+                <View style={styles.failure} accessibilityRole="alert">
+                  <Text style={styles.failureText}>{failure}</Text>
+                </View>
+              ) : null}
+              <Button
+                title={t('login.submit')}
+                size="lg"
+                loading={busy}
+                onPress={() => void submit()}
+                style={styles.submit}
+              />
             </View>
           </Card>
+          <Text style={styles.server}>{t('login.server', { url: KHPOS_URL || '-' })}</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -125,6 +154,15 @@ const styles = StyleSheet.create({
   description: { fontSize: font.small, color: colors.mutedForeground, lineHeight: 20 },
   form: { gap: space.lg },
   submit: { width: '100%', marginTop: space.xs },
+  failure: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: space.md,
+  },
+  failureText: { color: colors.destructive, fontSize: font.small, lineHeight: 20 },
+  server: { textAlign: 'center', fontSize: 12, color: colors.mutedForeground },
   eye: { paddingHorizontal: space.md, height: '100%', justifyContent: 'center' },
   eyeText: { fontSize: 18 },
 });

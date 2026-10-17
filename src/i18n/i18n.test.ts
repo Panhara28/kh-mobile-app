@@ -1,3 +1,4 @@
+import type { ApiErrorKind } from '../lib/api';
 import en from './en.json';
 import km from './km.json';
 
@@ -26,5 +27,10 @@ describe('translations', () => {
       expect({ key, filled: (kmFlat[key] ?? '').trim().length > 0 }).toEqual({ key, filled: true });
       expect({ key, placeholders: placeholders(kmFlat[key] ?? '') }).toEqual({ key, placeholders: placeholders(value) });
     }
+  });
+
+  it('has a message for every API error kind', () => {
+    const kinds: ApiErrorKind[] = ['network', 'invalidCredentials', 'unauthorized', 'forbidden', 'server'];
+    for (const kind of kinds) expect({ kind, ok: !!enFlat[`errors.${kind}`] }).toEqual({ kind, ok: true });
   });
 });
