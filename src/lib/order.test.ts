@@ -1,5 +1,5 @@
 import { ApiError, type MenuProduct, type OrderLine, type RestaurantTable, type TableOrder } from './api';
-import { addToTable, kitchenMoves, lineExtras, lineStarted, mergeTarget, modifierNames, orderCounts, pendingQty } from './order';
+import { addToTable, kitchenMoves, lineExtras, lineStarted, lineTimes, mergeTarget, modifierNames, orderCounts, pendingQty, serveMoves } from './order';
 
 const line = (id: string, variantId: string, status: Record<string, number>, mods: OrderLine['orderModifiers'] = []): OrderLine => ({
   orderDetailId: id,
@@ -171,5 +171,30 @@ describe('addToTable (same steps as the kh-pos web POS)', () => {
 
   it('pendingQty reads the pending status', () => {
     expect(pendingQty(line('a', 'v', { pending: 3, cooking: 1 }))).toBe(3);
+  });
+});
+
+describe('serve all and line times', () => {
+  it('serves every preparing portion', () => {
+    const o = order([line('a', 'v1', { cooking: 2, pending: 1 }), line('b', 'v2', { served: 1 }), line('c', 'v3', { cooking: 1 })]);
+    expect(serveMoves(o)).toEqual([
+      { orderDetailId: 'a', fromStatus: 'cooking', toStatus: 'served', qty: 2 },
+      { orderDetailId: 'c', fromStatus: 'cooking', toStatus: 'served', qty: 1 },
+    ]);
+  });
+
+  it('gives ordered, sent and served times only once reached', () => {
+    const withTimes = (status: Record<string, [number, string]>): OrderLine => ({
+      ...line('a', 'v', Object.fromEntries(Object.entries(status).map(([s, [q]]) => [s, q]))),
+      createdAt: '2026-10-17 23:13:46',
+      status: Object.entries(status).map(([s, [qty, at]]) => ({ status: s as 'pending', qty, createdAt: at })),
+    });
+    expect(lineTimes(withTimes({ pending: [1, '2026-10-17 23:13'] }))).toEqual({ ordered: '2026-10-17 23:13:46', sent: null, served: null });
+    expect(lineTimes(withTimes({ pending: [0, '2026-10-17 23:20'], cooking: [1, '2026-10-17 23:20'] }))).toEqual({
+      ordered: '2026-10-17 23:13:46', sent: '2026-10-17 23:20', served: null,
+    });
+    expect(lineTimes(withTimes({ pending: [0, 'x'], cooking: [0, '2026-10-17 23:20'], served: [1, '2026-10-17 23:31'] }))).toEqual({
+      ordered: '2026-10-17 23:13:46', sent: '2026-10-17 23:20', served: '2026-10-17 23:31',
+    });
   });
 });

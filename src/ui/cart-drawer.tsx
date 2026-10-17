@@ -1,56 +1,77 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Animated, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Alert, Animated, Image, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { ModifierItem, OrderLine, TableOrder } from '@/lib/api';
-import { splitTitle } from '@/lib/menu';
+import type { ModifierItem, OrderLine, StaffUser, TableOrder } from '@/lib/api';
+import { can, canDeleteLine } from '@/lib/line';
+import { initials, splitTitle } from '@/lib/menu';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
-import { activeLines, lineExtras, lineStarted, orderCounts, pendingQty, statusQty } from '@/lib/order';
+import { activeLines, lineTimes, orderCounts, pendingQty, statusQty } from '@/lib/order';
+import { clock, parseKhPosTime } from '@/lib/time';
 import { Badge, Button, Stepper } from './components';
 import { addedLabel } from './time-label';
 import { colors, font, radius, space } from './theme';
 
 /**
- * Cart drawer, sliding in from the right: the table's order with kitchen status per line,
- * pending quantities, remove, total and Send to kitchen.
+ * Cart drawer from the right, like the kh-pos web "Order Summary": each line with photo,
+ * status, times, add-ons and a ⋯ menu (Delete); at the bottom the guest count,
+ * Send to Kitchen and Serve all.
  */
 export function CartDrawer({
   visible,
   tableName,
   order,
   names,
+  imageFor,
+  user,
   currency,
   busy,
   onClose,
   onSetPending,
-  onRemove,
+  onDelete,
   onSend,
+  onServeAll,
+  onSetGuests,
   onOpenLine,
 }: {
   visible: boolean;
   tableName: string;
   order: TableOrder | null;
   names: Map<string, ModifierItem>;
+  /** Photo URL for a dish, from the menu data. */
+  imageFor: (variantId: string) => string | null;
+  user: StaffUser | null;
   currency: CurrencyCode;
   busy: boolean;
   onClose: () => void;
   onSetPending: (line: OrderLine, qty: number) => void;
-  onRemove: (line: OrderLine) => void;
+  onDelete: (line: OrderLine) => void;
   onSend: () => void;
+  onServeAll: () => void;
+  onSetGuests: (count: number) => void;
   /** Tapping a line opens "Customize Your Order" for it. */
   onOpenLine: (line: OrderLine) => void;
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const drawerWidth = Math.min(width * 0.88, 420);
+  const drawerWidth = Math.min(width * 0.92, 440);
   const lines = activeLines(order);
   const counts = orderCounts(order);
+  const canSend = can(user, 'order-preparation', 'update');
+  const guests = Number(order?.customer ?? 0) || 0;
+
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [guestDraft, setGuestDraft] = useState<number | null>(null);
 
   // Keep the "12 min" waiting times current while the cart is open.
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      setMenuFor(null);
+      setGuestDraft(null);
+      return;
+    }
     setNow(new Date());
     const h = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(h);
@@ -67,13 +88,23 @@ export function CartDrawer({
   }, [visible, slide]);
   const translateX = slide.interpolate({ inputRange: [0, 1], outputRange: [drawerWidth, 0] });
 
-  function confirmRemove(line: OrderLine) {
+  function confirmDelete(line: OrderLine) {
+    setMenuFor(null);
+    if (!canDeleteLine(user, line)) {
+      Alert.alert(t('cart.deleteNotAllowed'));
+      return;
+    }
     const { name } = splitTitle(line.title);
     Alert.alert(t('order.removeConfirm', { name }), undefined, [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: t('order.remove'), style: 'destructive', onPress: () => onRemove(line) },
+      { text: t('cart.delete'), style: 'destructive', onPress: () => onDelete(line) },
     ]);
   }
+
+  const time = (value: string | null) => {
+    const d = parseKhPosTime(value);
+    return d ? clock(d, now) : null;
+  };
 
   return (
     <Modal visible={mounted} animationType="none" transparent onRequestClose={onClose}>
@@ -88,66 +119,139 @@ export function CartDrawer({
       >
         <View style={styles.header}>
           <View style={styles.flex}>
-            <Text style={styles.title}>
-              🛒 {t('cart.title')} · {tableName}
+            <Text style={styles.title}>{t('cart.summary')}</Text>
+            <Text style={styles.muted}>
+              {tableName}
+              {order ? ` · ${t('order.invoice', { no: order.invoiceNo })}` : ''}
             </Text>
-            {order ? <Text style={styles.muted}>{t('order.invoice', { no: order.invoiceNo })}</Text> : null}
           </View>
-          <Button title="✕" variant="ghost" size="sm" onPress={onClose} accessibilityLabel={t('common.close')} />
+          <View style={styles.countPill}>
+            <Text style={styles.countPillText}>{t('cart.itemsCount', { count: counts.lines })}</Text>
+          </View>
+          <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('common.close')} style={styles.close}>
+            <Text style={styles.closeText}>✕</Text>
+          </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView contentContainerStyle={styles.list} onScrollBeginDrag={() => setMenuFor(null)}>
           {lines.length === 0 ? <Text style={[styles.muted, styles.empty]}>{t('order.empty')}</Text> : null}
           {lines.map((line) => {
             const { name, variant } = splitTitle(line.title);
-            const { options, note } = lineExtras(line, names);
-            const started = lineStarted(line);
             const pending = pendingQty(line);
             const cooking = statusQty(line, 'cooking') + statusQty(line, 'ready');
             const served = statusQty(line, 'served');
+            const image = imageFor(line.variantId);
+            const times = lineTimes(line);
+            const ordered = addedLabel(t, times.ordered, now);
+            const sent = time(times.sent);
+            const servedAt = time(times.served);
+            const mods = line.orderModifiers ?? [];
+            const options = mods.filter((m) => m.modifierItemId !== 'notes');
+            const note = mods.find((m) => m.modifierItemId === 'notes');
+            const menuOpen = menuFor === line.orderDetailId;
             return (
-              <View key={line.orderDetailId} style={styles.line}>
+              <View key={line.orderDetailId} style={[styles.line, menuOpen && styles.lineRaised]}>
                 <Pressable
-                  onPress={() => onOpenLine(line)}
+                  onPress={() => (menuOpen ? setMenuFor(null) : onOpenLine(line))}
                   accessibilityRole="button"
                   accessibilityLabel={`${line.qty} × ${name}`}
                   accessibilityHint={t('cart.openLineHint')}
                   style={({ pressed }) => [styles.lineTop, pressed && styles.pressed]}
                 >
+                  <View>
+                    {image ? (
+                      <Image source={{ uri: image }} style={styles.thumb} />
+                    ) : (
+                      <View style={[styles.thumb, styles.thumbPlaceholder]}>
+                        <Text style={styles.thumbText}>{initials(name)}</Text>
+                      </View>
+                    )}
+                    <View style={styles.qtyBadge}>
+                      <Text style={styles.qtyBadgeText}>{line.qty}</Text>
+                    </View>
+                  </View>
                   <View style={styles.flex}>
-                    <Text style={styles.lineName}>
-                      {line.qty} × {name}
-                      {variant ? <Text style={styles.muted}> ({variant})</Text> : null}
+                    <Text style={styles.lineName} numberOfLines={2}>
+                      {name}
                     </Text>
-                    {options.length ? <Text style={styles.muted}>{options.join(', ')}</Text> : null}
-                    {note ? <Text style={styles.note}>“{note}”</Text> : null}
-                    {addedLabel(t, line.createdAt, now) ? (
-                      <Text style={styles.time}>🕒 {addedLabel(t, line.createdAt, now)}</Text>
+                    <Text style={styles.muted}>
+                      {formatMoney(line.price, currency)}
+                      {variant ? ` (${variant})` : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.lineRight}>
+                    <Pressable
+                      onPress={() => setMenuFor(menuOpen ? null : line.orderDetailId)}
+                      hitSlop={10}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('cart.actions')}
+                      style={styles.dots}
+                    >
+                      <Text style={styles.dotsText}>⋯</Text>
+                    </Pressable>
+                    <Text style={styles.lineTotal}>{formatMoney(line.totalAmount, currency)}</Text>
+                  </View>
+                </Pressable>
+
+                {menuOpen ? (
+                  <View style={styles.menu}>
+                    <Text style={styles.menuTitle}>{t('cart.actions')}</Text>
+                    <Pressable
+                      onPress={() => confirmDelete(line)}
+                      accessibilityRole="button"
+                      style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+                    >
+                      <Text style={[styles.menuItemText, !canDeleteLine(user, line) && styles.menuItemDisabled]}>{t('cart.delete')}</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+
+                <View style={styles.badges}>
+                  {pending > 0 ? <Badge tone="outline" text={`◌ ${t('customize.pending')} ${pending}`} /> : null}
+                  {cooking > 0 ? <Badge tone="warning" text={`◔ ${t('customize.preparing')} ${cooking}`} /> : null}
+                  {served > 0 ? <Badge tone="success" text={`✓ ${t('customize.served')} ${served}`} /> : null}
+                </View>
+
+                <View style={styles.times}>
+                  {ordered ? <Text style={styles.time}>🕒 {ordered}</Text> : null}
+                  {sent ? <Text style={styles.time}>🍳 {t('cart.sentAt', { time: sent })}</Text> : null}
+                  {servedAt ? <Text style={styles.time}>✓ {t('cart.servedAt', { time: servedAt })}</Text> : null}
+                </View>
+
+                {options.length > 0 || note ? (
+                  <View style={styles.addons}>
+                    <Text style={styles.addonsTitle}>{t('cart.addons')}</Text>
+                    {options.map((m) => {
+                      const price = Number(m.price ?? 0) || 0;
+                      return (
+                        <View key={m.modifierItemId} style={styles.addon}>
+                          <Text style={styles.addonName}>• {names.get(m.modifierItemId)?.name ?? '?'}</Text>
+                          <Text style={styles.addonPrice}>{price > 0 ? formatMoney(price, currency) : t('cart.free')}</Text>
+                        </View>
+                      );
+                    })}
+                    {note?.notes ? (
+                      <View style={styles.addon}>
+                        <Text style={[styles.addonName, styles.note]}>“{note.notes}”</Text>
+                        {Number(note.price ?? 0) > 0 ? <Text style={styles.addonPrice}>{formatMoney(note.price ?? 0, currency)}</Text> : null}
+                      </View>
                     ) : null}
                   </View>
-                  <Text style={styles.lineTotal}>{formatMoney(line.totalAmount, currency)}</Text>
-                  <Text style={styles.chevron}>›</Text>
-                </Pressable>
-                <View style={styles.badges}>
-                  {pending > 0 ? <Badge tone="warning" text={`${t('itemStatus.pending')} ${pending}`} /> : null}
-                  {cooking > 0 ? <Badge tone="info" text={`${t('itemStatus.cooking')} ${cooking}`} /> : null}
-                  {served > 0 ? <Badge tone="success" text={`${t('itemStatus.served')} ${served}`} /> : null}
-                </View>
-                <View style={styles.lineActions}>
-                  {started ? (
-                    <Text style={styles.started}>{t('order.started')}</Text>
-                  ) : (
-                    <Button title={t('order.remove')} variant="ghost" size="sm" disabled={busy} onPress={() => confirmRemove(line)} />
-                  )}
-                  <Stepper
-                    value={pending}
-                    min={started ? 0 : 1}
-                    disabled={busy}
-                    onChange={(q) => onSetPending(line, q)}
-                    decreaseLabel={`− ${name}`}
-                    increaseLabel={`+ ${name}`}
-                  />
-                </View>
+                ) : null}
+
+                {pending > 0 ? (
+                  <View style={styles.pendingRow}>
+                    <Text style={styles.muted}>{t('cart.notSent')}</Text>
+                    <Stepper
+                      value={pending}
+                      min={cooking + served > 0 ? 0 : 1}
+                      disabled={busy}
+                      onChange={(q) => onSetPending(line, q)}
+                      decreaseLabel={`− ${name}`}
+                      increaseLabel={`+ ${name}`}
+                    />
+                  </View>
+                ) : null}
               </View>
             );
           })}
@@ -158,19 +262,94 @@ export function CartDrawer({
             <Text style={styles.totalLabel}>{t('order.total')}</Text>
             <Text style={styles.total}>{formatMoney(order?.totalAmount ?? 0, currency)}</Text>
           </View>
-          {counts.pending > 0 ? (
-            <Button title={t('order.sendToKitchen', { count: counts.pending })} size="lg" loading={busy} onPress={onSend} />
-          ) : lines.length > 0 ? (
-            <Text style={[styles.muted, styles.allSent]}>{t('order.allSent')}</Text>
+
+          {guestDraft !== null ? (
+            <View style={styles.guestEditor}>
+              <Text style={styles.guestTitle}>{t('cart.guests')}</Text>
+              <Stepper value={guestDraft} min={0} onChange={setGuestDraft} disabled={busy} />
+              <Button title={t('customize.cancel')} variant="ghost" size="sm" onPress={() => setGuestDraft(null)} />
+              <Button
+                title={t('customize.save')}
+                size="sm"
+                disabled={busy}
+                onPress={() => {
+                  onSetGuests(guestDraft);
+                  setGuestDraft(null);
+                }}
+              />
+            </View>
           ) : null}
+
+          <View style={styles.actions}>
+            <ActionButton
+              label={`🧍 (${guests})`}
+              color={colors.primary}
+              disabled={busy || !order}
+              accessibilityLabel={t('cart.guestsCount', { count: guests })}
+              onPress={() => setGuestDraft(guests)}
+            />
+            {canSend ? (
+              <ActionButton
+                label={`🍳 ${t('cart.sendToKitchen')}`}
+                color={colors.warning}
+                disabled={busy || counts.pending === 0}
+                wide
+                onPress={onSend}
+              />
+            ) : null}
+            <ActionButton
+              label="✓"
+              color={colors.success}
+              disabled={busy || counts.cooking === 0}
+              accessibilityLabel={t('cart.serveAll', { count: counts.cooking })}
+              onPress={onServeAll}
+            />
+          </View>
         </View>
       </Animated.View>
     </Modal>
   );
 }
 
+function ActionButton({
+  label,
+  color,
+  disabled,
+  wide,
+  accessibilityLabel,
+  onPress,
+}: {
+  label: string;
+  color: string;
+  disabled: boolean;
+  wide?: boolean;
+  accessibilityLabel?: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ disabled }}
+      style={({ pressed }) => [
+        styles.action,
+        wide && styles.actionWide,
+        { backgroundColor: color },
+        disabled && styles.actionDisabled,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Text style={styles.actionText} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  flex: { flex: 1, minWidth: 0 },
   fill: { flex: 1 },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: colors.overlay },
   drawer: {
@@ -190,26 +369,87 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: space.sm,
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
   title: { fontSize: font.title, fontWeight: '700', color: colors.foreground },
+  countPill: { backgroundColor: colors.muted, borderRadius: radius.full, paddingHorizontal: space.sm, paddingVertical: 2 },
+  countPillText: { fontSize: 12, color: colors.mutedForeground },
+  close: { paddingLeft: space.sm },
+  closeText: { fontSize: 18, color: colors.mutedForeground },
   muted: { fontSize: font.small, color: colors.mutedForeground, lineHeight: 20 },
   empty: { textAlign: 'center', paddingVertical: space.xl },
   list: { padding: space.lg, gap: space.md },
   line: { gap: space.sm, paddingBottom: space.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  lineRaised: { zIndex: 10, elevation: 10 },
   lineTop: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
   pressed: { opacity: 0.6 },
-  time: { fontSize: 12, color: colors.mutedForeground, marginTop: 2 },
-  chevron: { fontSize: 22, lineHeight: 22, color: colors.mutedForeground },
+  thumb: { width: 48, height: 48, borderRadius: radius.md, backgroundColor: colors.muted },
+  thumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  thumbText: { fontSize: font.small, fontWeight: '700', color: colors.mutedForeground },
+  qtyBadge: {
+    position: 'absolute',
+    top: -6,
+    left: -6,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyBadgeText: { color: colors.primaryForeground, fontSize: 11, fontWeight: '700' },
   lineName: { fontSize: font.body, fontWeight: '600', color: colors.foreground, lineHeight: font.lineHeight },
-  note: { fontSize: font.small, color: colors.foreground, fontStyle: 'italic' },
+  lineRight: { alignItems: 'flex-end', gap: space.sm },
+  dots: { paddingHorizontal: 4 },
+  dotsText: { fontSize: 20, lineHeight: 20, color: colors.foreground, fontWeight: '700' },
   lineTotal: { fontSize: font.body, fontWeight: '700', color: colors.foreground },
+  menu: {
+    position: 'absolute',
+    top: 30,
+    right: 0,
+    minWidth: 150,
+    paddingVertical: space.xs,
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    elevation: 12,
+    zIndex: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  menuTitle: { fontSize: font.small, fontWeight: '600', color: colors.foreground, paddingHorizontal: space.md, paddingVertical: space.sm },
+  menuItem: { paddingHorizontal: space.md, paddingVertical: space.sm },
+  menuItemPressed: { backgroundColor: colors.muted },
+  menuItemText: { fontSize: font.body, color: colors.foreground },
+  menuItemDisabled: { color: colors.mutedForeground },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  lineActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  started: { fontSize: 12, color: colors.mutedForeground, flex: 1 },
+  times: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.md, rowGap: 2 },
+  time: { fontSize: 12, color: colors.mutedForeground },
+  addons: { backgroundColor: colors.muted, borderRadius: radius.md, padding: space.sm, gap: 6 },
+  addonsTitle: { fontSize: 11, fontWeight: '600', color: colors.mutedForeground, letterSpacing: 0.5 },
+  addon: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: space.sm,
+    paddingVertical: 6,
+  },
+  addonName: { flex: 1, fontSize: font.small, color: colors.foreground },
+  addonPrice: { fontSize: font.small, fontWeight: '600', color: colors.foreground },
+  note: { fontStyle: 'italic' },
+  pendingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   footer: {
     paddingHorizontal: space.lg,
     paddingTop: space.md,
@@ -220,5 +460,19 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   totalLabel: { fontSize: font.body, color: colors.mutedForeground },
   total: { fontSize: font.heading, fontWeight: '700', color: colors.foreground },
-  allSent: { textAlign: 'center' },
+  guestEditor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    padding: space.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+  },
+  guestTitle: { flex: 1, fontSize: font.small, fontWeight: '600', color: colors.foreground },
+  actions: { flexDirection: 'row', justifyContent: 'center', gap: space.sm },
+  action: { minWidth: 56, height: 42, paddingHorizontal: space.md, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  actionWide: { flex: 1 },
+  actionDisabled: { opacity: 0.45 },
+  actionText: { color: '#ffffff', fontSize: font.body, fontWeight: '700' },
 });

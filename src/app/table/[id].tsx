@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { MenuProduct, OrderLine, PosInfo, RestaurantTable } from '@/lib/api';
-import { activeLines, addToTable, kitchenMoves, modifierNames, orderCounts } from '@/lib/order';
+import { activeLines, addToTable, kitchenMoves, modifierNames, orderCounts, serveMoves } from '@/lib/order';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button } from '@/ui/components';
@@ -131,6 +131,21 @@ export default function TableScreen() {
     if (orderId) void run(() => api.removeLine(orderId, line.orderDetailId));
   }
 
+  /** ✓ in the cart: every preparing portion → served. */
+  async function serveAll() {
+    const fresh = await api.table(id).catch(() => table);
+    const order = fresh?.order;
+    const moves = serveMoves(order);
+    if (!order || moves.length === 0) return;
+    const ok = await run(() => api.moveStatus(order.orderId, moves));
+    if (ok) Alert.alert(t('cart.servedAll'));
+  }
+
+  function setGuests(count: number) {
+    const orderId = table?.order?.orderId;
+    if (orderId) void run(() => api.setGuests(orderId, count));
+  }
+
   async function send() {
     await addQueue.current; // include taps still being saved
     const fresh = await api.table(id).catch(() => table);
@@ -223,12 +238,16 @@ export default function TableScreen() {
         tableName={table.table_name}
         order={table.order}
         names={names}
+        imageFor={(variantId) => api.imageUrl(products.find((p) => p.variantId === variantId)?.images?.[0]?.url)}
+        user={user}
         currency={currency}
         busy={busy || queuedTotal > 0}
         onClose={() => setCartOpen(false)}
         onSetPending={setPending}
-        onRemove={remove}
+        onDelete={remove}
         onSend={() => void send()}
+        onServeAll={() => void serveAll()}
+        onSetGuests={setGuests}
         onOpenLine={openCustomize}
       />
       {openLine ? (

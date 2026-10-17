@@ -1,4 +1,4 @@
-import { ApiError, type ItemStatus, type KhPosApi, type KitchenMove, type MenuProduct, type ModifierItem, type NewLine, type OrderLine, type PosInfo, type RestaurantTable, type TableOrder } from './api';
+import { ApiError, type ItemStatus, type KhPosApi, type KitchenMove, type MenuProduct, type ModifierItem, type NewLine, type OrderLine, type PosInfo, type RestaurantTable, type StatusMove, type TableOrder } from './api';
 
 /** Portions of a line in one kitchen status. */
 export function statusQty(line: OrderLine, status: ItemStatus): number {
@@ -154,4 +154,25 @@ async function addExtras(
     await api.addModifier(orderId, { orderDetailId, modifierItemId: o.id, price: modifierPrice(o) });
   }
   if (note) await api.addModifier(orderId, { orderDetailId, modifierItemId: 'notes', price: 0, notes: note });
+}
+
+/** "✓" (serve all): every preparing portion → served, like the web POS. */
+export function serveMoves(order: TableOrder | null | undefined): StatusMove[] {
+  return activeLines(order)
+    .map((l) => ({ orderDetailId: l.orderDetailId, fromStatus: 'cooking' as const, toStatus: 'served' as const, qty: statusQty(l, 'cooking') }))
+    .filter((m) => m.qty > 0);
+}
+
+/**
+ * When a line was ordered, sent to the kitchen and served (kh-pos status times).
+ * "Sent" and "served" only once something reached that stage.
+ */
+export function lineTimes(line: OrderLine): { ordered: string | null; sent: string | null; served: string | null } {
+  const entry = (s: ItemStatus) => (line.status ?? []).find((x) => x.status === s);
+  const reachedKitchen = statusQty(line, 'cooking') + statusQty(line, 'ready') + statusQty(line, 'served') > 0;
+  return {
+    ordered: line.createdAt ?? entry('pending')?.createdAt ?? null,
+    sent: reachedKitchen ? (entry('cooking')?.createdAt ?? null) : null,
+    served: statusQty(line, 'served') > 0 ? (entry('served')?.createdAt ?? null) : null,
+  };
 }

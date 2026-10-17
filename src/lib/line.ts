@@ -55,3 +55,9 @@ export function appliedPromotionIds(line: OrderLine): Set<string> {
 export function lineOptionIds(line: OrderLine): Set<string> {
   return new Set((line.orderModifiers ?? []).filter((m) => m.modifierItemId !== 'notes').map((m) => m.modifierItemId));
 }
+
+/** Delete a line: anyone while nothing went to the kitchen; afterwards the same rights as editing preparing/served counts. */
+export function canDeleteLine(user: StaffUser | null | undefined, line: OrderLine): boolean {
+  const started = (line.status ?? []).some((s) => s.status !== 'pending' && Number(s.qty) > 0);
+  return !started || canEditStatus(user, 'cooking');
+}

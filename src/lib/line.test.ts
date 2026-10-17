@@ -1,5 +1,5 @@
 import type { OrderLine, StaffUser } from './api';
-import { appliedPromotionIds, can, canEditStatus, checkStatusChange, lineNote, lineOptionIds, manualDiscount } from './line';
+import { appliedPromotionIds, can, canDeleteLine, canEditStatus, checkStatusChange, lineNote, lineOptionIds, manualDiscount } from './line';
 
 const user = (role: string, permissions: Record<string, string> | null): StaffUser => ({
   id: 'u', username: 'u', fullname: null, currentWarehouseId: 'w', warehouse: null, role: { role, permissions },
@@ -70,5 +70,13 @@ describe('reading a line', () => {
     expect(manualDiscount(l)).toMatchObject({ discountType: 'PERCENTAGE', value: 10 });
     expect([...appliedPromotionIds(l)]).toEqual(['promo-1']);
     expect([...lineOptionIds(l)]).toEqual(['egg']);
+  });
+});
+
+describe('deleting a line', () => {
+  it('anyone before the kitchen starts; afterwards only with update + delete', () => {
+    expect(canDeleteLine(staff, line({ pending: 2 }))).toBe(true);
+    expect(canDeleteLine(staff, line({ pending: 0, cooking: 1 }))).toBe(false);
+    expect(canDeleteLine(supervisor, line({ served: 1 }))).toBe(true);
   });
 });

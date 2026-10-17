@@ -129,6 +129,8 @@ export interface TableOrder {
   orderId: string;
   invoiceNo: number | string;
   totalAmount: string;
+  /** Number of guests at the table (web: 👤 button). */
+  customer?: number | null;
   items?: OrderLine[];
 }
 
@@ -358,6 +360,11 @@ export class KhPosApi {
 
   async removePromotion(orderId: string, input: { itemId: string; discountId: string }): Promise<void> {
     await this.request('DELETE', `/api/pos/order/${encodeURIComponent(orderId)}/promotion`, input);
+  }
+
+  /** Number of guests at the table. */
+  async setGuests(orderId: string, customer: number): Promise<void> {
+    await this.request('POST', `/api/pos/order/${encodeURIComponent(orderId)}/customer`, { customer });
   }
 
   async removeLine(orderId: string, orderDetailId: string): Promise<void> {

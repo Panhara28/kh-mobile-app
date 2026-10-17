@@ -86,7 +86,22 @@
     "open": "Open cart, {{count}} items",
     "hint": "Tap a dish to add it · hold it for options and a note",
     "sendHint": "Open the cart to send them to the kitchen",
-    "openLineHint": "Opens Customize Your Order for this item"
+    "openLineHint": "Opens Customize Your Order for this item",
+    "summary": "Order Summary",
+    "itemsCount": "{{count}} items",
+    "actions": "Actions",
+    "delete": "Delete",
+    "deleteNotAllowed": "This item is already in the kitchen, and your role can't remove it.",
+    "sentAt": "Sent {{time}}",
+    "servedAt": "Served {{time}}",
+    "addons": "ADD-ONS",
+    "free": "Free",
+    "notSent": "Not sent yet",
+    "guests": "Guests",
+    "guestsCount": "Guests: {{count}}. Tap to change",
+    "sendToKitchen": "Send to Kitchen",
+    "serveAll": "Serve all ({{count}})",
+    "servedAll": "Served"
   },
   "customize": {
     "title": "Customize Your Order",
