@@ -1,29 +1,19 @@
 {
   "common": {
-    "appName": "KH POS Menu",
-    "loading": "Loading...",
-    "retry": "Try again",
-    "cancel": "Cancel",
-    "close": "Close",
-    "back": "Back",
+    "appName": "KH POS",
     "language": "Language"
   },
-  "home": {
-    "title": "Order from your table",
-    "subtitle": "Scan the QR code on your table to see the menu and send your order to the kitchen.",
-    "scan": "Scan table QR code",
-    "steps": {
-      "scan": "Scan the QR code on your table",
-      "choose": "Choose dishes from the menu",
-      "send": "Send your order to the kitchen"
-    }
-  },
-  "errors": {
-    "network": "Can't reach the restaurant. Check your internet connection.",
-    "unauthorized": "Your table session has ended. Scan the QR code again.",
-    "forbidden": "That isn't allowed for your table.",
-    "invalid": "Something in the request wasn't accepted.",
-    "conflict": "The restaurant isn't ready for this yet. Please ask the staff.",
-    "server": "The restaurant's system had a problem. Please try again."
+  "login": {
+    "title": "Login",
+    "description": "Enter your username and password to login",
+    "username": "Username",
+    "usernamePlaceholder": "Enter username",
+    "password": "Password",
+    "passwordPlaceholder": "Enter password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "submit": "Login",
+    "usernameRequired": "Enter your username",
+    "passwordRequired": "Enter your password"
   }
 }

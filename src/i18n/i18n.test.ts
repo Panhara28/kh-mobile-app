@@ -27,10 +27,4 @@ describe('translations', () => {
       expect({ key, placeholders: placeholders(kmFlat[key] ?? '') }).toEqual({ key, placeholders: placeholders(value) });
     }
   });
-
-  it('has a message for every API error kind', () => {
-    for (const kind of ['network', 'unauthorized', 'forbidden', 'invalid', 'conflict', 'server']) {
-      expect(enFlat[`errors.${kind}`]).toBeTruthy();
-    }
-  });
 });

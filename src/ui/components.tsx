@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -120,13 +120,36 @@ export function Card({ children, style }: { children: ReactNode; style?: ViewSty
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-export function Input(props: TextInputProps) {
+export function Input(props: TextInputProps & { ref?: Ref<TextInput> }) {
   return (
     <TextInput
       placeholderTextColor={colors.mutedForeground}
       {...props}
       style={[styles.input, props.style]}
     />
+  );
+}
+
+/** Label + input + error, like the web form fields (Label, Input className="mt-1"). */
+export function Field({
+  label,
+  error,
+  right,
+  ...input
+}: TextInputProps & { label: string; error?: string; right?: ReactNode; ref?: Ref<TextInput> }) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <View>
+        <Input
+          accessibilityLabel={label}
+          {...input}
+          style={[error ? styles.inputError : null, right ? styles.inputWithRight : null, input.style]}
+        />
+        {right ? <View style={styles.inputRight}>{right}</View> : null}
+      </View>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+    </View>
   );
 }
 
@@ -213,6 +236,12 @@ const styles = StyleSheet.create({
     color: colors.foreground,
     backgroundColor: colors.background,
   },
+  field: { gap: 6 },
+  label: { fontSize: font.small, fontWeight: '500', color: colors.foreground },
+  inputError: { borderColor: colors.destructive },
+  inputWithRight: { paddingRight: 48 },
+  inputRight: { position: 'absolute', right: 0, top: 0, bottom: 0, justifyContent: 'center' },
+  error: { fontSize: font.small, color: colors.destructive },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

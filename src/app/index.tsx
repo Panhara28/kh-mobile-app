@@ -1,93 +1,130 @@
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type TextInput,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { isLanguage, type Language } from '@/i18n';
-import { Button, Card, Header, Segmented } from '@/ui/components';
-import { colors, font, radius, space } from '@/ui/theme';
+import { Button, Card, Field, Segmented } from '@/ui/components';
+import { colors, font, space } from '@/ui/theme';
 
-/** Welcome screen: explains the three steps and starts the table QR scan. */
-export default function Home() {
+/**
+ * Staff login, laid out like the kh-pos web login (/admin/login): a centred card with
+ * username, password and a full-width Login button. UI only for now: not connected to kh-pos yet.
+ */
+export default function Login() {
   const { t, i18n } = useTranslation();
   const language: Language = isLanguage(i18n.language) ? i18n.language : 'km';
-  const steps = ['scan', 'choose', 'send'] as const;
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<{ username?: string; password?: string }>({});
+  const passwordRef = useRef<TextInput>(null);
+
+  function submit() {
+    const next = {
+      username: username.trim() ? undefined : t('login.usernameRequired'),
+      password: password ? undefined : t('login.passwordRequired'),
+    };
+    setErrors(next);
+    // Connecting to the kh-pos login API is the next step.
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <Header
-        title={t('common.appName')}
-        right={
-          <View style={styles.lang}>
-            <Segmented
-              options={[
-                { value: 'km', label: 'ខ្មែរ' },
-                { value: 'en', label: 'EN' },
-              ]}
-              value={language}
-              onChange={(l) => void i18n.changeLanguage(l)}
-            />
-          </View>
-        }
-      />
-      <ScrollView contentContainerStyle={styles.content}>
-        <Card style={styles.hero}>
-          <View style={styles.qrMark}>
-            <Text style={styles.qrMarkText}>QR</Text>
-          </View>
-          <Text style={styles.title}>{t('home.title')}</Text>
-          <Text style={styles.subtitle}>{t('home.subtitle')}</Text>
-        </Card>
-
-        <Card style={styles.steps}>
-          {steps.map((s, i) => (
-            <View key={s} style={styles.step}>
-              <View style={styles.stepNo}>
-                <Text style={styles.stepNoText}>{i + 1}</Text>
-              </View>
-              <Text style={styles.stepText}>{t(`home.steps.${s}`)}</Text>
-            </View>
-          ))}
-        </Card>
-      </ScrollView>
-      <View style={styles.footer}>
-        {/* Scanning arrives in Phase 2. */}
-        <Button title={t('home.scan')} size="lg" disabled onPress={() => undefined} />
+      <View style={styles.lang}>
+        <Segmented
+          options={[
+            { value: 'km', label: 'ខ្មែរ' },
+            { value: 'en', label: 'EN' },
+          ]}
+          value={language}
+          onChange={(l) => void i18n.changeLanguage(l)}
+        />
       </View>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.center} keyboardShouldPersistTaps="handled">
+          <Text style={styles.brand}>{t('common.appName')}</Text>
+          <Card style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.title}>{t('login.title')}</Text>
+              <Text style={styles.description}>{t('login.description')}</Text>
+            </View>
+            <View style={styles.form}>
+              <Field
+                label={t('login.username')}
+                placeholder={t('login.usernamePlaceholder')}
+                value={username}
+                onChangeText={(v) => {
+                  setUsername(v);
+                  if (errors.username) setErrors((e) => ({ ...e, username: undefined }));
+                }}
+                error={errors.username}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="username"
+                textContentType="username"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                submitBehavior="submit"
+              />
+              <Field
+                ref={passwordRef}
+                label={t('login.password')}
+                placeholder={t('login.passwordPlaceholder')}
+                value={password}
+                onChangeText={(v) => {
+                  setPassword(v);
+                  if (errors.password) setErrors((e) => ({ ...e, password: undefined }));
+                }}
+                error={errors.password}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="password"
+                textContentType="password"
+                returnKeyType="go"
+                onSubmitEditing={submit}
+                right={
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                    onPress={() => setShowPassword((s) => !s)}
+                    hitSlop={8}
+                    style={styles.eye}
+                  >
+                    <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁'}</Text>
+                  </Pressable>
+                }
+              />
+              <Button title={t('login.submit')} size="lg" onPress={submit} style={styles.submit} />
+            </View>
+          </Card>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.page },
-  lang: { width: 120 },
-  content: { padding: space.lg, gap: space.lg },
-  hero: { padding: space.xl, alignItems: 'center', gap: space.md },
-  qrMark: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.lg,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qrMarkText: { color: colors.primaryForeground, fontSize: font.heading, fontWeight: '700' },
-  title: { fontSize: font.heading, fontWeight: '700', color: colors.foreground, textAlign: 'center', lineHeight: 32 },
-  subtitle: { fontSize: font.body, color: colors.mutedForeground, textAlign: 'center', lineHeight: font.lineHeight },
-  steps: { padding: space.lg, gap: space.md },
-  step: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  stepNo: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.full,
-    backgroundColor: colors.muted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepNoText: { fontWeight: '700', color: colors.foreground },
-  stepText: { flex: 1, fontSize: font.body, color: colors.foreground, lineHeight: font.lineHeight },
-  footer: {
-    padding: space.lg,
-    backgroundColor: colors.card,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
+  safe: { flex: 1, backgroundColor: colors.muted },
+  flex: { flex: 1 },
+  lang: { alignSelf: 'flex-end', width: 130, marginTop: space.sm, marginRight: space.lg },
+  center: { flexGrow: 1, justifyContent: 'center', padding: space.lg, gap: space.lg },
+  brand: { fontSize: font.heading, fontWeight: '700', color: colors.foreground, textAlign: 'center' },
+  card: { width: '100%', maxWidth: 448, alignSelf: 'center', padding: space.xl, gap: space.xl },
+  cardHeader: { gap: 6 },
+  title: { fontSize: 24, fontWeight: '600', color: colors.foreground, lineHeight: 32 },
+  description: { fontSize: font.small, color: colors.mutedForeground, lineHeight: 20 },
+  form: { gap: space.lg },
+  submit: { width: '100%', marginTop: space.xs },
+  eye: { paddingHorizontal: space.md, height: '100%', justifyContent: 'center' },
+  eyeText: { fontSize: 18 },
 });

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "KH POS Menu",
+    "name": "KH POS",
     "slug": "kh-pos-mobile",
     "version": "0.1.0",
     "platforms": [
@@ -13,13 +13,13 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.panahra28.khposmenu",
+      "bundleIdentifier": "com.panahra28.khpos",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "package": "com.panahra28.khposmenu",
+      "package": "com.panahra28.khpos",
       "adaptiveIcon": {
         "backgroundColor": "#18181B",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -32,19 +32,6 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Scan the QR code on your table to see the menu and order.",
-          "recordAudioAndroid": false
-        }
-      ],
-      [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": "The restaurant only accepts orders from guests inside it."
-        }
-      ],
       "expo-status-bar"
     ],
     "experiments": {
