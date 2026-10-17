@@ -3,7 +3,10 @@
     "name": "KH POS Menu",
     "slug": "kh-pos-mobile",
     "version": "0.1.0",
-    "platforms": ["android", "ios"],
+    "platforms": [
+      "android",
+      "ios"
+    ],
     "scheme": "khpos",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -41,7 +44,8 @@
         {
           "locationWhenInUsePermission": "The restaurant only accepts orders from guests inside it."
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true

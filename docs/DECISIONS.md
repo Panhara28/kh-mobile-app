@@ -17,9 +17,9 @@ Agreed on 2026-10-17. Update this file when a decision changes.
 
 ## Mobile stack
 
-- Expo **SDK 58** (React Native 0.88, React 19.3), Expo Router with routes in `src/app/`, and TypeScript in strict mode.
+- Expo **SDK 57** (React Native 0.86, React 19.2), Expo Router with routes in `src/app/`, and TypeScript in strict mode.
   - Unlike the order app (SDK 54, which WatermelonDB requires), there is no offline database here. Ordering needs the server anyway.
-  - It runs in **Expo Go** during development.
+  - It runs in **Expo Go** during development. It was moved from SDK 58 to 57 because the Play Store Expo Go (2026-10-17) still only supports SDK 57. Move to SDK 58 once Expo Go does.
 - Libraries:
   - From the order app: `expo-router`, `expo-secure-store` (token), `expo-crypto` (ids), `i18next` + `react-i18next`, `zod`.
   - Added for this app (approved): `expo-camera` (QR scanning) and `expo-location` (walk-in GPS check).
