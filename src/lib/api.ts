@@ -45,6 +45,19 @@ export interface Category {
   forSaleCount?: number;
 }
 
+export interface ModifierItem {
+  id: string;
+  modifierId: string;
+  name: string;
+  price?: number | string;
+}
+
+export interface ModifierGroup {
+  modifierId: string;
+  title: string;
+  items?: ModifierItem[];
+}
+
 export interface MenuProduct {
   productId: string;
   variantId: string;
@@ -54,6 +67,61 @@ export interface MenuProduct {
   discountedPrice?: number | null;
   images?: { url: string; imageOrder: number | null }[];
   category?: { id: string; title: string } | null;
+  modifiers?: ModifierGroup[] | null;
+}
+
+export type TableStatus = 'available' | 'order_taken' | 'cleaning';
+export type ItemStatus = 'pending' | 'cooking' | 'ready' | 'served' | 'cancelled';
+
+/** One line of an order (kh-pos OrderDetail). */
+export interface OrderLine {
+  orderDetailId: string;
+  variantId: string;
+  /** "Product (Variant)". */
+  title: string;
+  qty: number;
+  price: string;
+  totalAmount: string;
+  status?: { status: ItemStatus; qty: number }[];
+  orderModifiers?: { orderDetailId: string; modifierItemId: string; price?: number; notes?: string | null }[];
+}
+
+/** A table's open (DRAFT) order. kh-pos sends camelCase aliases next to the raw columns. */
+export interface TableOrder {
+  orderId: string;
+  invoiceNo: number | string;
+  totalAmount: string;
+  items?: OrderLine[];
+}
+
+export interface RestaurantTable {
+  id: string;
+  table_name: string;
+  setting_capacity: number | null;
+  section: string | null;
+  status: TableStatus;
+  order: TableOrder | null;
+}
+
+export interface PosInfo {
+  posSlotId: string;
+  posCustomerId: string;
+}
+
+export interface NewLine {
+  /** Order line id, generated on the phone. */
+  id: string;
+  variantId: string;
+  qty: number;
+  /** Unit price. Staff orders are priced by the app, like the kh-pos web POS. */
+  price: number;
+}
+
+export interface KitchenMove {
+  orderDetailId: string;
+  fromStatus: 'pending';
+  toStatus: 'cooking';
+  qty: number;
 }
 
 export interface MenuQuery {
@@ -151,6 +219,84 @@ export class KhPosApi {
     });
     const json = await this.request<{ result?: MenuProduct[] }>('GET', `/api/product-v2/menu?${params.toString()}`);
     return json.result ?? [];
+  }
+
+  // ---- tables & orders (same calls as the kh-pos web restaurant POS) ----
+
+  /** All tables of the staff member's branch, each with its open order. */
+  async tables(): Promise<RestaurantTable[]> {
+    const json = await this.request<{ result?: RestaurantTable[] }>('GET', '/api/table');
+    return json.result ?? [];
+  }
+
+  async table(id: string): Promise<RestaurantTable> {
+    const json = await this.request<{ result?: RestaurantTable }>('GET', `/api/table/${encodeURIComponent(id)}`);
+    if (!json.result?.id) throw new ApiError('server', 404, 'Table not found');
+    return json.result;
+  }
+
+  async setTableStatus(id: string, status: TableStatus): Promise<void> {
+    await this.request('PUT', `/api/table/${encodeURIComponent(id)}`, { status });
+  }
+
+  async posInfo(warehouseId: string): Promise<PosInfo> {
+    const json = await this.request<{ result?: PosInfo }>('GET', `/api/pos/info?warehouse=${encodeURIComponent(warehouseId)}`);
+    if (!json.result) throw new ApiError('server', undefined, 'No POS slot or walk-in customer for this branch');
+    return json.result;
+  }
+
+  async nextInvoiceNumber(): Promise<number> {
+    const json = await this.request<{ result?: number[] }>('GET', '/api/pos/auto_invoice_number?n=1');
+    const n = Number(json.result?.[0]);
+    if (!n) throw new ApiError('server', undefined, 'No invoice number (check the branch invoice receipt setting)');
+    return n;
+  }
+
+  /** Opens the table's order with its first line. Returns the order id. */
+  async createOrder(input: { warehouseId: string; tableId: string; posInfo: PosInfo; invoiceNo: number; line: NewLine }): Promise<string> {
+    const json = await this.request<{ result?: string }>('POST', '/api/pos/order', {
+      warehouseId: input.warehouseId,
+      slotId: input.posInfo.posSlotId,
+      customerId: input.posInfo.posCustomerId,
+      invoiceNo: input.invoiceNo,
+      tableNumber: input.tableId,
+      items: [{ id: input.line.id, variantId: input.line.variantId, qty: input.line.qty, price: String(input.line.price) }],
+    });
+    if (!json.result) throw new ApiError('server', undefined, 'No order id returned');
+    return json.result;
+  }
+
+  async addLine(orderId: string, line: NewLine): Promise<void> {
+    await this.request('POST', `/api/pos/order/${encodeURIComponent(orderId)}/add-item`, {
+      id: line.id,
+      variantId: line.variantId,
+      qty: line.qty,
+      price: String(line.price),
+      discountAmount: '0',
+    });
+  }
+
+  /** Adds a modifier option, or a free-text note with modifierItemId "notes", to a line. */
+  async addModifier(orderId: string, input: { orderDetailId: string; modifierItemId: string; price: number; notes?: string }): Promise<void> {
+    await this.request('POST', `/api/pos/order/${encodeURIComponent(orderId)}/modifier`, input);
+  }
+
+  /** Sets how many portions of a line are still pending (not sent to the kitchen). */
+  async setPendingQty(orderId: string, orderDetailId: string, qty: number): Promise<void> {
+    await this.request('PUT', `/api/pos/order/${encodeURIComponent(orderId)}/update-item-status`, {
+      orderDetailId,
+      status: 'pending',
+      qty,
+    });
+  }
+
+  async removeLine(orderId: string, orderDetailId: string): Promise<void> {
+    await this.request('DELETE', `/api/pos/order/${encodeURIComponent(orderId)}/remove-item`, { item_id: orderDetailId });
+  }
+
+  /** Pending portions → cooking. kh-pos queues the kitchen tickets for the printer itself. */
+  async sendToKitchen(orderId: string, moves: KitchenMove[]): Promise<void> {
+    await this.request('POST', `/api/pos/order/${encodeURIComponent(orderId)}/update-item-status`, moves);
   }
 
   /** Product image URLs may be relative to the kh-pos server. */
