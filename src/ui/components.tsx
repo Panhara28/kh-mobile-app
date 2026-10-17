@@ -1,4 +1,4 @@
-import type { ReactNode, Ref } from 'react';
+import { useEffect, useState, type ReactNode, type Ref } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -9,6 +9,7 @@ import {
   type TextInputProps,
   type ViewStyle,
 } from 'react-native';
+import { clampInt } from '@/lib/number';
 import { colors, font, radius, shadow, space } from './theme';
 
 /** shadcn Button: default (black), outline, secondary, destructive, ghost. */
@@ -203,6 +204,10 @@ export function Stepper({
   disabled,
   decreaseLabel = '−',
   increaseLabel = '+',
+  editable,
+  autoFocus,
+  onSubmit,
+  valueLabel,
 }: {
   value: number;
   onChange: (v: number) => void;
@@ -211,6 +216,12 @@ export function Stepper({
   disabled?: boolean;
   decreaseLabel?: string;
   increaseLabel?: string;
+  /** The number can also be tapped and typed (faster for big numbers, e.g. 25 guests). */
+  editable?: boolean;
+  autoFocus?: boolean;
+  /** Keyboard "done" on the typed number. */
+  onSubmit?: () => void;
+  valueLabel?: string;
 }) {
   return (
     <View style={styles.stepper}>
@@ -224,7 +235,20 @@ export function Stepper({
       >
         <Text style={styles.stepperSign}>−</Text>
       </Pressable>
-      <Text style={styles.stepperValue}>{value}</Text>
+      {editable ? (
+        <NumberInput
+          value={value}
+          min={min}
+          max={max}
+          disabled={disabled}
+          autoFocus={autoFocus}
+          onChange={onChange}
+          onSubmit={onSubmit}
+          accessibilityLabel={valueLabel}
+        />
+      ) : (
+        <Text style={styles.stepperValue}>{value}</Text>
+      )}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={increaseLabel}
@@ -239,8 +263,82 @@ export function Stepper({
   );
 }
 
+/** A whole number typed with the number pad; out-of-range values snap back when leaving the field. */
+function NumberInput({
+  value,
+  min,
+  max,
+  disabled,
+  autoFocus,
+  onChange,
+  onSubmit,
+  accessibilityLabel,
+}: {
+  value: number;
+  min: number;
+  max: number;
+  disabled?: boolean;
+  autoFocus?: boolean;
+  onChange: (v: number) => void;
+  onSubmit?: () => void;
+  accessibilityLabel?: string;
+}) {
+  const [text, setText] = useState(String(value));
+  const [focused, setFocused] = useState(false);
+  // Follow the +/− buttons and server updates, but not while the user is typing.
+  useEffect(() => {
+    if (!focused) setText(String(value));
+  }, [value, focused]);
+
+  const commit = () => {
+    const n = clampInt(text, min, max, value);
+    setText(String(n));
+    if (n !== value) onChange(n);
+  };
+
+  return (
+    <TextInput
+      value={text}
+      onChangeText={(v) => {
+        const digits = v.replace(/[^0-9]/g, '').slice(0, 4);
+        setText(digits);
+        if (digits) onChange(clampInt(digits, min, max, value));
+      }}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false);
+        commit();
+      }}
+      onSubmitEditing={() => {
+        commit();
+        onSubmit?.();
+      }}
+      keyboardType="number-pad"
+      returnKeyType="done"
+      selectTextOnFocus
+      autoFocus={autoFocus}
+      editable={!disabled}
+      accessibilityLabel={accessibilityLabel}
+      style={styles.numberInput}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
   stepper: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  numberInput: {
+    minWidth: 52,
+    height: 38,
+    paddingHorizontal: space.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    textAlign: 'center',
+    fontSize: font.title,
+    fontWeight: '700',
+    color: colors.foreground,
+    backgroundColor: colors.background,
+  },
   stepperButton: {
     width: 34,
     height: 34,

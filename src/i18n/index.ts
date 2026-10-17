@@ -18,8 +18,13 @@ export function initI18n(language: Language = 'km'): typeof i18n {
       interpolation: { escapeValue: false }, // React already escapes
       returnNull: false,
     });
-  } else if (i18n.language !== language) {
-    void i18n.changeLanguage(language);
+  } else {
+    // Live reload during development: load the latest texts (otherwise new keys show as
+    // "cart.summary"), and keep the language the user picked.
+    for (const [lng, bundle] of Object.entries(resources)) {
+      i18n.addResourceBundle(lng, 'translation', bundle.translation, true, true);
+    }
+    void i18n.changeLanguage(i18n.language);
   }
   return i18n;
 }

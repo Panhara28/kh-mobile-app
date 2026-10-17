@@ -101,6 +101,11 @@ export function CartDrawer({
     ]);
   }
 
+  function saveGuests(count: number) {
+    if (count !== guests) onSetGuests(count);
+    setGuestDraft(null);
+  }
+
   const time = (value: string | null) => {
     const d = parseKhPosTime(value);
     return d ? clock(d, now) : null;
@@ -266,17 +271,22 @@ export function CartDrawer({
           {guestDraft !== null ? (
             <View style={styles.guestEditor}>
               <Text style={styles.guestTitle}>{t('cart.guests')}</Text>
-              <Stepper value={guestDraft} min={0} onChange={setGuestDraft} disabled={busy} />
-              <Button title={t('customize.cancel')} variant="ghost" size="sm" onPress={() => setGuestDraft(null)} />
-              <Button
-                title={t('customize.save')}
-                size="sm"
-                disabled={busy}
-                onPress={() => {
-                  onSetGuests(guestDraft);
-                  setGuestDraft(null);
-                }}
-              />
+              <View style={styles.guestRow}>
+                <Stepper
+                  value={guestDraft}
+                  min={0}
+                  max={999}
+                  onChange={setGuestDraft}
+                  disabled={busy}
+                  editable
+                  autoFocus
+                  valueLabel={t('cart.guests')}
+                  onSubmit={() => saveGuests(guestDraft)}
+                />
+                <View style={styles.flex} />
+                <Button title={t('customize.cancel')} variant="ghost" size="sm" onPress={() => setGuestDraft(null)} />
+                <Button title={t('customize.save')} size="sm" disabled={busy} onPress={() => saveGuests(guestDraft)} />
+              </View>
             </View>
           ) : null}
 
@@ -461,15 +471,14 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: font.body, color: colors.mutedForeground },
   total: { fontSize: font.heading, fontWeight: '700', color: colors.foreground },
   guestEditor: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: space.sm,
     padding: space.sm,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
   },
-  guestTitle: { flex: 1, fontSize: font.small, fontWeight: '600', color: colors.foreground },
+  guestTitle: { fontSize: font.small, fontWeight: '600', color: colors.foreground },
+  guestRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   actions: { flexDirection: 'row', justifyContent: 'center', gap: space.sm },
   action: { minWidth: 56, height: 42, paddingHorizontal: space.md, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   actionWide: { flex: 1 },

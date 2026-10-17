@@ -105,7 +105,7 @@ export function ProductSheet({
 
             <View style={[styles.section, styles.qtyRow]}>
               <Text style={styles.sectionTitle}>{t('product.quantity')}</Text>
-              <Stepper value={qty} onChange={setQty} min={1} />
+              <Stepper value={qty} onChange={setQty} min={1} editable valueLabel={t('product.quantity')} />
             </View>
           </ScrollView>
           <View style={styles.footer}>

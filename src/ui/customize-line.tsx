@@ -234,7 +234,7 @@ export function CustomizeLine({
                     </View>
                     {isEditing ? (
                       <>
-                        <Stepper value={editing.qty} min={0} onChange={(q) => setEditing({ status: row.status, qty: q })} disabled={busy} />
+                        <Stepper value={editing.qty} min={0} onChange={(q) => setEditing({ status: row.status, qty: q })} disabled={busy} editable autoFocus valueLabel={statusLabel(row.status)} onSubmit={() => saveCount(row.status, editing.qty)} />
                         <View style={styles.flex} />
                         <Button title={t('customize.save')} size="sm" disabled={busy} onPress={() => saveCount(row.status, editing.qty)} />
                         <Button title="✕" variant="ghost" size="sm" onPress={() => setEditing(null)} accessibilityLabel={t('customize.cancel')} />
