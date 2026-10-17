@@ -22,7 +22,7 @@ export default function RootLayout() {
   );
 }
 
-/** Login screen while signed out, menu while signed in. */
+/** Login screen while signed out; tables, then a table's menu and order, while signed in. */
 function Navigator() {
   const { status, retry, logout } = useSession();
   const { t } = useTranslation();
@@ -51,7 +51,8 @@ function Navigator() {
         <Stack.Screen name="index" />
       </Stack.Protected>
       <Stack.Protected guard={signedIn}>
-        <Stack.Screen name="menu" />
+        <Stack.Screen name="tables" />
+        <Stack.Screen name="table/[id]" />
       </Stack.Protected>
     </Stack>
   );

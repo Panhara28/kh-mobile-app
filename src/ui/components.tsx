@@ -194,7 +194,66 @@ export function Segmented<T extends string>({
   );
 }
 
+/** − qty + (web: cart-item-qty). */
+export function Stepper({
+  value,
+  onChange,
+  min = 0,
+  max = 999,
+  disabled,
+  decreaseLabel = '−',
+  increaseLabel = '+',
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+  disabled?: boolean;
+  decreaseLabel?: string;
+  increaseLabel?: string;
+}) {
+  return (
+    <View style={styles.stepper}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={decreaseLabel}
+        disabled={disabled || value <= min}
+        onPress={() => onChange(value - 1)}
+        hitSlop={6}
+        style={[styles.stepperButton, (disabled || value <= min) && styles.stepperDisabled]}
+      >
+        <Text style={styles.stepperSign}>−</Text>
+      </Pressable>
+      <Text style={styles.stepperValue}>{value}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={increaseLabel}
+        disabled={disabled || value >= max}
+        onPress={() => onChange(value + 1)}
+        hitSlop={6}
+        style={[styles.stepperButton, (disabled || value >= max) && styles.stepperDisabled]}
+      >
+        <Text style={styles.stepperSign}>+</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  stepperButton: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+  },
+  stepperDisabled: { opacity: 0.4 },
+  stepperSign: { fontSize: 18, fontWeight: '600', color: colors.foreground, lineHeight: 20 },
+  stepperValue: { minWidth: 24, textAlign: 'center', fontSize: font.body, fontWeight: '600', color: colors.foreground },
   button: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -5,7 +5,8 @@
     "loading": "Loading...",
     "retry": "Try again",
     "cancel": "Cancel",
-    "logout": "Logout"
+    "logout": "Logout",
+    "back": "Back"
   },
   "login": {
     "title": "Login",
@@ -25,8 +26,7 @@
     "search": "Search item",
     "all": "All",
     "empty": "No items found",
-    "emptySearch": "No items match \"{{query}}\".",
-    "loadingMore": "Loading more..."
+    "emptySearch": "No items match \"{{query}}\"."
   },
   "session": {
     "unreachable": "Can't reach the KH POS server to check your login.",
@@ -39,5 +39,43 @@
     "unauthorized": "Your login has expired. Please log in again.",
     "forbidden": "Your account isn't allowed to do this.",
     "server": "The KH POS server had a problem. Please try again."
+  },
+  "tables": {
+    "title": "Tables",
+    "empty": "No tables in this branch yet.",
+    "seats": "{{count}} seats",
+    "items": "{{count}} items",
+    "toSend": "{{count}} to send"
+  },
+  "tableStatus": {
+    "available": "Free",
+    "order_taken": "Occupied",
+    "cleaning": "Cleaning"
+  },
+  "itemStatus": {
+    "pending": "Not sent",
+    "cooking": "Cooking",
+    "served": "Served"
+  },
+  "product": {
+    "options": "Options",
+    "note": "Note",
+    "notePlaceholder": "e.g. no chili, less ice",
+    "quantity": "Quantity",
+    "add": "Add to order · {{total}}"
+  },
+  "order": {
+    "title": "Order",
+    "invoice": "Invoice #{{no}}",
+    "empty": "Nothing ordered yet. Tap a dish to add it.",
+    "total": "Total",
+    "view": "Order · {{count}} items",
+    "sendToKitchen": "Send to kitchen ({{count}})",
+    "allSent": "Everything has been sent to the kitchen",
+    "remove": "Remove",
+    "removeConfirm": "Remove {{name}} from the order?",
+    "started": "In the kitchen: can't remove",
+    "added": "Added {{name}}",
+    "sent": "Sent to the kitchen"
   }
 }
