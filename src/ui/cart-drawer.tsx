@@ -61,14 +61,16 @@ export function CartDrawer({
   const canSend = can(user, 'order-preparation', 'update');
   const guests = Number(order?.customer ?? 0) || 0;
 
-  const [menuFor, setMenuFor] = useState<string | null>(null);
+  /** The ⋯ menu: which line, and where on screen it was tapped (the menu opens just below). */
+  const [menu, setMenu] = useState<{ line: OrderLine; x: number; y: number } | null>(null);
+  const { height: windowHeight } = useWindowDimensions();
   const [guestDraft, setGuestDraft] = useState<number | null>(null);
 
   // Keep the "12 min" waiting times current while the cart is open.
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     if (!visible) {
-      setMenuFor(null);
+      setMenu(null);
       setGuestDraft(null);
       return;
     }
@@ -89,7 +91,7 @@ export function CartDrawer({
   const translateX = slide.interpolate({ inputRange: [0, 1], outputRange: [drawerWidth, 0] });
 
   function confirmDelete(line: OrderLine) {
-    setMenuFor(null);
+    setMenu(null);
     if (!canDeleteLine(user, line)) {
       Alert.alert(t('cart.deleteNotAllowed'));
       return;
@@ -138,7 +140,7 @@ export function CartDrawer({
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={styles.list} onScrollBeginDrag={() => setMenuFor(null)}>
+        <ScrollView contentContainerStyle={styles.list} onScrollBeginDrag={() => setMenu(null)}>
           {lines.length === 0 ? <Text style={[styles.muted, styles.empty]}>{t('order.empty')}</Text> : null}
           {lines.map((line) => {
             const { name, variant } = splitTitle(line.title);
@@ -153,11 +155,10 @@ export function CartDrawer({
             const mods = line.orderModifiers ?? [];
             const options = mods.filter((m) => m.modifierItemId !== 'notes');
             const note = mods.find((m) => m.modifierItemId === 'notes');
-            const menuOpen = menuFor === line.orderDetailId;
             return (
-              <View key={line.orderDetailId} style={[styles.line, menuOpen && styles.lineRaised]}>
+              <View key={line.orderDetailId} style={styles.line}>
                 <Pressable
-                  onPress={() => (menuOpen ? setMenuFor(null) : onOpenLine(line))}
+                  onPress={() => onOpenLine(line)}
                   accessibilityRole="button"
                   accessibilityLabel={`${line.qty} × ${name}`}
                   accessibilityHint={t('cart.openLineHint')}
@@ -186,30 +187,17 @@ export function CartDrawer({
                   </View>
                   <View style={styles.lineRight}>
                     <Pressable
-                      onPress={() => setMenuFor(menuOpen ? null : line.orderDetailId)}
+                      onPress={(e) => setMenu({ line, x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
                       hitSlop={10}
                       accessibilityRole="button"
                       accessibilityLabel={t('cart.actions')}
-                      style={styles.dots}
+                      style={({ pressed }) => [styles.dots, pressed && styles.dotsPressed]}
                     >
                       <Text style={styles.dotsText}>⋯</Text>
                     </Pressable>
                     <Text style={styles.lineTotal}>{formatMoney(line.totalAmount, currency)}</Text>
                   </View>
                 </Pressable>
-
-                {menuOpen ? (
-                  <View style={styles.menu}>
-                    <Text style={styles.menuTitle}>{t('cart.actions')}</Text>
-                    <Pressable
-                      onPress={() => confirmDelete(line)}
-                      accessibilityRole="button"
-                      style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-                    >
-                      <Text style={[styles.menuItemText, !canDeleteLine(user, line) && styles.menuItemDisabled]}>{t('cart.delete')}</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
 
                 <View style={styles.badges}>
                   {pending > 0 ? <Badge tone="outline" text={`◌ ${t('customize.pending')} ${pending}`} /> : null}
@@ -317,9 +305,39 @@ export function CartDrawer({
           </View>
         </View>
       </Animated.View>
+
+      {menu ? (
+        <View style={StyleSheet.absoluteFill}>
+          <Pressable style={styles.fill} onPress={() => setMenu(null)} accessibilityLabel={t('common.close')} />
+          <View
+            style={[
+              styles.menu,
+              {
+                left: Math.max(space.sm, Math.min(menu.x - MENU_WIDTH + 18, width - MENU_WIDTH - space.sm)),
+                top: menu.y + 16 + MENU_HEIGHT > windowHeight - space.lg ? menu.y - MENU_HEIGHT - 12 : menu.y + 16,
+              },
+            ]}
+          >
+            <Text style={styles.menuTitle}>{t('cart.actions')}</Text>
+            <View style={styles.menuDivider} />
+            <Pressable
+              onPress={() => confirmDelete(menu.line)}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+            >
+              <Text style={[styles.menuItemText, styles.menuDelete, !canDeleteLine(user, menu.line) && styles.menuItemDisabled]}>
+                🗑  {t('cart.delete')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
     </Modal>
   );
 }
+
+const MENU_WIDTH = 190;
+const MENU_HEIGHT = 92;
 
 function ActionButton({
   label,
@@ -394,7 +412,6 @@ const styles = StyleSheet.create({
   empty: { textAlign: 'center', paddingVertical: space.xl },
   list: { padding: space.lg, gap: space.md },
   line: { gap: space.sm, paddingBottom: space.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  lineRaised: { zIndex: 10, elevation: 10 },
   lineTop: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
   pressed: { opacity: 0.6 },
   thumb: { width: 48, height: 48, borderRadius: radius.md, backgroundColor: colors.muted },
@@ -418,27 +435,27 @@ const styles = StyleSheet.create({
   dots: { paddingHorizontal: 4 },
   dotsText: { fontSize: 20, lineHeight: 20, color: colors.foreground, fontWeight: '700' },
   lineTotal: { fontSize: font.body, fontWeight: '700', color: colors.foreground },
+  dotsPressed: { opacity: 0.4 },
   menu: {
     position: 'absolute',
-    top: 30,
-    right: 0,
-    minWidth: 150,
+    width: MENU_WIDTH,
     paddingVertical: space.xs,
     backgroundColor: colors.background,
     borderRadius: radius.md,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-    elevation: 12,
-    zIndex: 20,
+    elevation: 6,
     shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
-  menuTitle: { fontSize: font.small, fontWeight: '600', color: colors.foreground, paddingHorizontal: space.md, paddingVertical: space.sm },
-  menuItem: { paddingHorizontal: space.md, paddingVertical: space.sm },
+  menuTitle: { fontSize: 12, fontWeight: '600', color: colors.mutedForeground, paddingHorizontal: space.md, paddingVertical: 6 },
+  menuDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginHorizontal: space.sm },
+  menuItem: { paddingHorizontal: space.md, paddingVertical: space.md },
   menuItemPressed: { backgroundColor: colors.muted },
   menuItemText: { fontSize: font.body, color: colors.foreground },
+  menuDelete: { color: colors.destructive, fontWeight: '600' },
   menuItemDisabled: { color: colors.mutedForeground },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   times: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.md, rowGap: 2 },
