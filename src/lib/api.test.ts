@@ -60,7 +60,7 @@ describe('login', () => {
   it('reports network problems separately', async () => {
     const { fn } = fakeFetch(() => new TypeError('Network request failed'));
     expect(await kindOf(api(fn).login('a', 'b'))).toBe('network');
-    expect(await kindOf(new KhPosApi('', () => null, fn).login('a', 'b'))).toBe('network');
+    expect(await kindOf(new KhPosApi('', () => null, fn).login('a', 'b'))).toBe('notConfigured');
   });
 });
 

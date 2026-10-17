@@ -33,6 +33,7 @@
     "logoutConfirm": "Log out of KH POS?"
   },
   "errors": {
+    "notConfigured": "The app has no KH POS server address. Set EXPO_PUBLIC_KHPOS_URL in .env.local, then restart Expo.",
     "network": "Can't reach the KH POS server. Check the Wi-Fi and the server address.",
     "invalidCredentials": "Wrong username or password.",
     "unauthorized": "Your login has expired. Please log in again.",

@@ -30,7 +30,7 @@ describe('translations', () => {
   });
 
   it('has a message for every API error kind', () => {
-    const kinds: ApiErrorKind[] = ['network', 'invalidCredentials', 'unauthorized', 'forbidden', 'server'];
+    const kinds: ApiErrorKind[] = ['notConfigured', 'network', 'invalidCredentials', 'unauthorized', 'forbidden', 'server'];
     for (const kind of kinds) expect({ kind, ok: !!enFlat[`errors.${kind}`] }).toEqual({ kind, ok: true });
   });
 });

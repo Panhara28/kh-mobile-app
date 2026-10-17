@@ -4,6 +4,7 @@
  */
 
 export type ApiErrorKind =
+  | 'notConfigured' // the app was started without EXPO_PUBLIC_KHPOS_URL
   | 'network' // no connection, wrong server address, timeout
   | 'invalidCredentials' // wrong username or password
   | 'unauthorized' // token no longer valid
@@ -73,7 +74,7 @@ export class KhPosApi {
   ) {}
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    if (!this.baseUrl) throw new ApiError('network', undefined, 'No server address (EXPO_PUBLIC_KHPOS_URL)');
+    if (!this.baseUrl) throw new ApiError('notConfigured', undefined, 'No server address (EXPO_PUBLIC_KHPOS_URL)');
     const headers: Record<string, string> = {};
     // kh-pos parses a body only when Content-Type is exactly "application/json", and fails on
     // GET requests that declare JSON without a body: send the header only with a body.
