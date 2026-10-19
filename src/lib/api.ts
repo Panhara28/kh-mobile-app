@@ -188,6 +188,7 @@ export interface CheckoutPayment {
 export interface PaymentMethod {
   method_id: string;
   method: string | null;
+  created_at?: string | null;
 }
 
 /** Shift of a cashier (GET /api/shift). */

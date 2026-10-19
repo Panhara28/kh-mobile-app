@@ -612,7 +612,8 @@
     "consignment": "Consignment"
   },
   "paymentMethods": {
-    "name": "Method name"
+    "name": "Method name",
+    "deleteAsk": "Are you sure you want to delete payment method {{name}}?"
   },
   "products": {
     "search": "Search products",

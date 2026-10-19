@@ -94,9 +94,3 @@ export const supplierBody = (f: SupplierForm, existing?: SupplierRow) => ({
   isConsignment: f.isConsignment,
 });
 
-// ---- payment methods ----
-
-export interface PaymentMethodForm {
-  method: string;
-  [key: string]: unknown;
-}
