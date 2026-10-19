@@ -62,6 +62,8 @@ function Navigator() {
         <Stack.Screen name="orders" />
         <Stack.Screen name="table-setup" />
         <Stack.Screen name="account" />
+        <Stack.Screen name="promotion-sets" />
+        <Stack.Screen name="promotion-set/[id]" />
         <Stack.Screen name="stock-counting" />
         <Stack.Screen name="replenishments" />
         <Stack.Screen name="replenishment/[id]" />
