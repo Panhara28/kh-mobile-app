@@ -35,7 +35,7 @@ export interface StaffUser {
   username: string;
   fullname: string | null;
   currentWarehouseId: string | null;
-  warehouse: { id: string; name: string } | null;
+  warehouse: { id: string; name: string; isMain?: boolean } | null;
   /** permissions: resource → "create,read,update" (null for roles without a list, e.g. OWNER). */
   role: { role: string; permissions?: Record<string, string | string[]> | null } | null;
 }
