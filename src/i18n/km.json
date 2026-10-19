@@ -307,7 +307,11 @@
     "products": "ផលិតផល",
     "account": "គណនីខ្ញុំ",
     "users": "អ្នកប្រើប្រាស់",
-    "branches": "សាខា"
+    "branches": "សាខា",
+    "settings": "ការកំណត់",
+    "stockMovements": "ចលនាស្តុក",
+    "returns": "ការប្រគល់មកវិញ",
+    "backlog": "ការកុម្ម៉ង់ជំពាក់"
   },
   "range": {
     "today": "ថ្ងៃនេះ",
@@ -560,5 +564,32 @@
     "changePassword": "ប្ដូរពាក្យសម្ងាត់",
     "oldPassword": "ពាក្យសម្ងាត់បច្ចុប្បន្ន",
     "oldRequired": "សូមបញ្ចូលពាក្យសម្ងាត់បច្ចុប្បន្នរបស់អ្នក។"
+  },
+  "settings": {
+    "value": "តម្លៃ"
+  },
+  "stock": {
+    "empty": "គ្មានចលនាស្តុកទេ។",
+    "type_SALE": "លក់",
+    "type_PURCHASE": "ទិញ",
+    "type_STOCK_IN": "ស្តុកចូល",
+    "type_STOCK_OUT": "ស្តុកចេញ",
+    "type_ADJUSTMENT_IN": "កែតម្រូវចូល",
+    "type_ADJUSTMENT_OUT": "កែតម្រូវចេញ",
+    "type_REPLENISHMENT": "បំពេញស្តុកចូល",
+    "type_REPLENISHMENT_OUT": "បំពេញស្តុកចេញ",
+    "type_TRANSFER_IN": "ផ្ទេរចូល",
+    "type_TRANSFER_OUT": "ផ្ទេរចេញ",
+    "type_DAMAGE": "ខូចខាត",
+    "type_RETURN": "ប្រគល់មកវិញ"
+  },
+  "returns": {
+    "waiting": "រង់ចាំដាក់ចូលស្តុក",
+    "inStock": "ត្រឡប់ចូលស្តុកវិញ",
+    "stockIn": "ដាក់ត្រឡប់ចូលស្តុក",
+    "stockInConfirm": "ដាក់មុខទំនិញទាំងនេះត្រឡប់ចូលស្តុកឬ?"
+  },
+  "backlog": {
+    "resolve": "ដោះស្រាយ"
   }
 }

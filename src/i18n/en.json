@@ -307,7 +307,11 @@
     "products": "Products",
     "account": "My account",
     "users": "Users",
-    "branches": "Branches"
+    "branches": "Branches",
+    "settings": "Settings",
+    "stockMovements": "Stock movements",
+    "returns": "Returns",
+    "backlog": "Backlog"
   },
   "range": {
     "today": "Today",
@@ -560,5 +564,32 @@
     "changePassword": "Change password",
     "oldPassword": "Current password",
     "oldRequired": "Enter your current password."
+  },
+  "settings": {
+    "value": "Value"
+  },
+  "stock": {
+    "empty": "No stock movements.",
+    "type_SALE": "Sale",
+    "type_PURCHASE": "Purchase",
+    "type_STOCK_IN": "Stock in",
+    "type_STOCK_OUT": "Stock out",
+    "type_ADJUSTMENT_IN": "Adjustment in",
+    "type_ADJUSTMENT_OUT": "Adjustment out",
+    "type_REPLENISHMENT": "Replenishment in",
+    "type_REPLENISHMENT_OUT": "Replenishment out",
+    "type_TRANSFER_IN": "Transfer in",
+    "type_TRANSFER_OUT": "Transfer out",
+    "type_DAMAGE": "Damage",
+    "type_RETURN": "Return"
+  },
+  "returns": {
+    "waiting": "Waiting for stock",
+    "inStock": "Back in stock",
+    "stockIn": "Put back in stock",
+    "stockInConfirm": "Put these items back in stock?"
+  },
+  "backlog": {
+    "resolve": "Resolve"
   }
 }
