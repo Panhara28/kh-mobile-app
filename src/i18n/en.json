@@ -318,7 +318,8 @@
     "stockCounting": "Stock counting",
     "promotionSets": "Promotion sets",
     "roles": "Roles and access",
-    "retail": "Retail POS"
+    "retail": "Retail POS",
+    "production": "Production"
   },
   "range": {
     "today": "Today",
@@ -755,5 +756,21 @@
     "scanHint": "Point at a barcode. In the cart: {{count}}",
     "done": "Done",
     "paid": "Paid. The receipt could not be loaded."
+  },
+  "production": {
+    "pickProduct": "Choose the product to make",
+    "qty": "How many to make",
+    "plan": "Check the recipe",
+    "needHave": "Needed / in stock",
+    "intoSlot": "Put the result in slot",
+    "make": "Make",
+    "done": "Produced.",
+    "short": "Not enough stock for the recipe. You can make up to {{max}}.",
+    "error_product": "Choose a product.",
+    "error_qty": "Enter how many to make (at least 1).",
+    "error_slot": "Choose the slot for the result.",
+    "error_parts": "Check the recipe first.",
+    "error_short": "Some components are short on stock.",
+    "error_lots": "Some components have stock without a lot number, which this branch does not allow."
   }
 }
