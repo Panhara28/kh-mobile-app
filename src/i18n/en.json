@@ -328,7 +328,8 @@
     "pricingTemplates": "Cinema pricing",
     "settlement": "Producer settlement",
     "tableLayout": "Table floor plan",
-    "ticketSale": "Sell cinema tickets"
+    "ticketSale": "Sell cinema tickets",
+    "halls": "Cinema halls"
   },
   "range": {
     "today": "Today",
@@ -890,5 +891,30 @@
     "seatsLeft": "{{count}} seats left",
     "screen": "SCREEN",
     "legend": "Yellow border: VIP. Blue border: couple (two seats). Grey: taken."
+  },
+  "halls": {
+    "empty": "No halls.",
+    "name": "Hall name",
+    "number": "Number",
+    "rows": "Rows (max {{max}})",
+    "columns": "Columns (max {{max}})",
+    "summary": "{{rows}} rows × {{columns}} columns · {{seats}} seats",
+    "status_active": "Active",
+    "status_maintenance": "Maintenance",
+    "status_inactive": "Inactive",
+    "brush": "Tap a seat to paint it with",
+    "fillAll": "Fill the room with standard seats",
+    "brush_standard": "Standard",
+    "brush_vip": "VIP",
+    "brush_couple": "Couple",
+    "brush_wheelchair": "Wheelchair",
+    "brush_blocked": "Blocked",
+    "brush_erase": "Erase",
+    "counts": "{{seats}} seats, {{usable}} usable",
+    "error_name": "Enter the hall name.",
+    "error_number": "The hall number must be at least 1.",
+    "error_rows": "Rows must be from 1 to 26.",
+    "error_columns": "Columns must be from 1 to 40.",
+    "error_seats": "Add at least one seat."
   }
 }

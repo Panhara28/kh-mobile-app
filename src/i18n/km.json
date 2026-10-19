@@ -328,7 +328,8 @@
     "pricingTemplates": "តម្លៃសំបុត្រកុន",
     "settlement": "ការទូទាត់ជូនអ្នកផលិត",
     "tableLayout": "ផែនទីតុ",
-    "ticketSale": "លក់សំបុត្រកុន"
+    "ticketSale": "លក់សំបុត្រកុន",
+    "halls": "សាលមើលកុន"
   },
   "range": {
     "today": "ថ្ងៃនេះ",
@@ -890,5 +891,30 @@
     "seatsLeft": "នៅសល់កៅអី {{count}}",
     "screen": "អេក្រង់",
     "legend": "ស៊ុមលឿង៖ VIP។ ស៊ុមខៀវ៖ គូ (កៅអីពីរ)។ ប្រផះ៖ ត្រូវបានយក។"
+  },
+  "halls": {
+    "empty": "គ្មានសាលទេ។",
+    "name": "ឈ្មោះសាល",
+    "number": "លេខ",
+    "rows": "ជួរដេក (អតិបរមា {{max}})",
+    "columns": "ជួរឈរ (អតិបរមា {{max}})",
+    "summary": "{{rows}} ជួរដេក × {{columns}} ជួរឈរ · {{seats}} កៅអី",
+    "status_active": "សកម្ម",
+    "status_maintenance": "កំពុងថែទាំ",
+    "status_inactive": "មិនសកម្ម",
+    "brush": "ចុចកៅអីដើម្បីលាបជាមួយ",
+    "fillAll": "បំពេញសាលដោយកៅអីធម្មតា",
+    "brush_standard": "ធម្មតា",
+    "brush_vip": "VIP",
+    "brush_couple": "គូ",
+    "brush_wheelchair": "រទេះរុញ",
+    "brush_blocked": "បិទ",
+    "brush_erase": "លុប",
+    "counts": "កៅអី {{seats}}, ប្រើបាន {{usable}}",
+    "error_name": "សូមបញ្ចូលឈ្មោះសាល។",
+    "error_number": "លេខសាលត្រូវមានយ៉ាងតិច 1។",
+    "error_rows": "ជួរដេកត្រូវនៅចន្លោះ 1 ដល់ 26។",
+    "error_columns": "ជួរឈរត្រូវនៅចន្លោះ 1 ដល់ 40។",
+    "error_seats": "សូមបន្ថែមកៅអីយ៉ាងហោចណាស់មួយ។"
   }
 }
