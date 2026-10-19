@@ -326,7 +326,8 @@
     "showtimes": "Showtimes",
     "tickets": "Cinema tickets",
     "pricingTemplates": "Cinema pricing",
-    "settlement": "Producer settlement"
+    "settlement": "Producer settlement",
+    "tableLayout": "Table floor plan"
   },
   "range": {
     "today": "Today",
@@ -874,5 +875,13 @@
     "viewProof": "View proof",
     "proofCamera": "Photo of proof",
     "proofLibrary": "Pick a photo"
+  },
+  "layout": {
+    "hint": "Drag each table to where it stands, then Save.",
+    "readOnly": "The floor plan of your tables.",
+    "saved": "Floor plan saved.",
+    "reset": "Reset",
+    "discard": "Undo",
+    "resetConfirm": "Clear every saved table position?"
   }
 }

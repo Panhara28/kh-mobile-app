@@ -265,6 +265,9 @@ export interface RestaurantTable {
   /** Comma separated features ("window, quiet"). */
   special_features?: string | null;
   addional_notes?: string | null;
+  /** Floor plan position (text), when one was saved. */
+  position_x?: string | null;
+  position_y?: string | null;
   /** App only: changes made on this phone that kh-pos hasn't received yet. */
   pendingSync?: number;
 }
