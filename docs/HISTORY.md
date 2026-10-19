@@ -102,7 +102,7 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 | Replenishment picking list | `4ad7d40` | Shows slot and lot per item; the sender checks lots by tapping or typing the lot number |
 | Permissions | `f0d5cb2` | A resource missing from the role means no access (as the web middleware does); view-only counts as read |
 | Product groups | `ecd4232` | Name, branches and products of a group; add, edit, delete |
-| Products, 100% of the web module | (this commit) | The full Add/Edit form and the full Product page; see [PRODUCTS.md](PRODUCTS.md) |
+| Products, 100% of the web module | `029e7a4` | The full Add/Edit form and the full Product page; see [PRODUCTS.md](PRODUCTS.md) |
 
 **Offline, per module.** Ordering at tables (including checkout, shifts, discounts, order type) works offline and is sent later, as above. Every other module **reads** from the saved copy offline and **needs the server to save**: it says so instead of failing. Retail POS and cinema ticket sale need the server to charge, because the stock, the seats taken and the invoice number come from kh-pos.
 
