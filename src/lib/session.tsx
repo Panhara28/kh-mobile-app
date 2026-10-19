@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError, KhPosApi, type StaffUser } from './api';
 import { KHPOS_URL } from './config';
+import { loadDevice } from './device';
 import { getStore } from './offline/store';
 import { normalizeUsername, OfflineLogin, rememberLogin } from './offline-login';
 import { SecureStoreVault } from './secure-vault';
@@ -91,6 +92,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore
     }
+  }, []);
+
+  // The device id and name go with every request from the start (the web sends them the same way).
+  useEffect(() => {
+    void loadDevice();
   }, []);
 
   // Restore a saved session.
