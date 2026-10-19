@@ -127,6 +127,6 @@ const styles = StyleSheet.create({
   itemText: { flex: 1, gap: 2 },
   itemTitle: { fontSize: font.body, fontWeight: '700', color: colors.foreground },
   chevron: { fontSize: 24, color: colors.mutedForeground },
-  editorCard: { gap: space.md },
+  editorCard: { gap: space.md, padding: space.lg },
   scopeRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap' },
 });

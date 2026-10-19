@@ -44,7 +44,7 @@ import {
 } from '@/lib/settings-general';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import { useSession } from '@/lib/session';
-import { Button, Card, Chip, Field } from '@/ui/components';
+import { Button, Chip, Field } from '@/ui/components';
 import { uploadBase64 } from '@/ui/product-form/images-section';
 import { colors, font, radius, space } from '@/ui/theme';
 
@@ -57,6 +57,11 @@ export interface EditorProps {
 }
 
 // ---------- small pieces ----------
+
+/** A bordered group inside the setting's card, with room around its content. */
+function Card({ children }: { children: ReactNode }) {
+  return <View style={styles.box}>{children}</View>;
+}
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -650,6 +655,7 @@ export function renderEditor(type: SettingType, p: EditorProps): ReactNode {
 }
 
 const styles = StyleSheet.create({
+  box: { padding: space.md, gap: space.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.page },
   stack: { gap: space.md },
   block: { gap: space.xs },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md, paddingVertical: space.xs },
