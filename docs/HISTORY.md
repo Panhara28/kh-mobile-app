@@ -101,7 +101,7 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 | Manual ticket upload | `00ec928` | Record tickets sold outside the system per movie, hall, day and show time |
 | Replenishment picking list | `4ad7d40` | Shows slot and lot per item; the sender checks lots by tapping or typing the lot number |
 | Permissions | `f0d5cb2` | A resource missing from the role means no access (as the web middleware does); view-only counts as read |
-| Product groups | (this commit) | Name, branches and products of a group; add, edit, delete |
+| Product groups | `ecd4232` | Name, branches and products of a group; add, edit, delete |
 
 **Offline, per module.** Ordering at tables (including checkout, shifts, discounts, order type) works offline and is sent later, as above. Every other module **reads** from the saved copy offline and **needs the server to save**: it says so instead of failing. Retail POS and cinema ticket sale need the server to charge, because the stock, the seats taken and the invoice number come from kh-pos.
 
