@@ -35,6 +35,12 @@
       "expo-status-bar",
       "expo-sqlite",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "KH POS uses the camera to scan product barcodes."
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "KH POS uses your photos to add pictures to products.",

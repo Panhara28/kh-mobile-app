@@ -317,7 +317,8 @@
     "replenishment": "Replenishment",
     "stockCounting": "Stock counting",
     "promotionSets": "Promotion sets",
-    "roles": "Roles and access"
+    "roles": "Roles and access",
+    "retail": "Retail POS"
   },
   "range": {
     "today": "Today",
@@ -742,5 +743,17 @@
     "error_name": "Enter a role name.",
     "error_long": "The role name can be 50 characters at most.",
     "error_none": "Give the role access to at least one area."
+  },
+  "retail": {
+    "search": "Search or type a barcode",
+    "scan": "Scan",
+    "notFound": "No product with barcode {{code}}.",
+    "cameraDenied": "Allow the camera to scan barcodes.",
+    "items": "{{count}} items",
+    "clear": "Clear",
+    "charge": "Charge",
+    "scanHint": "Point at a barcode. In the cart: {{count}}",
+    "done": "Done",
+    "paid": "Paid. The receipt could not be loaded."
   }
 }
