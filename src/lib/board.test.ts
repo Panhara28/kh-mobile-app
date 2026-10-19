@@ -1,4 +1,4 @@
-import { boardRows, localTotal, parseAmount } from './board';
+import { boardRows, branchSaleQuery, localTotal, parseAmount } from './board';
 
 const w = (id: string, name: string, total: string, isMain = false) => ({ warehouse_id: id, total_amount: total, warehouse: { id, name, isMain } });
 
@@ -34,5 +34,21 @@ describe('the board rows', () => {
   it('copes with nothing', () => {
     expect(boardRows(null)).toEqual({ rows: [], unreachable: [] });
     expect(boardRows({}).rows).toEqual([]);
+  });
+});
+
+describe('a branch sale report', () => {
+  it('asks for this branch, or the integrated brand', () => {
+    const own = branchSaleQuery({ warehouseId: 'w1', start: '2026-10-01 00:00:00', end: '2026-10-31 23:59:59' });
+    expect(own.startsWith('/api/report/sale-by-category?')).toBe(true);
+    expect(own).toContain('warehouseId=w1');
+    expect(own).toContain('groupBy=product');
+    expect(own).not.toContain('brandName');
+    const brand = branchSaleQuery({ warehouseId: 'x1', brandName: 'Brand X', start: 'a', end: 'b' });
+    expect(brand.startsWith('/api/report/sale-by-category/integrate?')).toBe(true);
+    expect(brand).toContain('brandName=Brand+X');
+  });
+  it('keeps each row\u2019s branch id', () => {
+    expect(boardRows({ local: [w('a', 'A', '$1')] }).rows[0]!.warehouseId).toBe('a');
   });
 });

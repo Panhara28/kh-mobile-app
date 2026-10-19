@@ -1,6 +1,7 @@
+import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { boardRows, localTotal, type BoardResult } from '@/lib/board';
 import { rangeFor, type DateRange } from '@/lib/dates';
@@ -31,6 +32,7 @@ export default function BoardScreen() {
 }
 
 function Body({ range }: { range: DateRange }) {
+  const open = (r: { warehouseId: string; name: string; brand: string }) => router.push({ pathname: '/board-sale', params: { warehouseId: r.warehouseId, name: r.name, brand: r.brand, start: range.start, end: range.end } });
   const { t } = useTranslation();
   const { api } = useSession();
   const { currency } = useBranch();
@@ -53,6 +55,11 @@ function Body({ range }: { range: DateRange }) {
           <Card style={styles.card}>
             <Text style={styles.section}>{t('board.local')}</Text>
             <BarList rows={bar(local)} format={(v) => local.find((r) => r.value === v)?.text ?? String(v)} />
+            {local.map((r) => (
+              <Pressable key={r.key} onPress={() => open(r)} accessibilityRole="button" style={({ pressed }) => [styles.open, pressed && styles.pressed]}>
+                <Text style={styles.openText}>{`${r.name} ›`}</Text>
+              </Pressable>
+            ))}
             <View style={styles.row}>
               <Text style={styles.total}>{t('board.total')}</Text>
               <Text style={styles.total}>{formatMoney(localTotal(rows), currency)}</Text>
@@ -65,6 +72,11 @@ function Body({ range }: { range: DateRange }) {
             <Card key={b} style={styles.card}>
               <Text style={styles.section}>{b}</Text>
               <BarList rows={bar(list)} tone="success" format={(v) => list.find((r) => r.value === v)?.text ?? String(v)} />
+              {list.map((r) => (
+                <Pressable key={r.key} onPress={() => open(r)} accessibilityRole="button" style={({ pressed }) => [styles.open, pressed && styles.pressed]}>
+                  <Text style={styles.openText}>{`${r.name} ›`}</Text>
+                </Pressable>
+              ))}
             </Card>
           );
         })}
@@ -87,5 +99,8 @@ const styles = StyleSheet.create({
   card: { padding: space.md, gap: space.sm, borderRadius: radius.lg },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
   section: { fontSize: font.small, fontWeight: '700', color: colors.mutedForeground, textTransform: 'uppercase' },
+  open: { paddingVertical: space.xs },
+  openText: { fontSize: font.small, color: colors.primary },
+  pressed: { opacity: 0.6 },
   total: { fontSize: font.body, fontWeight: '700', color: colors.foreground },
 });

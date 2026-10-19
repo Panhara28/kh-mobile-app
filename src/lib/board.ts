@@ -14,6 +14,7 @@ export interface BoardResult {
 
 export interface BoardRow {
   key: string;
+  warehouseId: string;
   name: string;
   brand: string;
   isMain: boolean;
@@ -32,7 +33,7 @@ export function parseAmount(text: string | null | undefined): number {
 
 /** Local branches first, then each brand's branches, each group biggest sale first. */
 export function boardRows(result: BoardResult | null | undefined): { rows: BoardRow[]; unreachable: string[] } {
-  const toRow = (w: BoardWarehouse, brand: string): BoardRow => ({ key: `${brand}:${w.warehouse_id}`, name: w.warehouse?.name ?? '?', brand, isMain: !!w.warehouse?.isMain, text: w.total_amount, value: parseAmount(w.total_amount) });
+  const toRow = (w: BoardWarehouse, brand: string): BoardRow => ({ key: `${brand}:${w.warehouse_id}`, warehouseId: w.warehouse_id, name: w.warehouse?.name ?? '?', brand, isMain: !!w.warehouse?.isMain, text: w.total_amount, value: parseAmount(w.total_amount) });
   const byValue = (a: BoardRow, b: BoardRow) => b.value - a.value;
   const rows = (result?.local ?? []).map((w) => toRow(w, '')).sort(byValue);
   const unreachable: string[] = [];
@@ -44,6 +45,13 @@ export function boardRows(result: BoardResult | null | undefined): { rows: Board
     rows.push(...g.data.map((w) => toRow(w, g.name)).sort(byValue));
   }
   return { rows, unreachable };
+}
+
+/** The branch's sales by category: this branch's own report, or the integrated brand's (GET /api/report/sale-by-category[/integrate]). */
+export function branchSaleQuery(p: { warehouseId: string; brandName?: string; start: string; end: string }): string {
+  const q = new URLSearchParams({ startDate: p.start, endDate: p.end, warehouseId: p.warehouseId, groupBy: 'product' });
+  if (p.brandName) q.set('brandName', p.brandName);
+  return `${p.brandName ? '/api/report/sale-by-category/integrate' : '/api/report/sale-by-category'}?${q.toString()}`;
 }
 
 /** The sum of the local branches (brands may use another currency, so they are not added in). */
