@@ -39,49 +39,6 @@ export interface CategoryRow {
   printer?: { name?: string | null } | null;
 }
 
-export interface CategoryForm {
-  title: string;
-  description: string;
-  parentId: string;
-  printerId: string;
-  sortOrder: number;
-  excludeFeeDelivery: boolean;
-  markExtraFee: number;
-  [key: string]: unknown;
-}
-
-export const emptyCategory = (): CategoryForm => ({ title: '', description: '', parentId: '', printerId: '', sortOrder: 0, excludeFeeDelivery: false, markExtraFee: 0 });
-
-export const categoryForm = (r: CategoryRow): CategoryForm => ({
-  title: r.title,
-  description: text(r.description),
-  parentId: text(r.parentId),
-  printerId: text(r.printerId),
-  sortOrder: num(r.sortOrder),
-  excludeFeeDelivery: !!r.excludeFeeDelivery,
-  markExtraFee: num(r.markExtraFee),
-});
-
-/** The body kh-pos wants; a picture already on the category is kept as it is. */
-export function categoryBody(f: CategoryForm, existing?: CategoryRow) {
-  return {
-    ...(existing ? { id: existing.id } : {}),
-    title: f.title.trim(),
-    description: f.description.trim(),
-    imageUrl: existing?.imageUrl ?? null,
-    parentId: f.parentId || null,
-    printerId: f.printerId || null,
-    sortOrder: Math.max(0, Math.floor(f.sortOrder)),
-    excludeFeeDelivery: f.excludeFeeDelivery,
-    markExtraFee: f.markExtraFee,
-  };
-}
-
-/** A category can't be its own parent (nor one of its children, which the list can't show here). */
-export function parentOptions(rows: CategoryRow[], selfId: string | null, noneLabel: string): Option[] {
-  return [{ value: '', label: noneLabel }, ...rows.filter((r) => r.id !== selfId).map((r) => ({ value: r.id, label: r.title }))];
-}
-
 // ---- modifiers ----
 
 export interface ModifierRow {

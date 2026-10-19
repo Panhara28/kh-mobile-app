@@ -1,4 +1,4 @@
-import { categoryBody, categoryForm, discountBody, discountForm, emptyDiscount, fetchAllPages, modifierBody, parentOptions, parseModifierItems, supplierBody, supplierForm, validateDiscount, type CategoryRow, type ModifierRow } from './catalog';
+import { discountBody, discountForm, emptyDiscount, fetchAllPages, modifierBody, parseModifierItems, supplierBody, supplierForm, validateDiscount, type ModifierRow } from './catalog';
 
 describe('paging', () => {
   it('reads every page until the total is reached', async () => {
@@ -14,36 +14,6 @@ describe('paging', () => {
   it('stops on an empty page, and on a short one', async () => {
     expect(await fetchAllPages(async () => ({ data: [], total: 999 }))).toEqual([]);
     expect(await fetchAllPages(async () => ({ data: [1, 2], total: 999 }))).toEqual([1, 2]);
-  });
-});
-
-describe('categories', () => {
-  const row: CategoryRow = { id: 'c1', title: 'Food', description: null, imageUrl: '/img.png', parentId: null, printerId: 'p1', sortOrder: 2, excludeFeeDelivery: true, markExtraFee: 0.5 };
-  it('round-trips a category and keeps its picture', () => {
-    const f = categoryForm(row);
-    expect(f).toMatchObject({ title: 'Food', description: '', parentId: '', printerId: 'p1', sortOrder: 2, excludeFeeDelivery: true, markExtraFee: 0.5 });
-    expect(categoryBody({ ...f, title: ' Food ', parentId: '' }, row)).toEqual({
-      id: 'c1',
-      title: 'Food',
-      description: '',
-      imageUrl: '/img.png',
-      parentId: null,
-      printerId: 'p1',
-      sortOrder: 2,
-      excludeFeeDelivery: true,
-      markExtraFee: 0.5,
-    });
-  });
-  it('a new category has no id and no picture', () => {
-    const body = categoryBody(categoryForm({ id: 'x', title: 'T' }));
-    expect(body).not.toHaveProperty('id');
-    expect(body.imageUrl).toBeNull();
-  });
-  it('offers every category except itself as a parent', () => {
-    expect(parentOptions([{ id: 'a', title: 'A' }, { id: 'b', title: 'B' }], 'a', 'None')).toEqual([
-      { value: '', label: 'None' },
-      { value: 'b', label: 'B' },
-    ]);
   });
 });
 
