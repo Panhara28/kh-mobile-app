@@ -1,4 +1,5 @@
-import type { MenuProduct, ModifierItem } from '../api';
+import type { CheckoutPayment, MenuProduct, ModifierItem } from '../api';
+import type { Receipt } from '../receipt';
 
 /**
  * Offline support, in short:
@@ -26,7 +27,11 @@ export type CommandKind =
   | 'setOption'
   | 'setDiscount'
   | 'setPromotion'
-  | 'resend';
+  | 'resend'
+  // Shift and checkout
+  | 'openShift'
+  | 'closeShift'
+  | 'checkout';
 
 /** The dish fields a replay needs (trimmed copy of the menu row). */
 export type ProductSnapshot = Pick<MenuProduct, 'productId' | 'variantId' | 'productTitle' | 'price' | 'discountedPrice'>;
@@ -113,6 +118,26 @@ export interface ResendPayload {
   qty: number;
 }
 
+export interface OpenShiftPayload {
+  openedCashUsd: number;
+  openedCashKhr: number;
+  exchangeRate: number;
+}
+
+/** Closes the cashier's open shift (found when it is sent, as it may have been opened offline too). */
+export interface CloseShiftPayload {
+  actualCashUsd: number;
+  actualCashKhr: number;
+}
+
+/** Pays and completes a table's order. */
+export interface CheckoutCommandPayload {
+  payments: CheckoutPayment[];
+  warehouseId: string;
+  /** Kept so a receipt can be shown for a payment that has not reached kh-pos yet. */
+  receipt: Receipt;
+}
+
 export type CommandPayload = {
   addLine: AddLinePayload;
   setPending: SetPendingPayload;
@@ -127,6 +152,9 @@ export type CommandPayload = {
   setDiscount: SetDiscountPayload;
   setPromotion: SetPromotionPayload;
   resend: ResendPayload;
+  openShift: OpenShiftPayload;
+  closeShift: CloseShiftPayload;
+  checkout: CheckoutCommandPayload;
 };
 
 export interface OutboxCommand<K extends CommandKind = CommandKind> {

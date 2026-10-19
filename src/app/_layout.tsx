@@ -57,6 +57,8 @@ function Navigator() {
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="tables" />
         <Stack.Screen name="table/[id]" />
+        <Stack.Screen name="more" />
+        <Stack.Screen name="shift" />
       </Stack.Protected>
     </Stack>
   );

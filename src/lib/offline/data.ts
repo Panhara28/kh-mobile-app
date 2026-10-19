@@ -1,4 +1,4 @@
-import { ApiError, type Category, type KhPosApi, type MenuProduct, type MenuQuery, type PosInfo, type PromotionOption, type RestaurantTable, type Setting } from '../api';
+import { ApiError, type Category, type KhPosApi, type MenuProduct, type MenuQuery, type PaymentMethod, type PosInfo, type PromotionOption, type RestaurantTable, type Setting, type Shift } from '../api';
 import { filterMenu } from './menu-local';
 import type { LocalStore } from './types';
 
@@ -101,7 +101,7 @@ export class OfflineData {
    * effort and quiet; called when the app starts, comes back, or kh-pos becomes reachable again.
    */
   async warm(warehouseId: string): Promise<void> {
-    await Promise.allSettled([this.tables(), this.categories(warehouseId), this.settings(warehouseId), this.refreshMenu(warehouseId)]);
+    await Promise.allSettled([this.tables(), this.categories(warehouseId), this.settings(warehouseId), this.paymentMethods(), this.posInfo(warehouseId), this.refreshMenu(warehouseId)]);
   }
 
   tables(): Promise<Loaded<RestaurantTable[]>> {
@@ -141,6 +141,23 @@ export class OfflineData {
 
   settings(warehouseId: string): Promise<Loaded<Setting[]>> {
     return this.read(this.key('settings'), () => this.api.settings(warehouseId));
+  }
+
+  /**
+   * Any read, saved when it works and served from the saved copy when kh-pos can't be reached.
+   * For the modules (orders, reports, stock, ...): `name` and `extra` make the saved key, per branch.
+   */
+  cachedRead<T>(name: string, extra: string, fetcher: () => Promise<T>): Promise<Loaded<T>> {
+    return this.read(this.key(name, extra), fetcher);
+  }
+
+  /** The cashier's recent shifts (their open one is among them). */
+  shifts(userId: string): Promise<Loaded<{ total: number; data: Shift[] }>> {
+    return this.read(this.key('shifts', userId), () => this.api.shifts({ openedBy: userId, limit: 30 }));
+  }
+
+  paymentMethods(): Promise<Loaded<PaymentMethod[]>> {
+    return this.read(this.key('paymentmethods'), () => this.api.paymentMethods());
   }
 
   /** Discounts that can be applied to a dish. Offline only for dishes whose list was loaded before. */

@@ -2,10 +2,13 @@ import { ApiError, type KhPosApi, type MenuProduct, type OrderLine } from '../ap
 import { addExtras, addToTable, kitchenMoves, mergeTarget, pendingQty, serveMoves, statusQty } from '../order';
 import type {
   AddLinePayload,
+  CheckoutCommandPayload,
+  CloseShiftPayload,
   CommandKind,
   LocalStore,
   MoveStatusPayload,
   NewCommand,
+  OpenShiftPayload,
   OutboxCommand,
   RemoveLinePayload,
   ResendPayload,
@@ -36,6 +39,10 @@ export type EngineApi = Pick<
   | 'addPromotion'
   | 'removePromotion'
   | 'resendToKitchen'
+  | 'shifts'
+  | 'openShift'
+  | 'closeShift'
+  | 'checkout'
   | 'removeLine'
   | 'setGuests'
   | 'sendToKitchen'
@@ -257,6 +264,12 @@ export class SyncEngine {
         );
       case 'setPromotion':
         return this.replayPromotion(cmd as OutboxCommand<'setPromotion'>);
+      case 'openShift':
+        return this.replayOpenShift(cmd as OutboxCommand<'openShift'>);
+      case 'closeShift':
+        return this.replayCloseShift(cmd as OutboxCommand<'closeShift'>);
+      case 'checkout':
+        return this.replayCheckout(cmd as OutboxCommand<'checkout'>);
       case 'resend':
         return this.replayOnLine(cmd as OutboxCommand<'resend'>, (_order, id, p: ResendPayload) => this.api.resendToKitchen(id, p.qty));
     }
@@ -322,6 +335,34 @@ export class SyncEngine {
       if (p.on && !has) await this.api.addModifier(orderId, { orderDetailId: id, modifierItemId: p.modifierItemId, price: p.price });
       else if (!p.on && has) await this.api.removeModifier(orderId, { orderDetailId: id, modifierItemId: p.modifierItemId });
     });
+  }
+
+  /** The cashier's own open shift on kh-pos now, if any. */
+  private async openShiftOf(userId: string) {
+    const { data } = await this.api.shifts({ openedBy: userId, limit: 10 });
+    return data.find((s) => s.status === 'OPEN' && s.opened_by?.id === userId) ?? null;
+  }
+
+  private async replayOpenShift(cmd: OutboxCommand<'openShift'>): Promise<void> {
+    const p: OpenShiftPayload = cmd.payload;
+    if (await this.openShiftOf(cmd.userId)) return; // already open (an earlier attempt got through)
+    await this.api.openShift(p);
+  }
+
+  private async replayCloseShift(cmd: OutboxCommand<'closeShift'>): Promise<void> {
+    const p: CloseShiftPayload = cmd.payload;
+    const shift = await this.openShiftOf(cmd.userId);
+    if (!shift) return; // already closed
+    await this.api.closeShift({ shiftId: shift.shift_id, actualCashUsd: p.actualCashUsd, actualCashKhr: p.actualCashKhr });
+  }
+
+  private async replayCheckout(cmd: OutboxCommand<'checkout'>): Promise<void> {
+    const p: CheckoutCommandPayload = cmd.payload;
+    const order = (await this.api.table(cmd.tableId)).order;
+    // No open order, or it is no longer a draft: it was already paid (an earlier attempt got through).
+    if (!order || (order.orderStatus && order.orderStatus !== 'DRAFT')) return;
+    this.posCache.posInfo ??= await this.api.posInfo(p.warehouseId);
+    await this.api.checkout(order.orderId, { slotId: this.posCache.posInfo.posSlotId, payments: p.payments });
   }
 
   private async replayPromotion(cmd: OutboxCommand<'setPromotion'>): Promise<void> {

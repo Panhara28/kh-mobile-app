@@ -219,6 +219,12 @@ export function applyOutbox(table: RestaurantTable, commands: OutboxCommand[]): 
         if (line) setPromotionLocal(line, c.payload as SetPromotionPayload);
         break;
       }
+      case 'checkout':
+        t.order = null;
+        t.status = 'cleaning';
+        break;
+      case 'openShift':
+      case 'closeShift':
       case 'resend':
         break; // nothing changes on the order itself; the ticket prints after it is sent
       case 'sendToKitchen': {

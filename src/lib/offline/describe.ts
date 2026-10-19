@@ -50,6 +50,12 @@ export function describeCommand(c: OutboxCommand): { key: string; params: Record
       return { key: 'offline.cmdSetDiscount', params: {} };
     case 'setPromotion':
       return { key: 'offline.cmdSetPromotion', params: {} };
+    case 'openShift':
+      return { key: 'offline.cmdOpenShift', params: {} };
+    case 'closeShift':
+      return { key: 'offline.cmdCloseShift', params: {} };
+    case 'checkout':
+      return { key: 'offline.cmdCheckout', params: {} };
     case 'resend':
       return { key: 'offline.cmdResend', params: { qty: (c.payload as ResendPayload).qty } };
   }

@@ -4,15 +4,21 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { MenuProduct, OrderLine, PosInfo, RestaurantTable } from '@/lib/api';
+import type { CheckoutPayment, MenuProduct, OrderLine, PaymentMethod, PosInfo, RestaurantTable } from '@/lib/api';
 import { applyOutbox } from '@/lib/offline/overlay';
 import { useOffline } from '@/lib/offline/provider';
 import type { CommandKind, CommandPayload, NewCommand } from '@/lib/offline/types';
-import { activeLines, addToTable, kitchenMoves, modifierNames, modifierPrice, orderCounts, serveMoves } from '@/lib/order';
+import { activeLines, addToTable, canCheckout, kitchenMoves, modifierNames, modifierPrice, orderCounts, serveMoves } from '@/lib/order';
+import { orderTotal } from '@/lib/payment';
+import { methodNames, receiptFromCheckout, receiptFromDetail, type Receipt } from '@/lib/receipt';
+import { toKhPosTime } from '@/lib/time';
+import { useShift } from '@/lib/use-shift';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button } from '@/ui/components';
 import { CartDrawer } from '@/ui/cart-drawer';
+import { CheckoutSheet } from '@/ui/checkout-sheet';
+import { ReceiptSheet } from '@/ui/receipt-sheet';
 import { CustomizeLine, type LineApi } from '@/ui/customize-line';
 import { MenuBrowser } from '@/ui/menu-browser';
 import { ProductSheet, type ProductChoice } from '@/ui/product-sheet';
@@ -36,7 +42,8 @@ export default function TableScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api, user } = useSession();
   const { data, engine, state } = useOffline();
-  const { warehouseId, currency, capEnabled } = useBranch();
+  const { warehouseId, currency, capEnabled, exchangeRate } = useBranch();
+  const { shift, reload: reloadShift } = useShift();
 
   /** The table as kh-pos (or the saved copy) has it; changes waiting to be sent are added on top. */
   const [saved, setSaved] = useState<RestaurantTable | null>(null);
@@ -47,6 +54,9 @@ export default function TableScreen() {
   /** Cart line open in "Customize Your Order". */
   const [openLineId, setOpenLineId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [methods, setMethods] = useState<PaymentMethod[]>([]);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [products, setProducts] = useState<MenuProduct[]>([]);
   /** Taps queued but not yet saved, per variant: shown at once on the badges. */
   const [queued, setQueued] = useState<Map<string, number>>(new Map());
@@ -64,7 +74,10 @@ export default function TableScreen() {
     } catch (e) {
       setLoadError(e);
     }
-  }, [data, id]);
+    // payment methods and the shift are needed for checkout (saved copies when offline)
+    data.paymentMethods().then((r) => setMethods(r.data), () => undefined);
+    void reloadShift();
+  }, [data, id, reloadShift]);
 
   // Reload when the screen is shown, when changes were sent to kh-pos, or when kh-pos is back.
   const { syncVersion, online } = state;
@@ -190,6 +203,75 @@ export default function TableScreen() {
     const orderId = table?.order?.orderId;
     if (!orderId) return;
     void submit(command('removeLine', { orderDetailId: line.orderDetailId }), () => api.removeLine(orderId, line.orderDetailId));
+  }
+
+  /** Opens the payment screen after the web's checks: an open shift, everything served, stock in the POS slot. */
+  async function startCheckout() {
+    const order = table?.order;
+    if (!order) return;
+    if (!shift) {
+      Alert.alert(t('checkout.noShift'), undefined, [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('checkout.openShift'), onPress: () => router.push('/shift') },
+      ]);
+      return;
+    }
+    if (!canCheckout(order)) {
+      Alert.alert(t('checkout.notServed'));
+      return;
+    }
+    if (engine.getState().online && !order.localOnly) {
+      try {
+        const need = (await api.stockToTransfer(activeLines(order).map((l) => ({ variantId: l.variantId, toFindQty: Number(l.qty) })))).filter((x) => x.slot && x.slot.posSlot === false);
+        if (need.length > 0) {
+          Alert.alert(t('checkout.needStock'), undefined, [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('checkout.tryAnyway'), onPress: () => setCheckoutOpen(true) },
+          ]);
+          return;
+        }
+      } catch {
+        // the check is a courtesy: if it can't be made, kh-pos still refuses a payment it can't fulfil
+      }
+    }
+    setCheckoutOpen(true);
+  }
+
+  /** Pays the order: done at once when kh-pos can be reached, otherwise kept and sent later. */
+  async function completeCheckout(payments: CheckoutPayment[]) {
+    const order = table?.order;
+    if (!order || !table) return;
+    const total = orderTotal(activeLines(order));
+    const base = receiptFromCheckout({
+      order,
+      tableName: table.table_name,
+      cashier: user?.fullname || user?.username || null,
+      names,
+      methods: methodNames(methods),
+      payments,
+      total,
+      exchangeRate,
+      currency,
+      paidAt: toKhPosTime(new Date()),
+      offline: false,
+    });
+    const orderId = order.orderId;
+    const result = await submit(command('checkout', { payments, warehouseId, receipt: { ...base, offline: true } }), async () => {
+      const slot = (await data.posInfo(warehouseId)).data;
+      await api.checkout(orderId, { slotId: slot.posSlotId, payments });
+    });
+    if (!result) return;
+    setCheckoutOpen(false);
+    if (result === 'queued') {
+      Alert.alert(t('checkout.savedOffline'));
+      setReceipt({ ...base, offline: true });
+      return;
+    }
+    try {
+      setReceipt(receiptFromDetail(await api.orderDetail(orderId), { names, methods: methodNames(methods), exchangeRate, currency }));
+    } catch {
+      setReceipt(base); // paid, but kh-pos' copy couldn't be read: show what was paid
+    }
   }
 
   async function resend(line: OrderLine, qty: number) {
@@ -368,8 +450,30 @@ export default function TableScreen() {
         onResend={(line, qty) => void resend(line, qty)}
         onSend={() => void send()}
         onServeAll={() => void serveAll()}
+        onCheckout={() => {
+          setCartOpen(false);
+          void startCheckout();
+        }}
         onSetGuests={setGuests}
         onOpenLine={openCustomize}
+      />
+      {checkoutOpen && table.order ? (
+        <CheckoutSheet
+          total={orderTotal(activeLines(table.order))}
+          currency={currency}
+          exchangeRate={exchangeRate}
+          methods={methods}
+          busy={busy}
+          onClose={() => setCheckoutOpen(false)}
+          onComplete={(p) => void completeCheckout(p)}
+        />
+      ) : null}
+      <ReceiptSheet
+        receipt={receipt}
+        onClose={() => {
+          setReceipt(null);
+          router.back(); // the table is paid: back to the tables
+        }}
       />
       {openLine ? (
         <CustomizeLine

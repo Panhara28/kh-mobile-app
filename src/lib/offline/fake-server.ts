@@ -1,4 +1,4 @@
-import { ApiError, type RestaurantTable, type OrderLine, type MenuProduct } from '../api';
+import { ApiError, type RestaurantTable, type OrderLine, type MenuProduct, type Shift } from '../api';
 import type { EngineApi } from './engine';
 
 /**
@@ -14,6 +14,8 @@ export class FakeServer {
   invoice = 100;
   calls: string[] = [];
   resends: { orderDetailId: string; qty: number }[] = [];
+  shifts: Shift[] = [];
+  checkouts: { orderId: string; slotId: string; payments: number }[] = [];
   tables: Record<string, RestaurantTable> = {};
 
   constructor(tableIds: string[] = ['t1']) {
@@ -126,6 +128,39 @@ export class FakeServer {
     setGuests: async (orderId, count) =>
       this.write(`setGuests ${count}`, () => {
         for (const t of Object.values(this.tables)) if (t.order?.orderId === orderId) t.order.customer = count;
+      }),
+    shifts: async () => {
+      this.gate('shifts');
+      return { total: this.shifts.length, data: JSON.parse(JSON.stringify(this.shifts)) as Shift[] };
+    },
+    openShift: async (input) =>
+      this.write('openShift', () => {
+        const id = `shift-${this.shifts.length + 1}`;
+        this.shifts.push({
+          shift_id: id,
+          status: 'OPEN',
+          opened_at: '2026-10-19 08:00:00',
+          closed_at: null,
+          opened_cash_usd: String(input.openedCashUsd),
+          opened_cash_khr: String(input.openedCashKhr),
+          exchange_rate: String(input.exchangeRate),
+          opened_by: { id: 'u1', fullname: 'Staff' },
+        });
+        return id;
+      }),
+    closeShift: async (input) =>
+      this.write('closeShift', () => {
+        const s = this.shifts.find((x) => x.shift_id === input.shiftId);
+        if (!s || s.status === 'CLOSE') throw new ApiError('server', 400, 'Cannot close the closed shift');
+        s.status = 'CLOSE';
+      }),
+    checkout: async (orderId, input) =>
+      this.write('checkout', () => {
+        const t = Object.values(this.tables).find((x) => x.order?.orderId === orderId);
+        if (!t?.order || t.order.orderStatus === 'COMPLETED') throw new ApiError('server', 400, 'Order not found or already checked out');
+        this.checkouts.push({ orderId, slotId: input.slotId, payments: input.payments.length });
+        t.order = null;
+        t.status = 'cleaning';
       }),
     removeModifier: async (orderId, input) =>
       this.write('removeModifier', () => {

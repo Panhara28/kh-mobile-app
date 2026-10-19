@@ -30,6 +30,19 @@ export function orderCounts(order: TableOrder | null | undefined) {
   };
 }
 
+/**
+ * Checkout is allowed once every portion has been served and the order is still open: the web
+ * restaurant POS's rule (restaurant-checkout.tsx). An order made offline has no status yet and
+ * counts as open.
+ */
+export function canCheckout(order: TableOrder | null | undefined): boolean {
+  const lines = activeLines(order);
+  if (lines.length === 0) return false;
+  const served = lines.reduce((a, l) => a + statusQty(l, 'served'), 0);
+  const all = lines.reduce((a, l) => a + (l.status ?? []).reduce((c, s) => c + Number(s.qty || 0), 0), 0);
+  return served === all && (!order?.orderStatus || order.orderStatus === 'DRAFT');
+}
+
 /** "Send to kitchen": every pending portion goes to cooking, like the web POS. */
 export function kitchenMoves(order: TableOrder | null | undefined): KitchenMove[] {
   return activeLines(order)

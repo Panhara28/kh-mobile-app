@@ -147,8 +147,101 @@ export interface TableOrder {
   /** Number of guests at the table (web: 👤 button). */
   customer?: number | null;
   items?: OrderLine[];
+  /** DRAFT while open; COMPLETED once paid (kh-pos). */
+  orderStatus?: string;
+  /** Payments already recorded on the order. */
+  payments?: PaymentRow[];
   /** App only: the order was started offline and has no kh-pos order or invoice number yet. */
   localOnly?: boolean;
+}
+
+/** A payment on an order (kh-pos Payment). */
+export interface PaymentRow {
+  paymentId?: string;
+  paymentMethod: string;
+  amount: number | string;
+  currency: 'USD' | 'KHR';
+  amountUsd?: number | string;
+  exchangeRate?: number | string;
+  used?: number | string;
+}
+
+/** One payment line sent when checking out. Numbers, as kh-pos's schema wants. */
+export interface CheckoutPayment {
+  amount: number;
+  paymentMethod: string;
+  currency: 'USD' | 'KHR';
+  amountUsd: number;
+  exchangeRate: number;
+  used: number;
+}
+
+export interface PaymentMethod {
+  method_id: string;
+  method: string | null;
+}
+
+/** Shift of a cashier (GET /api/shift). */
+export interface ShiftReceipt {
+  shiftId?: string;
+  employee?: string | null;
+  openedAt?: string | null;
+  closedAt?: string | null;
+  orders: number;
+  sales: number;
+  payments: number;
+  exchangeRate?: string | number | null;
+  openedCashUsd: number;
+  openedCashKhr: number;
+  closedCashUsd: number;
+  closedCashKhr: number;
+  actualCashUsd: number;
+  actualCashKhr: number;
+  cashDiffUsd: number;
+  cashDiffKhr: number;
+  amountByMethod: Record<string, { usd: number; khr: number; qty: number }>;
+  amountReturned: number;
+  returns: number;
+  totalCustomer: number;
+  avgCustomer: number;
+}
+
+export interface Shift {
+  shift_id: string;
+  status: 'OPEN' | 'CLOSE';
+  opened_at: string | null;
+  closed_at: string | null;
+  opened_cash_usd: string | null;
+  opened_cash_khr: string | null;
+  closed_cash_usd?: string | null;
+  closed_cash_khr?: string | null;
+  actual_cash_usd?: string | null;
+  actual_cash_khr?: string | null;
+  exchange_rate?: string | null;
+  opened_by: { id: string; fullname?: string | null; username?: string | null } | null;
+  closed_by?: { id: string; fullname?: string | null; username?: string | null } | null;
+  /** The live summary for an open shift; the saved one (an object, or JSON text) for a closed one. */
+  receipt?: ShiftReceipt | string | null;
+}
+
+/** GET /api/pos/order/:id. Only the fields the receipt uses are typed. */
+export interface OrderDetailResult {
+  orderInfo: {
+    orderId: string;
+    invoiceNo?: number | string | null;
+    totalAmount?: string | number | null;
+    customer?: number | null;
+    paidAt?: string | null;
+    createdAt?: string | null;
+    orderStatus?: string | null;
+    tableNumber?: string | null;
+    tableName?: string | null;
+    servedType?: string | null;
+    deliveryCode?: string | null;
+    createdBy?: { fullname?: string | null; username?: string | null } | null;
+  };
+  orderDetail: OrderLine[];
+  payments: PaymentRow[];
 }
 
 export interface RestaurantTable {
@@ -254,6 +347,14 @@ export class KhPosApi {
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  /**
+   * Any kh-pos call, for the modules that keep their own typed wrappers (see lib/modules/). Same
+   * rules as every other call: the login token is sent, network and HTTP errors become ApiErrors.
+   */
+  call<T = Record<string, unknown>>(method: string, path: string, body?: unknown): Promise<T> {
+    return this.request<T>(method, path, body);
   }
 
   /** Staff login. kh-pos answers a wrong password with HTTP 200 and `{ error }`. */
@@ -406,6 +507,52 @@ export class KhPosApi {
 
   async removeLine(orderId: string, orderDetailId: string): Promise<void> {
     await this.request('DELETE', `/api/pos/order/${encodeURIComponent(orderId)}/remove-item`, { item_id: orderDetailId });
+  }
+
+  // ---- shift, payment, checkout ----
+
+  /** Shifts, newest first. With `openedBy` only that person's (an OWNER sees everyone's regardless). */
+  async shifts(q: { openedBy?: string; limit?: number; offset?: number } = {}): Promise<{ total: number; data: Shift[] }> {
+    const params = new URLSearchParams();
+    if (q.openedBy) params.set('openedBy', q.openedBy);
+    params.set('limit', String(q.limit ?? 30));
+    params.set('offset', String(q.offset ?? 0));
+    const json = await this.request<{ result?: { total: number; data: Shift[] } }>('GET', `/api/shift?${params.toString()}`);
+    return json.result ?? { total: 0, data: [] };
+  }
+
+  async openShift(input: { openedCashUsd: number; openedCashKhr: number; exchangeRate: number }): Promise<string> {
+    const json = await this.request<{ result?: string }>('POST', '/api/shift/open', input);
+    if (!json.result) throw new ApiError('server', undefined, 'No shift id returned');
+    return json.result;
+  }
+
+  async closeShift(input: { shiftId: string; actualCashUsd: number; actualCashKhr: number }): Promise<void> {
+    await this.request('POST', '/api/shift/close', input);
+  }
+
+  async paymentMethods(): Promise<PaymentMethod[]> {
+    const json = await this.request<{ result?: PaymentMethod[] }>('GET', '/api/payment/method');
+    return json.result ?? [];
+  }
+
+  /** Pays the order: records the payments, completes it and puts the table in "cleaning". */
+  async checkout(orderId: string, input: { slotId: string; payments: CheckoutPayment[] }): Promise<void> {
+    await this.request('POST', `/api/pos/order/${encodeURIComponent(orderId)}/checkout`, input);
+  }
+
+  /** Dishes that must be moved into the POS slot before checkout (kh-pos stock picking list). */
+  async stockToTransfer(items: { variantId: string; toFindQty: number }[]): Promise<{ slot?: { posSlot?: boolean } | null }[]> {
+    const params = new URLSearchParams({ items: JSON.stringify(items), forReplenishment: '0' });
+    const json = await this.request<{ result?: { slot?: { posSlot?: boolean } | null }[] }>('GET', `/api/replenishment/new/stock-picking-list?${params.toString()}`);
+    return json.result ?? [];
+  }
+
+  /** A finished order with its lines and payments (for the receipt). */
+  async orderDetail(orderId: string): Promise<OrderDetailResult> {
+    const json = await this.request<{ result?: OrderDetailResult }>('GET', `/api/pos/order/${encodeURIComponent(orderId)}`);
+    if (!json.result) throw new ApiError('server', 404, 'Order not found');
+    return json.result;
   }
 
   /** Prints the line's kitchen ticket again ("Resend to Kitchen" on the web). */

@@ -89,6 +89,7 @@ export default function TablesScreen() {
           </Text>
         </View>
         <SyncBadge />
+        <Button title={`☰ ${t('more.title')}`} variant="outline" size="sm" onPress={() => router.push('/more')} />
         <Button title={t('common.logout')} variant="outline" size="sm" onPress={confirmLogout} />
       </View>
       {staleAt !== false ? <StaleBanner savedAt={staleAt} /> : null}

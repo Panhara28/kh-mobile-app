@@ -6,7 +6,7 @@ import type { ModifierItem, OrderLine, StaffUser, TableOrder } from '@/lib/api';
 import { can, canDeleteLine, sentQty } from '@/lib/line';
 import { initials, splitTitle } from '@/lib/menu';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
-import { activeLines, lineTimes, orderCounts, pendingQty, statusQty } from '@/lib/order';
+import { activeLines, canCheckout, lineTimes, orderCounts, pendingQty, statusQty } from '@/lib/order';
 import { clock, parseKhPosTime } from '@/lib/time';
 import { Badge, Button, Stepper } from './components';
 import { addedLabel, agoLabel } from './time-label';
@@ -32,6 +32,7 @@ export function CartDrawer({
   onResend,
   onSend,
   onServeAll,
+  onCheckout,
   onSetGuests,
   onOpenLine,
 }: {
@@ -51,6 +52,8 @@ export function CartDrawer({
   onResend: (line: OrderLine, qty: number) => void;
   onSend: () => void;
   onServeAll: () => void;
+  /** Opens the payment screen. */
+  onCheckout: () => void;
   onSetGuests: (count: number) => void;
   /** Tapping a line opens "Customize Your Order" for it. */
   onOpenLine: (line: OrderLine) => void;
@@ -315,6 +318,13 @@ export function CartDrawer({
               disabled={busy || counts.cooking === 0}
               accessibilityLabel={t('cart.serveAll', { count: counts.cooking })}
               onPress={onServeAll}
+            />
+            <ActionButton
+              label={`💳 ${t('checkout.button')}`}
+              color={colors.info}
+              disabled={busy || !canCheckout(order)}
+              accessibilityLabel={t('checkout.button')}
+              onPress={onCheckout}
             />
           </View>
         </View>
