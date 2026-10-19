@@ -8,11 +8,12 @@ import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
 import { useRunner } from '@/lib/offline/use-runner';
 import { useSession } from '@/lib/session';
-import { cashDifference, expectedCash, receiptOf } from '@/lib/shift';
+import { cashDifference, expectedCash, hasDiscrepancy, receiptOf } from '@/lib/shift';
 import { clock, parseKhPosTime } from '@/lib/time';
 import { useBranch } from '@/lib/use-branch';
 import { useShift } from '@/lib/use-shift';
 import { Badge, Button, Card, Field } from '@/ui/components';
+import { ShiftList } from '@/ui/shift/shift-list';
 import { ErrorState, LoadingState } from '@/ui/states';
 import { SyncBadge } from '@/ui/sync-status';
 import { colors, font, radius, space } from '@/ui/theme';
@@ -34,7 +35,7 @@ export default function ShiftScreen() {
   const { api } = useSession();
   const { state } = useOffline();
   const { exchangeRate } = useBranch();
-  const { shift, history, loaded, error, reload } = useShift();
+  const { shift, loaded, error, reload } = useShift();
   const { command, submit, busy } = useRunner();
 
   const [cashUsd, setCashUsd] = useState('0');
@@ -81,6 +82,7 @@ export default function ShiftScreen() {
   const receipt = receiptOf(shift);
   const expected = expectedCash(shift);
   const diff = cashDifference({ usd: num(countUsd), khr: num(countKhr) }, expected);
+  const discrepancy = hasDiscrepancy({ usd: num(countUsd), khr: num(countKhr) }, expected);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -122,6 +124,13 @@ export default function ShiftScreen() {
                     <Field label={t('shift.countedUsd')} value={countUsd} onChangeText={setCountUsd} keyboardType="decimal-pad" selectTextOnFocus />
                     <Field label={t('shift.countedKhr')} value={countKhr} onChangeText={setCountKhr} keyboardType="decimal-pad" selectTextOnFocus />
                     <Line label={t('shift.difference')} value={`${formatMoney(diff.usd, 'USD')} · ${formatMoney(diff.khr, 'KHR')}`} bold tone={diff.usd === 0 && diff.khr === 0 ? undefined : diff.usd < 0 || diff.khr < 0 ? 'bad' : 'warn'} />
+                    {discrepancy.any ? (
+                      <View style={styles.warn}>
+                        <Text style={styles.warnTitle}>{t('shift.discrepancy')}</Text>
+                        {discrepancy.usd ? <Text style={styles.warnText}>{t('shift.usdDifference', { amount: Math.abs(num(countUsd) - expected.usd).toFixed(2) })}</Text> : null}
+                        {discrepancy.khr ? <Text style={styles.warnText}>{t('shift.khrDifference', { amount: Math.abs(num(countKhr) - expected.khr).toLocaleString() })}</Text> : null}
+                      </View>
+                    ) : null}
                     <View style={styles.buttons}>
                       <Button title={t('common.cancel')} variant="outline" onPress={() => setClosing(false)} style={styles.flex} />
                       <Button title={t('shift.close')} variant="destructive" loading={busy} onPress={confirmClose} style={styles.flex} />
@@ -150,29 +159,7 @@ export default function ShiftScreen() {
               </Card>
             )}
 
-            {history.length > 0 ? (
-              <View style={styles.history}>
-                <Text style={styles.section}>{t('shift.history')}</Text>
-                {history.map((s) => {
-                  const r = receiptOf(s);
-                  return (
-                    <Card key={s.shift_id} style={styles.card}>
-                      <View style={styles.row}>
-                        <Text style={styles.heading}>{when(s.opened_at)} → {when(s.closed_at)}</Text>
-                      </View>
-                      <Text style={styles.muted}>{who(s.opened_by)}</Text>
-                      {r ? (
-                        <>
-                          <Line label={t('shift.orders')} value={String(r.orders)} />
-                          <Line label={t('shift.sales')} value={formatMoney(r.sales, 'USD')} />
-                          <Line label={t('shift.difference')} value={`${formatMoney(r.cashDiffUsd, 'USD')} · ${formatMoney(r.cashDiffKhr, 'KHR')}`} />
-                        </>
-                      ) : null}
-                    </Card>
-                  );
-                })}
-              </View>
-            ) : null}
+            <ShiftList reloadKey={syncVersion} />
           </ScrollView>
         </KeyboardAvoidingView>
       )}
@@ -216,4 +203,7 @@ const styles = StyleSheet.create({
   bold: { fontWeight: '700' },
   form: { gap: space.sm, marginTop: space.sm },
   buttons: { flexDirection: 'row', gap: space.sm },
+  warn: { backgroundColor: colors.warningBg, borderRadius: radius.md, padding: space.sm, gap: 2 },
+  warnTitle: { fontSize: font.small, fontWeight: '700', color: colors.warning },
+  warnText: { fontSize: font.small, color: colors.warning },
 });

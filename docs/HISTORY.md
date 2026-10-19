@@ -117,6 +117,7 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 | Finding and Transfer, new screen | `9fa084c` | Draft order list, picking list, transfer to POS slot and unit conversion like the web; see [STOCK-FINDING.md](STOCK-FINDING.md) |
 | Order Return, 100% of the web page | `e7c8920` | Returned / Stock In tabs, RTN codes, history, Stock info sheet, Return Stock; permission fixed to return; see [RETURNS.md](RETURNS.md) |
 | Backlog, 100% of the web page | `17b4846` | Server order and paging, BL codes, SKU, branch, current slot stock, Resolve messages; see [BACKLOG.md](BACKLOG.md) |
+| Shift, 100% of the web page | (this commit) | Shift management list, details, discrepancy warning, handover receipt print/share; see [SHIFT.md](SHIFT.md) |
 
 **Offline, per module.** Ordering at tables (including checkout, shifts, discounts, order type) works offline and is sent later, as above. Every other module **reads** from the saved copy offline and **needs the server to save**: it says so instead of failing. Retail POS and cinema ticket sale need the server to charge, because the stock, the seats taken and the invoice number come from kh-pos.
 
