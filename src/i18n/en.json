@@ -325,7 +325,8 @@
     "chartOfAccounts": "Chart of accounts",
     "showtimes": "Showtimes",
     "tickets": "Cinema tickets",
-    "pricingTemplates": "Cinema pricing"
+    "pricingTemplates": "Cinema pricing",
+    "settlement": "Producer settlement"
   },
   "range": {
     "today": "Today",
@@ -852,5 +853,26 @@
     "seat_wheelchair": "Extra for wheelchair seat",
     "seat_vip": "Extra for VIP seat",
     "seat_couple": "Extra for couple seat"
+  },
+  "settlement": {
+    "filter_all": "All",
+    "filter_open": "Open",
+    "filter_settled": "Settled",
+    "generateFor": "Generate for the dates above",
+    "generate": "Generate",
+    "generateConfirm": "Create settlements for ended showtimes from {{from}} to {{to}}? Those showtimes are then counted and cannot be added again.",
+    "generated": "{{count}} settlements created.",
+    "owed": "Still owed",
+    "paid": "Paid out",
+    "empty": "No settlements.",
+    "settled": "Settled",
+    "open": "Open",
+    "sales": "Sales {{amount}}",
+    "settledAt": "Settled",
+    "created": "Created",
+    "details": "Details",
+    "viewProof": "View proof",
+    "proofCamera": "Photo of proof",
+    "proofLibrary": "Pick a photo"
   }
 }
