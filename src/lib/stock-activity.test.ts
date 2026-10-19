@@ -1,4 +1,4 @@
-import { returnCode, returnHistory, returnImage, returnProduct, returnsQuery, MOVEMENT_TYPES, canStockIn, movementAmount, movementDate, movementQty, movementSlot, rowTypeKey, movementDirection, movementQuery, oldestFirst, returnsSummary, variantLabel, type ReturnRow } from './stock-activity';
+import { backlogCode, backlogImage, backlogQuery, backlogStock, returnCode, returnHistory, returnImage, returnProduct, returnsQuery, MOVEMENT_TYPES, canStockIn, movementAmount, movementDate, movementQty, movementSlot, rowTypeKey, movementDirection, movementQuery, oldestFirst, returnsSummary, variantLabel, type ReturnRow } from './stock-activity';
 
 describe('stock activity', () => {
   it('names a variant, leaving out the default "ns"', () => {
@@ -71,5 +71,22 @@ describe('order return page', () => {
     ]);
     expect(returnHistory({ returnedAt: '2026-10-01 10:00' })).toHaveLength(1);
     expect(returnHistory({})).toEqual([]);
+  });
+});
+
+describe('backlog page', () => {
+  it('pages 30 at a time and numbers rows BL-001', () => {
+    expect(backlogQuery(30)).toBe('limit=30&offset=30');
+    expect(backlogCode(1)).toBe('BL-001');
+    expect(backlogCode(1234)).toBe('BL-1234');
+  });
+  it('reads the stock of the slot and the picture', () => {
+    const r = { slot: { id: 's1' }, variant: { id: 'v', slotStock: [{ slotId: 's0', stock: 9 }, { slotId: 's1', stock: 4 }], basicProduct: { images: [{ url: 'p' }, { url: 'v', productVariantId: 'v' }] } } };
+    expect(backlogStock(r)).toBe(4);
+    expect(backlogStock({ slot: { id: 'zz' }, variant: r.variant })).toBe(0);
+    expect(backlogStock({})).toBe(0);
+    expect(backlogImage(r)).toBe('v');
+    expect(backlogImage({ variant: { basicProduct: { images: [{ url: 'first' }] } } })).toBe('first');
+    expect(backlogImage({})).toBeNull();
   });
 });

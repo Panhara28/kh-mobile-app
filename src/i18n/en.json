@@ -813,7 +813,14 @@
     "returnStock": "Return Stock"
   },
   "backlog": {
-    "resolve": "Resolve"
+    "resolve": "Resolve",
+    "total": "{{count}} back logs",
+    "empty": "No back logs",
+    "resolved": "Resolve was done.",
+    "resolveFailed": "Failed to resolve back log.",
+    "slot": "Slot",
+    "currentStock": "Current Stock",
+    "by": "By: {{name}}"
   },
   "cartDiscount": {
     "title": "Discount cart",

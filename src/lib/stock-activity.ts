@@ -131,12 +131,28 @@ export function returnsSummary(rows: ReturnRow[]) {
 export interface BacklogRow {
   id: string;
   orderId: string;
-  slot?: { name?: string | null } | null;
-  variant?: VariantRef | null;
+  slot?: { id?: string; name?: string | null; posSlot?: boolean | number | null; warehouse?: { name?: string | null } | null } | null;
+  variant?: (VariantRef & { id?: string; sku?: string | number | null; slotStock?: { slotId: string; stock: number }[]; basicProduct?: { title?: string | null; images?: { url: string; productVariantId?: string | null }[] } | null }) | null;
   qty: number;
   createdAt?: string | null;
   createdBy?: { fullname?: string | null; username?: string | null } | null;
 }
+
+export const BACKLOG_PAGE = 30;
+
+export const backlogQuery = (offset: number, limit = BACKLOG_PAGE) => new URLSearchParams({ limit: String(limit), offset: String(offset) }).toString();
+
+/** The "BL-001" number the web shows in front of each row. */
+export const backlogCode = (position: number) => `BL-${String(position).padStart(3, '0')}`;
+
+/** Stock of the product in the slot the backlog is for (0 when unknown). */
+export const backlogStock = (r: Pick<BacklogRow, 'variant' | 'slot'>) => r.variant?.slotStock?.find((s) => s.slotId === r.slot?.id)?.stock ?? 0;
+
+/** The variant's own picture, else the product's first. */
+export const backlogImage = (r: Pick<BacklogRow, 'variant'>) => {
+  const imgs = r.variant?.basicProduct?.images ?? [];
+  return (imgs.find((i) => i.productVariantId === r.variant?.id) ?? imgs[0])?.url ?? null;
+};
 
 /** Oldest first: what has waited longest. */
 export const oldestFirst = <T extends { createdAt?: string | null }>(rows: T[]) => [...rows].sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
