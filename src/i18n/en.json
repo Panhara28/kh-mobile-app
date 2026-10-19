@@ -217,7 +217,8 @@
     "resendQueued": "Saved on this phone. The ticket prints once the KH POS server can be reached.",
     "cmdOpenShift": "Open the shift",
     "cmdCloseShift": "Close the shift",
-    "cmdCheckout": "Pay and complete the order"
+    "cmdCheckout": "Pay and complete the order",
+    "needsConnection": "This needs a connection to the KH POS server. Try again when you are back online."
   },
   "checkout": {
     "title": "Payment",
@@ -294,6 +295,51 @@
     "group_daily": "Daily",
     "group_reports": "Reports",
     "group_stock": "Stock",
-    "group_setup": "Setup"
+    "group_setup": "Setup",
+    "orders": "Orders"
+  },
+  "range": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "week": "7 days",
+    "month": "30 days",
+    "custom": "Dates",
+    "from": "From",
+    "to": "To"
+  },
+  "orders": {
+    "title": "Orders",
+    "detail": "Order",
+    "searchInvoice": "Invoice number",
+    "all": "All",
+    "status_DRAFT": "Draft",
+    "status_APPROVED": "Approved",
+    "status_PROCESSING": "Processing",
+    "status_COMPLETED": "Completed",
+    "status_CANCELLED": "Cancelled",
+    "status_REFUND": "Refunded",
+    "completed": "Completed",
+    "draft": "Draft",
+    "count": "{{count}} orders",
+    "empty": "No orders for these filters.",
+    "createdBy": "Created by",
+    "checkoutBy": "Checkout by",
+    "receipt": "Receipt",
+    "openOrder": "Open order",
+    "return": "Return",
+    "refund": "Refund {{amount}}",
+    "reason": "Reason (optional)",
+    "returnSelected": "Return selected ({{count}})",
+    "returnConfirm": "Return the selected items and refund {{amount}}?",
+    "returned": "Returned ({{count}}).",
+    "returnedLine": "{{qty}} returned, refund {{amount}}",
+    "undo": "Reverse to draft",
+    "undoTitle": "Reverse order #{{no}} to draft?",
+    "undoWarning": "This changes the order from Completed to Draft, removes its payments, puts the stock back and removes fulfilment records.",
+    "undone": "The order is a draft again.",
+    "delete": "Delete order",
+    "deleteTitle": "Delete order #{{no}}?",
+    "subtotal": "Subtotal",
+    "payments": "Payments"
   }
 }

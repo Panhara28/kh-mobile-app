@@ -3,6 +3,8 @@
  * Response shapes are copied from the kh-pos sources; only the fields the app uses are typed.
  */
 
+import { orderQuery, type OrderFilter, type OrderRow, type ReturnInput } from './orders';
+
 export type ApiErrorKind =
   | 'notConfigured' // the app was started without EXPO_PUBLIC_KHPOS_URL
   | 'network' // no connection, wrong server address, timeout
@@ -109,6 +111,10 @@ export interface OrderLine {
   kitchenLogs?: { printedAt: string | null }[];
   /** One entry per "Resend to Kitchen" (who, how many portions), oldest first. */
   kitchenResends?: { by: string; qty: number; resentAt: string }[];
+  /** Dish data kh-pos sends with the lines of a finished order (option names). */
+  productVariant?: { basicProduct?: { modifiers?: ModifierGroup[] | null } | null } | null;
+  /** Returns already made on this line (finished orders). */
+  orderReturns?: { id?: string; quantity: number; refundAmount?: number | string; reason?: string; status?: string; returnedAt?: string }[];
   /** App only: made offline and not in kh-pos yet (see lib/offline/overlay.ts). */
   localOnly?: boolean;
 }
@@ -553,6 +559,35 @@ export class KhPosApi {
     const json = await this.request<{ result?: OrderDetailResult }>('GET', `/api/pos/order/${encodeURIComponent(orderId)}`);
     if (!json.result) throw new ApiError('server', 404, 'Order not found');
     return json.result;
+  }
+
+  // ---- orders ----
+
+  /** Orders of the branch, newest first, with the filters of the kh-pos order page. */
+  async orders(filter: OrderFilter): Promise<{ totalRows: number; orders: OrderRow[] }> {
+    const json = await this.request<{ result?: { totalRows: number | { total: number }[]; orders: OrderRow[] } }>('GET', `/api/pos/order?${orderQuery(filter)}`);
+    const r = json.result;
+    // kh-pos answers the count as a number, or as [{ total }] from the count query
+    const raw = r?.totalRows;
+    const totalRows = Array.isArray(raw) ? Number(raw[0]?.total ?? 0) : Number(raw ?? 0);
+    return { totalRows, orders: r?.orders ?? [] };
+  }
+
+  /** Returns portions of finished order lines (refund amount per line, as the web works it out). */
+  async createReturns(returns: ReturnInput[]): Promise<string[]> {
+    const json = await this.request<{ result?: string[] }>('POST', '/api/pos/return', returns);
+    return json.result ?? [];
+  }
+
+  /** Reopens a paid order as a draft (removes its payments and puts the stock back). */
+  async undoOrder(orderId: string): Promise<{ orderId: string; tableNumber: string | null }> {
+    const json = await this.request<{ result?: { orderId: string; tableNumber: string | null } }>('PUT', `/api/pos/order/${encodeURIComponent(orderId)}/undo-from-complete-to-draft`, {});
+    return json.result ?? { orderId, tableNumber: null };
+  }
+
+  /** Deletes an order that hasn't been paid. */
+  async deleteOrder(orderId: string): Promise<void> {
+    await this.request('DELETE', `/api/pos/order/${encodeURIComponent(orderId)}`);
   }
 
   /** Prints the line's kitchen ticket again ("Resend to Kitchen" on the web). */
