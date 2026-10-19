@@ -14,6 +14,8 @@ export interface AppModule {
   /** Translation key of its name. */
   titleKey: string;
   group: ModuleGroup;
+  /** Shown only when this branch setting is "1" (the web menu does the same for Accounting). */
+  setting?: string;
 }
 
 /**
@@ -58,8 +60,8 @@ export const MODULES: AppModule[] = [
   { id: 'tickets', route: '/tickets', resource: 'ticket', icon: '🎟', titleKey: 'more.tickets', group: 'daily' },
   { id: 'halls', route: '/halls', resource: 'hall-seat', icon: '💺', titleKey: 'more.halls', group: 'setup' },
   { id: 'showtimes', route: '/showtimes', resource: 'showtime', icon: '🎬', titleKey: 'more.showtimes', group: 'daily' },
-  { id: 'booking', route: '/booking', resource: 'accounting', icon: '💰', titleKey: 'more.booking', group: 'setup' },
-  { id: 'chart-of-accounts', route: '/chart-of-accounts', resource: 'accounting', icon: '📒', titleKey: 'more.chartOfAccounts', group: 'setup' },
+  { id: 'booking', route: '/booking', resource: 'accounting', icon: '💰', titleKey: 'more.booking', group: 'setup', setting: 'ACCOUNTING' },
+  { id: 'chart-of-accounts', route: '/chart-of-accounts', resource: 'accounting', icon: '📒', titleKey: 'more.chartOfAccounts', group: 'setup', setting: 'ACCOUNTING' },
   { id: 'production', route: '/production', resource: 'production', icon: '🏭', titleKey: 'more.production', group: 'stock' },
   { id: 'stock-counting', route: '/stock-counting', resource: 'stock-counting', icon: '📋', titleKey: 'more.stockCounting', group: 'stock' },
   { id: 'replenishment', route: '/replenishments', resource: 'replenishment', icon: '🚚', titleKey: 'more.replenishment', group: 'stock' },
@@ -68,8 +70,9 @@ export const MODULES: AppModule[] = [
   { id: 'table-setup', route: '/table-setup', resource: 'table', icon: '🪑', titleKey: 'more.tableSetup', group: 'setup' },
 ];
 
-export function visibleModules(user: StaffUser | null | undefined): AppModule[] {
-  return MODULES.filter((m) => m.resource === null || can(user, m.resource, 'read'));
+/** The modules the role may read, minus those whose branch setting is off (`enabled` gives a setting's value). */
+export function visibleModules(user: StaffUser | null | undefined, enabled: (option: string) => string | null = () => '1'): AppModule[] {
+  return MODULES.filter((m) => (m.resource === null || can(user, m.resource, 'read')) && (!m.setting || enabled(m.setting) === '1'));
 }
 
 export const GROUP_ORDER: ModuleGroup[] = ['daily', 'reports', 'stock', 'setup'];

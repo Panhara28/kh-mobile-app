@@ -66,7 +66,7 @@ None of these has been opened on a real phone yet. With kh-pos running, open **M
 2. **Cinema tickets:** the ticket's QR must hold the reservation code exactly (the scan matches it).
 3. **Cinema ticket sale and halls:** seats and prices come from the hall and pricing template; selling then paying turns the reservations from pending to confirmed.
 4. **Production, replenishment, purchase orders, stock counting:** these write stock; try them on test data first.
-5. **Accounting:** staff other than the owner can only view until the permission question in HISTORY.md is settled.
+5. **Accounting:** appears only when the branch's Accounting setting is on, and any signed-in staff can use it (as on the web).
 6. **Table floor plan:** dragging inside the scroll area; positions must match what the web shows.
 
 ## Checks

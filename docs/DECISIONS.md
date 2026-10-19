@@ -63,4 +63,4 @@ Staff must be able to take orders when the KH POS server can't be reached, and e
 - **Offline by exception:** only table ordering is queued (outbox). Other modules read through `cachedRead` and say "needs the server" to save. Queuing stock, accounting or cinema writes would risk double-posting and wrong stock; kh-pos has no idempotency keys for them.
 - **Selling at the counter** (retail, cinema) creates the order only at Charge and deletes it again if payment is cancelled, so no draft is left behind and seats are freed.
 - **Data the phone does not edit is preserved** on save: pricing-template seat types, hall features and zones.
-- **Permissions that kh-pos does not name** (accounting) fall back to "view only, owner may edit"; revisit once kh-pos defines them.
+- **Accounting has no permission in kh-pos**, so the phone follows the web: shown when the branch's Accounting setting is on, usable by any signed-in staff (`OPEN_RESOURCES`). Revisit if kh-pos adds a permission.

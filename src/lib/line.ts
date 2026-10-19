@@ -8,9 +8,13 @@ export type Action = 'create' | 'read' | 'update' | 'delete';
  * everything; otherwise the role's list for the resource, stored as "create,read,update".
  * A resource missing from the list means read only.
  */
+/** Parts of the web app that have no permission of their own: anyone signed in may use them (kh-pos shows them when the branch turns them on). */
+const OPEN_RESOURCES = ['accounting'];
+
 export function can(user: StaffUser | null | undefined, resource: string, action: Action): boolean {
   const role = user?.role;
   if (!role) return false;
+  if (OPEN_RESOURCES.includes(resource)) return true;
   if (role.role === 'OWNER') return true;
   const entry = role.permissions?.[resource];
   if (!entry) return action === 'read';

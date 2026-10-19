@@ -101,7 +101,7 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 - *Product groups*: kh-pos has the permission name but no API for it.
 - *Printer settings*: `/api/printer` prints from the kh-pos server's own Windows printers; a phone has nothing to configure. The phone prints receipts through the system print dialog.
 - *Stock picking list and stock suggestion* for replenishment, *manual ticket upload*, *digital tickets* and the *board-member sale report*.
-- Accounting screens are gated on a permission named `accounting` that kh-pos does not define (it shows the pages whenever the branch's Accounting setting is on): other than the owner, staff can view but not add or delete. Showing them only when the setting is on, to match the web, is still to do.
+- Accounting has no permission of its own in kh-pos: the web shows it whenever the branch's Accounting setting is on, to every admin. The phone does the same (`setting: 'ACCOUNTING'` in `lib/modules.ts`, and `OPEN_RESOURCES` in `lib/line.ts`).
 
 **Checks.** `tsc` clean, 312 tests in 44 suites pass, Android bundle builds, lint clean on every new file. **Nothing in this section has been opened on a real phone or run against a live kh-pos.** The assumptions most likely to be wrong are listed in the README under "Try the new modules".
 
