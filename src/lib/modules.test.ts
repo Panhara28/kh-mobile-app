@@ -19,6 +19,17 @@ describe('which modules show', () => {
     expect(visibleModules(user('OWNER'), () => '1')).toHaveLength(MODULES.length);
   });
 
+  it('hides modules the role has no entry for, as the web does, and treats view-only as read', () => {
+    const limited = user('CASHIER', { shift: 'read', report: 'view-only', 'sale-report': 'view-only' });
+    const ids = visibleModules(limited, () => '1').map((m) => m.id);
+    expect(ids).toContain('shift');
+    expect(ids).toContain('report-sale-report');
+    expect(ids).not.toContain('products');
+    expect(ids).not.toContain('roles');
+    expect(ids).not.toContain('orders');
+    expect(can(limited, 'sale-report', 'update')).toBe(false);
+  });
+
   it('hides accounting unless the branch turned it on', () => {
     const owner = user('OWNER');
     expect(visibleModules(owner, () => null).map((m) => m.id)).not.toContain('booking');
