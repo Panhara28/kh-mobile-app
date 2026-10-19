@@ -22,6 +22,8 @@ import { CartDrawer } from '@/ui/cart-drawer';
 import { CheckoutSheet } from '@/ui/checkout-sheet';
 import { TransferSheet } from '@/ui/transfer-sheet';
 import { CartDiscountSheet, type CartDiscountRow } from '@/ui/cart-discount-sheet';
+import { OrderTypeSheet } from '@/ui/order-type-sheet';
+import { orderTypeBody, servedTypeOf, type CustomerRow, type ServedType } from '@/lib/customers';
 import { ReceiptSheet } from '@/ui/receipt-sheet';
 import { CustomizeLine, type LineApi } from '@/ui/customize-line';
 import { MenuBrowser } from '@/ui/menu-browser';
@@ -61,6 +63,7 @@ export default function TableScreen() {
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [discountOpen, setDiscountOpen] = useState(false);
+  const [orderTypeOpen, setOrderTypeOpen] = useState(false);
   const [transferTables, setTransferTables] = useState<RestaurantTable[] | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [products, setProducts] = useState<MenuProduct[]>([]);
@@ -333,6 +336,38 @@ export default function TableScreen() {
     }
   }
 
+  /** Order type changes the prices of a delivery, so it needs kh-pos as it is now (nothing waiting to be sent). */
+  function startOrderType() {
+    if (!table?.order) return;
+    if (!engine.getState().online) {
+      Alert.alert(t('offline.needsConnection'));
+      return;
+    }
+    if (table.pendingSync || table.order.localOnly) {
+      Alert.alert(t('transfer.syncFirst'));
+      return;
+    }
+    setOrderTypeOpen(true);
+  }
+
+  async function applyOrderType(type: ServedType, customer: CustomerRow | null) {
+    const orderId = table?.order?.orderId;
+    if (!orderId) return;
+    setBusy(true);
+    try {
+      const walkIn = (await data.posInfo(warehouseId)).data.posCustomerId;
+      const body = orderTypeBody(type, walkIn, customer);
+      if (!body) return;
+      await api.setOrderType(orderId, body);
+      setOrderTypeOpen(false);
+    } catch (e) {
+      showError(e);
+    } finally {
+      await load();
+      setBusy(false);
+    }
+  }
+
   async function resend(line: OrderLine, qty: number) {
     const result = await submit(command('resend', { orderDetailId: line.orderDetailId, qty }), () => api.resendToKitchen(line.orderDetailId, qty));
     if (result === 'done') Alert.alert(t('cart.resent'));
@@ -514,6 +549,10 @@ export default function TableScreen() {
           setCartOpen(false);
           setDiscountOpen(true);
         }}
+        onOrderType={() => {
+          setCartOpen(false);
+          startOrderType();
+        }}
         onCheckout={() => {
           setCartOpen(false);
           void startCheckout();
@@ -521,6 +560,7 @@ export default function TableScreen() {
         onSetGuests={setGuests}
         onOpenLine={openCustomize}
       />
+      {orderTypeOpen && table.order ? <OrderTypeSheet api={api} current={servedTypeOf(table.order.servedType)} busy={busy} onClose={() => setOrderTypeOpen(false)} onApply={(ty, c) => void applyOrderType(ty, c)} /> : null}
       {discountOpen && table.order ? <CartDiscountSheet order={table.order} currency={currency} busy={busy} onClose={() => setDiscountOpen(false)} onApply={(rows) => void applyCartDiscount(rows)} /> : null}
       {checkoutOpen && table.order ? (
         <CheckoutSheet

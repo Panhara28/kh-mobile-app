@@ -7,6 +7,7 @@ import { can, canDeleteLine, sentQty } from '@/lib/line';
 import { initials, splitTitle } from '@/lib/menu';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
 import { activeLines, canCheckout, lineTimes, orderCounts, pendingQty, statusQty } from '@/lib/order';
+import { servedTypeOf } from '@/lib/customers';
 import { clock, parseKhPosTime } from '@/lib/time';
 import { Badge, Button, Stepper } from './components';
 import { addedLabel, agoLabel } from './time-label';
@@ -34,6 +35,7 @@ export function CartDrawer({
   onServeAll,
   onCheckout,
   onDiscount,
+  onOrderType,
   onSetGuests,
   onOpenLine,
 }: {
@@ -57,6 +59,8 @@ export function CartDrawer({
   onCheckout: () => void;
   /** Opens the "Discount cart" sheet. */
   onDiscount: () => void;
+  /** Opens the order type sheet. */
+  onOrderType: () => void;
   onSetGuests: (count: number) => void;
   /** Tapping a line opens "Customize Your Order" for it. */
   onOpenLine: (line: OrderLine) => void;
@@ -275,7 +279,12 @@ export function CartDrawer({
             <Text style={styles.totalLabel}>{t('order.total')}</Text>
             <Text style={styles.total}>{formatMoney(order?.totalAmount ?? 0, currency)}</Text>
           </View>
-          {order && counts.lines > 0 ? <Button title={`🏷 ${t('cartDiscount.title')}`} variant="ghost" size="sm" onPress={onDiscount} /> : null}
+          {order && counts.lines > 0 ? (
+            <View style={styles.extras}>
+              <Button title={`🏷 ${t('cartDiscount.title')}`} variant="ghost" size="sm" onPress={onDiscount} />
+              <Button title={`🛵 ${t(`orderType.${servedTypeOf(order.servedType)}`)}`} variant="ghost" size="sm" onPress={onOrderType} />
+            </View>
+          ) : null}
 
           {guestDraft !== null ? (
             <View style={styles.guestEditor}>
@@ -452,6 +461,7 @@ function ActionButton({
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   fill: { flex: 1 },
+  extras: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space.sm },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: colors.overlay },
   drawer: {
     position: 'absolute',

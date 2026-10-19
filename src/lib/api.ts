@@ -156,6 +156,8 @@ export interface TableOrder {
   items?: OrderLine[];
   /** DRAFT while open; COMPLETED once paid (kh-pos). */
   orderStatus?: string;
+  /** dine_in, take_away, food_delivery (or customer for an order the customer made). */
+  servedType?: string | null;
   /** Payments already recorded on the order. */
   payments?: PaymentRow[];
   /** App only: the order was started offline and has no kh-pos order or invoice number yet. */
@@ -600,6 +602,11 @@ export class KhPosApi {
   /** Moves chosen portions of an order to another table (kh-pos merges into its order or opens one). */
   async transferTable(input: TransferBody): Promise<void> {
     await this.request('POST', '/api/transfer-table', input);
+  }
+
+  /** Changes the order's type; for a delivery kh-pos also adds the customer's delivery fee to the prices. */
+  async setOrderType(orderId: string, input: { customerId: string; code: string; type: 'dine_in' | 'take_away' | 'food_delivery' }): Promise<void> {
+    await this.request('PUT', `/api/pos/order/${encodeURIComponent(orderId)}/customer`, input);
   }
 
   // ---- orders ----

@@ -604,5 +604,18 @@
     "error_percentage": "A percentage cannot be more than 100.",
     "error_amount": "The amount is more than the chosen items cost.",
     "error_noLines": "Choose at least one item."
+  },
+  "orderType": {
+    "title": "Order type",
+    "dine_in": "Dine in",
+    "take_away": "Take away",
+    "food_delivery": "Delivery",
+    "apply": "Update order type",
+    "fee": "Delivery fee: {{amount}}",
+    "change": "Choose another customer",
+    "customerName": "Customer name",
+    "extraPrice": "Delivery fee",
+    "searchPhone": "Search by phone number",
+    "newCustomer": "New customer"
   }
 }
