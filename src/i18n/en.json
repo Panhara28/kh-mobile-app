@@ -331,7 +331,8 @@
     "ticketSale": "Sell cinema tickets",
     "halls": "Cinema halls",
     "digitalTicket": "Digital tickets",
-    "manualTickets": "Manual ticket upload"
+    "manualTickets": "Manual ticket upload",
+    "productGroups": "Product groups"
   },
   "range": {
     "today": "Today",
@@ -949,5 +950,14 @@
     "error_price": "The price cannot be negative.",
     "error_time": "Show times look like 19:30.",
     "error_tickets": "Enter tickets for at least one show time."
+  },
+  "groups": {
+    "empty": "No product groups.",
+    "name": "Group name",
+    "description": "Description",
+    "branches": "Shown in branches",
+    "products": "Products",
+    "summary": "{{products}} products · {{branches}} branches",
+    "error_name": "Enter the group name."
   }
 }
