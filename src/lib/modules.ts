@@ -25,6 +25,15 @@ export const MODULES: AppModule[] = [
   { id: 'tables', route: '/tables', resource: 'restaurant', icon: '🍽', titleKey: 'more.tables', group: 'daily' },
   { id: 'orders', route: '/orders', resource: 'order', icon: '🧾', titleKey: 'more.orders', group: 'daily' },
   { id: 'shift', route: '/shift', resource: 'shift', icon: '🕒', titleKey: 'more.shift', group: 'daily' },
+  { id: 'report-dashboard', route: '/report/dashboard', resource: 'dashboard', icon: '📊', titleKey: 'reports.dashboard', group: 'reports' },
+  { id: 'report-end-of-day', route: '/report/end-of-day', resource: 'end-of-day', icon: '🌙', titleKey: 'reports.end-of-day', group: 'reports' },
+  { id: 'report-sale-report', route: '/report/sale-report', resource: 'sale-report', icon: '📈', titleKey: 'reports.sale-report', group: 'reports' },
+  { id: 'report-sale-breakdown', route: '/report/sale-breakdown', resource: 'sale-breakdown', icon: '🗂', titleKey: 'reports.sale-breakdown', group: 'reports' },
+  { id: 'report-sale-item-report', route: '/report/sale-item-report', resource: 'sale-item-report', icon: '🍛', titleKey: 'reports.sale-item-report', group: 'reports' },
+  { id: 'report-void-order', route: '/report/void-order', resource: 'void-order', icon: '🚫', titleKey: 'reports.void-order', group: 'reports' },
+  { id: 'report-guest-number', route: '/report/guest-number', resource: 'guest-number', icon: '🧍', titleKey: 'reports.guest-number', group: 'reports' },
+  { id: 'report-stock-report', route: '/report/stock-report', resource: 'stock-report', icon: '📦', titleKey: 'reports.stock-report', group: 'reports' },
+  { id: 'report-expiry', route: '/report/expiry', resource: 'expiry', icon: '⏳', titleKey: 'reports.expiry', group: 'reports' },
   { id: 'table-setup', route: '/table-setup', resource: 'table', icon: '🪑', titleKey: 'more.tableSetup', group: 'setup' },
 ];
 
