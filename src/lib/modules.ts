@@ -70,6 +70,7 @@ export const MODULES: AppModule[] = [
   { id: 'replenishment', route: '/replenishments', resource: 'replenishment', icon: '🚚', titleKey: 'more.replenishment', group: 'stock' },
   { id: 'purchase-orders', route: '/purchase-orders', resource: 'purchase-order', icon: '🧾', titleKey: 'more.purchaseOrders', group: 'stock' },
   { id: 'suppliers', route: '/suppliers', resource: 'supplier', icon: '🚚', titleKey: 'more.suppliers', group: 'stock' },
+  { id: 'supplier-prices', route: '/supplier-prices', resource: 'supplier', icon: '🏷️', titleKey: 'more.supplierPrices', group: 'stock' },
   { id: 'table-setup', route: '/table-setup', resource: 'table', icon: '🪑', titleKey: 'more.tableSetup', group: 'setup' },
 ];
 

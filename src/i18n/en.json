@@ -333,7 +333,8 @@
     "halls": "Cinema halls",
     "digitalTicket": "Digital tickets",
     "manualTickets": "Manual ticket upload",
-    "productGroups": "Product groups"
+    "productGroups": "Product groups",
+    "supplierPrices": "Supplier product prices"
   },
   "range": {
     "today": "Today",
@@ -609,7 +610,19 @@
     "contactEmail": "Email",
     "address": "Address",
     "note": "Note",
-    "consignment": "Consignment"
+    "consignment": "Consignment",
+    "contactNameHint": "Enter contact name",
+    "createTitle": "Create Supplier",
+    "created": "Created {{date}}",
+    "deleteAsk": "Are you sure? you want to delete this supplier?",
+    "deleteTitle": "Delete Supplier",
+    "editTitle": "Edit Supplier",
+    "emailHint": "Enter contact email",
+    "noteHint": "Enter notes",
+    "phoneHint": "Enter contact phone",
+    "prices": "Supplier product prices",
+    "submit": "Submit",
+    "total": "{{count}} suppliers"
   },
   "paymentMethods": {
     "name": "Method name",
@@ -1242,5 +1255,31 @@
     "done": "{{count}} products uploaded.",
     "failed": "Upload failed.",
     "uploaded": "Uploaded."
+  },
+  "sprice": {
+    "add": "Add",
+    "createTitle": "Add supplier product price",
+    "deleteAsk": "Are you sure? you want to delete this supplier product price?",
+    "deleteTitle": "Delete Supplier Product Price",
+    "editTitle": "Edit supplier product price",
+    "empty": "No supplier product prices",
+    "error_price": "Price must be greater than 0",
+    "error_product": "Pick a product",
+    "error_supplier": "Pick a supplier",
+    "error_scheduledPrice": "Scheduled price cannot be negative",
+    "error_scheduledAt": "Use the date format YYYY-MM-DD",
+    "formHint": "The supplier and product cannot be changed once saved.",
+    "highLow": "Price: high to low",
+    "lowHigh": "Price: low to high",
+    "pickProduct": "Pick product",
+    "price": "Price",
+    "product": "Product",
+    "reset": "Reset",
+    "saveFailed": "Could not save",
+    "scheduledAt": "Scheduled at",
+    "scheduledDate": "Scheduled date",
+    "scheduledPrice": "Scheduled price",
+    "search": "Search supplier or product",
+    "total": "{{count}} prices"
   }
 }

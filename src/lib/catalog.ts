@@ -19,7 +19,6 @@ export async function fetchAllPages<T>(get: (offset: number, limit: number) => P
   return out;
 }
 
-const text = (v: unknown) => (typeof v === 'string' ? v : '');
 
 // ---- categories ----
 
@@ -61,36 +60,4 @@ export interface SupplierRow {
   note?: string | null;
   isConsignment?: boolean | number | null;
 }
-
-export interface SupplierForm {
-  name: string;
-  contactName: string;
-  contactPhone: string;
-  contactEmail: string;
-  address: string;
-  note: string;
-  isConsignment: boolean;
-  [key: string]: unknown;
-}
-
-export const emptySupplier = (): SupplierForm => ({ name: '', contactName: '', contactPhone: '', contactEmail: '', address: '', note: '', isConsignment: false });
-export const supplierForm = (r: SupplierRow): SupplierForm => ({
-  name: r.name,
-  contactName: text(r.contactName),
-  contactPhone: text(r.contactPhone),
-  contactEmail: text(r.contactEmail),
-  address: text(r.address),
-  note: text(r.note),
-  isConsignment: !!r.isConsignment,
-});
-export const supplierBody = (f: SupplierForm, existing?: SupplierRow) => ({
-  ...(existing ? { id: existing.id } : {}),
-  name: f.name.trim(),
-  contactName: f.contactName.trim(),
-  contactPhone: f.contactPhone.trim(),
-  contactEmail: f.contactEmail.trim(),
-  address: f.address.trim(),
-  note: f.note.trim(),
-  isConsignment: f.isConsignment,
-});
 

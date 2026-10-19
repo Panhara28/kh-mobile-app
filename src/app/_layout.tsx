@@ -119,6 +119,7 @@ function Navigator() {
         <Stack.Screen name="discounts" />
         <Stack.Screen name="payment-methods" />
         <Stack.Screen name="suppliers" />
+        <Stack.Screen name="supplier-prices" />
         <Stack.Screen name="report/[kind]" />
         <Stack.Screen name="order/[id]" />
       </Stack.Protected>

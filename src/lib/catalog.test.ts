@@ -1,4 +1,4 @@
-import { fetchAllPages, supplierBody, supplierForm } from './catalog';
+import { fetchAllPages } from './catalog';
 
 describe('paging', () => {
   it('reads every page until the total is reached', async () => {
@@ -14,13 +14,5 @@ describe('paging', () => {
   it('stops on an empty page, and on a short one', async () => {
     expect(await fetchAllPages(async () => ({ data: [], total: 999 }))).toEqual([]);
     expect(await fetchAllPages(async () => ({ data: [1, 2], total: 999 }))).toEqual([1, 2]);
-  });
-});
-
-describe('suppliers', () => {
-  it('round-trips', () => {
-    const f = supplierForm({ id: 's1', name: 'Acme', contactPhone: '012', isConsignment: 1 });
-    expect(f).toMatchObject({ name: 'Acme', contactPhone: '012', contactName: '', isConsignment: true });
-    expect(supplierBody({ ...f, name: ' Acme ' }, { id: 's1', name: 'Acme' })).toMatchObject({ id: 's1', name: 'Acme', isConsignment: true });
   });
 });
