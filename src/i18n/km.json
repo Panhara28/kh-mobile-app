@@ -744,10 +744,10 @@
   },
   "stock": {
     "empty": "គ្មានចលនាស្តុកទេ។",
-    "type_SALE": "លក់",
-    "type_PURCHASE": "ទិញ",
-    "type_STOCK_IN": "ស្តុកចូល",
-    "type_STOCK_OUT": "ស្តុកចេញ",
+    "type_SALE": "លក់ទំនិញ",
+    "type_PURCHASE": "បញ្ជាទិញ",
+    "type_STOCK_IN": "ចូលស្តុក",
+    "type_STOCK_OUT": "ចេញស្តុក",
     "type_ADJUSTMENT_IN": "កែតម្រូវចូល",
     "type_ADJUSTMENT_OUT": "កែតម្រូវចេញ",
     "type_REPLENISHMENT": "បំពេញស្តុកចូល",
@@ -755,7 +755,16 @@
     "type_TRANSFER_IN": "ផ្ទេរចូល",
     "type_TRANSFER_OUT": "ផ្ទេរចេញ",
     "type_DAMAGE": "ខូចខាត",
-    "type_RETURN": "ប្រគល់មកវិញ"
+    "type_RETURN": "ត្រឡប់",
+    "all": "ប្រតិបត្តិការទាំងអស់",
+    "total": "ប្រតិបត្តិការ {{count}}",
+    "type_COMPOSE_IN": "ផ្សំចូល",
+    "type_COMPOSE_OUT": "ផ្សំចេញ",
+    "type_CONVERSION_IN": "បម្លែងចូល",
+    "type_CONVERSION_OUT": "បម្លែងចេញ",
+    "row_SALE": "លក់ទំនិញ",
+    "row_PURCHASE": "បញ្ជាទិញ",
+    "row_REPLENISHMENT": "បំពេញស្តុក"
   },
   "returns": {
     "waiting": "រង់ចាំដាក់ចូលស្តុក",

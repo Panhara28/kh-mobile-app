@@ -16,17 +16,46 @@ export function variantLabel(v: VariantRef | null | undefined): string {
 
 // ---- stock movements (GET /api/inventory-transactions) ----
 
-export const MOVEMENT_TYPES = ['SALE', 'PURCHASE', 'STOCK_IN', 'STOCK_OUT', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT', 'REPLENISHMENT', 'REPLENISHMENT_OUT', 'TRANSFER_IN', 'TRANSFER_OUT', 'DAMAGE', 'RETURN'] as const;
+/** The filter list of the web Transactions page, in its order. */
+export const MOVEMENT_TYPES = ['SALE', 'PURCHASE', 'STOCK_IN', 'STOCK_OUT', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT', 'REPLENISHMENT', 'REPLENISHMENT_OUT', 'COMPOSE_IN', 'COMPOSE_OUT', 'TRANSFER_IN', 'TRANSFER_OUT', 'CONVERSION_IN', 'CONVERSION_OUT', 'DAMAGE', 'RETURN'] as const;
 export type MovementType = (typeof MOVEMENT_TYPES)[number];
+
+export const MOVEMENT_PAGE = 30;
 
 export interface MovementRow {
   id: string;
   transactionType: string | null;
   qty: number;
-  variant?: VariantRef | null;
-  slot?: { name?: string | null } | null;
+  variant?: (VariantRef & { basicProduct?: { title?: string | null; images?: { url: string }[] } | null }) | null;
+  slot?: { name?: string | null; posSlot?: boolean | number | null; warehouse?: { name?: string | null } | null } | null;
+  productLot?: { costPerUnit?: number | string | null } | null;
   createdBy?: { fullname?: string | null; username?: string | null } | null;
   createdAt?: string | null;
+}
+
+/** The web row names both replenishment kinds "Replenishment"; the filter list says "In" and "Out". */
+export const rowTypeKey = (type: string | null | undefined) => (type === 'REPLENISHMENT_OUT' ? 'REPLENISHMENT' : (type ?? ''));
+
+/** The web quantity cell: sales show without the minus sign. */
+export const movementQty = (r: Pick<MovementRow, 'transactionType' | 'qty'>) => (r.transactionType === 'SALE' ? Math.abs(r.qty) : r.qty);
+
+/** The web amount cell: cost per unit times quantity; only a sale is shown without a sign. */
+export function movementAmount(r: Pick<MovementRow, 'transactionType' | 'qty' | 'productLot'>): { negative: boolean; value: number } {
+  const v = (Number(r.productLot?.costPerUnit) || 0) * r.qty;
+  return { negative: r.transactionType !== 'SALE' && r.qty < 0, value: Math.abs(v) };
+}
+
+export const movementImage = (r: MovementRow) => r.variant?.basicProduct?.images?.[0]?.url ?? null;
+
+export const movementSlot = (r: MovementRow) => (r.slot?.name ? `${r.slot.name}${r.slot.posSlot ? ' (POS)' : ''}` : '');
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** "Apr 25, 2026" like the web date column. */
+export function movementDate(v: string | null | undefined): string {
+  if (!v) return '';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2, '0')}, ${d.getFullYear()}`;
 }
 
 /** Stock in is a gain, the rest of the "out" kinds lose stock: used to colour the quantity. */

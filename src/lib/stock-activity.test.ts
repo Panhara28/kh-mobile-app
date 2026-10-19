@@ -1,4 +1,4 @@
-import { canStockIn, movementDirection, movementQuery, oldestFirst, returnsSummary, variantLabel, type ReturnRow } from './stock-activity';
+import { MOVEMENT_TYPES, canStockIn, movementAmount, movementDate, movementQty, movementSlot, rowTypeKey, movementDirection, movementQuery, oldestFirst, returnsSummary, variantLabel, type ReturnRow } from './stock-activity';
 
 describe('stock activity', () => {
   it('names a variant, leaving out the default "ns"', () => {
@@ -30,5 +30,25 @@ describe('stock activity', () => {
 
   it('lists the longest waiting first', () => {
     expect(oldestFirst([{ createdAt: '2026-10-19 10:00:00' }, { createdAt: '2026-10-18 09:00:00' }, { createdAt: null }]).map((r) => r.createdAt)).toEqual([null, '2026-10-18 09:00:00', '2026-10-19 10:00:00']);
+  });
+});
+
+describe('transactions page rows', () => {
+  it('lists the same 16 filters as the web', () => {
+    expect(MOVEMENT_TYPES).toHaveLength(16);
+    expect(MOVEMENT_TYPES).toContain('COMPOSE_IN');
+    expect(MOVEMENT_TYPES).toContain('CONVERSION_OUT');
+  });
+  it('shows quantity, amount, slot and date like the web', () => {
+    expect(movementQty({ transactionType: 'SALE', qty: -3 })).toBe(3);
+    expect(movementQty({ transactionType: 'STOCK_OUT', qty: -3 })).toBe(-3);
+    expect(movementAmount({ transactionType: 'SALE', qty: -3, productLot: { costPerUnit: '2.5' } })).toEqual({ negative: false, value: 7.5 });
+    expect(movementAmount({ transactionType: 'STOCK_OUT', qty: -2, productLot: { costPerUnit: 4 } })).toEqual({ negative: true, value: 8 });
+    expect(movementAmount({ transactionType: 'STOCK_IN', qty: 2 })).toEqual({ negative: false, value: 0 });
+    expect(movementSlot({ id: 'x', transactionType: null, qty: 1, slot: { name: 'POS', posSlot: 1 } })).toBe('POS (POS)');
+    expect(rowTypeKey('REPLENISHMENT_OUT')).toBe('REPLENISHMENT');
+    expect(rowTypeKey('SALE')).toBe('SALE');
+    expect(movementDate('2026-04-25T19:03:20')).toBe('Apr 25, 2026');
+    expect(movementDate(null)).toBe('');
   });
 });
