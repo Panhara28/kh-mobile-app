@@ -151,8 +151,9 @@ export interface SlotRow {
   id: string;
   name: string;
   warehouseId: string;
-  posSlot?: boolean;
-  forReplenishment?: boolean;
+  posSlot?: boolean | number;
+  forReplenishment?: boolean | number;
+  createdAt?: string | null;
 }
 
 export interface SlotForm {
@@ -169,3 +170,15 @@ export const slotBody = (f: SlotForm, warehouseId: string, existing?: SlotRow) =
   slotName: f.slotName.trim(),
   forReplenishment: f.forReplenishment,
 });
+
+export const SLOT_PAGE = 30;
+
+/** The web list shows the POS slot as "Name (POS)". */
+export const slotTitle = (s: Pick<SlotRow, 'name' | 'posSlot'>) => (s.posSlot ? `${s.name} (POS)` : s.name);
+
+/** The list query the web sends for a branch: paged, with an optional name search. */
+export function slotQuery(warehouseId: string, search: string, offset: number, limit = SLOT_PAGE): string {
+  const q = new URLSearchParams({ warehouse_id: warehouseId, limit: String(limit), offset: String(offset) });
+  if (search.trim()) q.set('search_name', search.trim());
+  return q.toString();
+}

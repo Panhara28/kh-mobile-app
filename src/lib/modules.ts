@@ -66,6 +66,7 @@ export const MODULES: AppModule[] = [
   { id: 'booking', route: '/booking', resource: 'accounting', icon: '💰', titleKey: 'more.booking', group: 'setup', setting: 'ACCOUNTING' },
   { id: 'chart-of-accounts', route: '/chart-of-accounts', resource: 'accounting', icon: '📒', titleKey: 'more.chartOfAccounts', group: 'setup', setting: 'ACCOUNTING' },
   { id: 'production', route: '/production', resource: 'production', icon: '🏭', titleKey: 'more.production', group: 'stock' },
+  { id: 'slots', route: '/slots', resource: 'slot', icon: '🗄️', titleKey: 'more.slots', group: 'stock' },
   { id: 'stock-counting', route: '/stock-counting', resource: 'stock-counting', icon: '📋', titleKey: 'more.stockCounting', group: 'stock' },
   { id: 'replenishment', route: '/replenishments', resource: 'replenishment', icon: '🚚', titleKey: 'more.replenishment', group: 'stock' },
   { id: 'purchase-orders', route: '/purchase-orders', resource: 'purchase-order', icon: '🧾', titleKey: 'more.purchaseOrders', group: 'stock' },

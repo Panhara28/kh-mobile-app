@@ -1,4 +1,4 @@
-import { branchBody, branchForm, emptyBranch, emptyUser, emptySlot, slotBody, slotForm, userBody, userForm, validateBranch, branchTitle, validateUser, validNewPassword } from './org';
+import { branchBody, branchForm, emptyBranch, emptyUser, emptySlot, slotBody, slotForm, userBody, userForm, validateBranch, branchTitle, slotTitle, slotQuery, validateUser, validNewPassword } from './org';
 
 describe('users', () => {
   it('needs a login, password, name, role and branch for a new account', () => {
@@ -66,5 +66,14 @@ describe('slots', () => {
     expect(slotForm(row)).toEqual({ slotName: 'Bar', forReplenishment: true });
     expect(slotBody({ ...slotForm(row), slotName: ' Bar 2 ' }, 'w1', row)).toEqual({ id: 's1', warehouseId: 'w1', slotName: 'Bar 2', forReplenishment: true });
     expect(slotBody({ ...emptySlot(), slotName: 'New' }, 'w1')).toEqual({ warehouseId: 'w1', slotName: 'New', forReplenishment: false });
+  });
+});
+
+describe('slot list', () => {
+  it('marks the POS slot and builds the paged search', () => {
+    expect(slotTitle({ name: 'POS', posSlot: 1 })).toBe('POS (POS)');
+    expect(slotTitle({ name: 'Shelf', posSlot: 0 })).toBe('Shelf');
+    expect(slotQuery('w1', ' sh ', 30)).toBe('warehouse_id=w1&limit=30&offset=30&search_name=sh');
+    expect(slotQuery('w1', '', 0)).not.toContain('search_name');
   });
 });

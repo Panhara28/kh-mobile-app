@@ -111,6 +111,7 @@ function Navigator() {
         <Stack.Screen name="settings" />
         <Stack.Screen name="users" />
         <Stack.Screen name="branches" />
+        <Stack.Screen name="slots/index" />
         <Stack.Screen name="slots/[warehouseId]" />
         <Stack.Screen name="products" />
         <Stack.Screen name="product-edit/[id]" />

@@ -334,7 +334,8 @@
     "digitalTicket": "Digital tickets",
     "manualTickets": "Manual ticket upload",
     "productGroups": "Product groups",
-    "supplierPrices": "Supplier product prices"
+    "supplierPrices": "Supplier product prices",
+    "slots": "Slot"
   },
   "range": {
     "today": "Today",
@@ -1344,5 +1345,15 @@
     "scheduledPrice": "Scheduled price",
     "search": "Search supplier or product",
     "total": "{{count}} prices"
+  },
+  "slots": {
+    "deleteTitle": "Delete slot",
+    "deleteAsk": "Are your sure you want to delete slot {{name}}?",
+    "deleteFailed": "Delete slot failed",
+    "total": "{{count}} slots",
+    "created": "Created {{date}}",
+    "info": "Slot Info",
+    "nameHint": "Enter slot name",
+    "save": "Save"
   }
 }
