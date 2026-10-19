@@ -335,7 +335,8 @@
     "manualTickets": "Manual ticket upload",
     "productGroups": "Product groups",
     "supplierPrices": "Supplier product prices",
-    "slots": "Slot"
+    "slots": "Slot",
+    "stockFinding": "Finding and Transfer"
   },
   "range": {
     "today": "Today",
@@ -1403,5 +1404,40 @@
     "info": "Slot Info",
     "nameHint": "Enter slot name",
     "save": "Save"
+  },
+  "finding": {
+    "help": "Look for the draft order product in non-POS slots and move it to the POS slot for checkout.",
+    "search": "Search invoice no...",
+    "empty": "No draft orders",
+    "transferred": "Transferred",
+    "products": "Product: {{count}}",
+    "qty": "Qty: {{count}}",
+    "transferBy": "Transfer by {{name}}",
+    "detail": "Detail",
+    "sheetTitle": "Invoice #{{no}} - Stock Transfer",
+    "allReady": "All items are ready! No stock transfers or conversions needed.",
+    "toTransfer": "Items to Transfer",
+    "toTransferHint": "Items available in warehouse but need to be moved to POS",
+    "transferAll": "Transfer All",
+    "toConvert": "Items for Conversion",
+    "toConvertHint": "Items that need unit conversion from other variants",
+    "convertAll": "Convert All",
+    "convert": "Convert",
+    "unavailable": "Unavailable Items",
+    "unavailableHint": "Items with insufficient stock across all slots",
+    "available": "Available Items",
+    "availableHint": "Items already available in POS slots",
+    "breakdownSources": "Breakdown sources:",
+    "repackSources": "Repack sources:",
+    "stock": "Stock: {{count}}",
+    "confirmTitle": "Transfer Confirmation",
+    "confirmAsk": "Transfer {{count}} item(s) to POS?",
+    "transfer": "Transfer",
+    "someFailed": "Failed to transfer some items",
+    "transferred_all": "Transferred to POS",
+    "badMixed": "Invalid conversion data - no breakdown or repack stock information",
+    "badSources": "Invalid conversion data - no source stock information",
+    "converted": "Successfully converted {{qty}} units from {{from}} to {{to}}",
+    "convertFailed": "Failed to convert units"
   }
 }

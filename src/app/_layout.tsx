@@ -119,6 +119,7 @@ function Navigator() {
         <Stack.Screen name="modifiers" />
         <Stack.Screen name="discounts" />
         <Stack.Screen name="payment-methods" />
+        <Stack.Screen name="stock-finding" />
         <Stack.Screen name="suppliers" />
         <Stack.Screen name="supplier-prices" />
         <Stack.Screen name="report/[kind]" />

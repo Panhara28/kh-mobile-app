@@ -16,6 +16,7 @@ export const colors = {
   border: '#e4e4e7',
   destructive: '#ef4444',
   destructiveForeground: '#fafafa',
+  destructiveBg: '#fee2e2',
   success: '#16a34a',
   successBg: '#dcfce7',
   warning: '#d97706',
