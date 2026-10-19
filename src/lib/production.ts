@@ -1,76 +1,169 @@
-/** Production like the kh-pos web page: make a composed product (a recipe of other products) from stock. */
+/**
+ * Production like the kh-pos web page (Inventory > Production): pick a composed product, a slot and a
+ * quantity; the server plans which component stock is used; "Produce" makes it. Below the form the web
+ * lists the recent production (COMPOSE_IN) transactions.
+ */
 
 const n = (v: unknown) => Number(v) || 0;
+
+export const PAGE = 30;
+
+// ---- the composed product picker (GET /api/product/search-product?compositeOnly=true) ----
+
+export interface CompositeOption {
+  variantId: string;
+  productTitle: string;
+  price?: number | null;
+  sku?: string | null;
+  barcode?: string | null;
+  stock?: number | null;
+  images?: { url: string }[] | null;
+}
+
+export function compositeQuery(search: string, warehouseId: string, offset: number, limit = 20): string {
+  const q = new URLSearchParams({ limit: String(limit), offset: String(offset), replenishment: 'false', compositeOnly: 'true', includeProductNotForSale: 'false' });
+  if (warehouseId) q.set('warehouse', warehouseId);
+  if (search.trim()) q.set('search', search.trim());
+  return q.toString();
+}
+
+// ---- the plan (GET /api/composition/draft) ----
 
 export interface DraftSlot {
   slot?: { id?: string; name?: string } | null;
   lot?: { id?: string; lotNumber?: string } | null;
   qty: number;
+  message?: string | null;
 }
 
 export interface DraftComponent {
   id: string;
   name?: string | null;
-  basicProduct?: { title?: string | null } | null;
+  sku?: string | null;
+  price?: number | null;
+  basicProduct?: { title?: string | null; images?: { url: string; productVariantId?: string | null }[] } | null;
   availableStock: number;
   requiredStock: number;
   canProduce: boolean;
   stockSlots: DraftSlot[];
 }
 
-export const componentName = (c: DraftComponent) => {
-  const title = c.basicProduct?.title ?? '';
-  const variant = c.name && c.name !== 'ns' ? c.name : '';
-  return [title, variant && title ? `(${variant})` : variant].filter(Boolean).join(' ') || '?';
-};
+export const draftQuery = (variantId: string, qty: number) => `variantId=${encodeURIComponent(variantId)}&qty=${qty}`;
 
-/** Components there is not enough stock for. */
-export const shortComponents = (parts: DraftComponent[]) => parts.filter((c) => !c.canProduce || n(c.availableStock) < n(c.requiredStock));
+export const componentTitle = (c: DraftComponent) => c.basicProduct?.title ?? '';
+
+/** The component's own picture. */
+export const componentImage = (c: DraftComponent) => c.basicProduct?.images?.find((i) => i.productVariantId === c.id)?.url ?? null;
+
+/** The web's "Available" / "Low Stock" badge. */
+export const isStockSufficient = (c: DraftComponent) => n(c.availableStock) >= n(c.requiredStock);
+
+/** The "2 × 5" line: units of this component for one unit made, times the quantity. */
+export const unitRequired = (c: DraftComponent, qty: number) => Math.ceil(n(c.requiredStock) / (n(qty) || 1));
 
 /**
- * The most that can be made from the stock, like the web's suggestion: for each component, how
- * many whole batches its available stock covers at the quantity asked for; the smallest wins.
+ * "Max Compositions Possible": for each component, how many whole batches its available stock covers at
+ * the quantity asked for; the smallest wins.
  */
 export function suggestedQty(parts: DraftComponent[], asked: number): number {
   if (parts.length === 0 || !(asked > 0)) return 0;
   return Math.min(...parts.map((c) => (n(c.requiredStock) > 0 ? Math.floor(n(c.availableStock) / (n(c.requiredStock) / asked)) : Infinity)));
 }
 
-/** With "restrict product lot" on, every slot a component is taken from must have a lot. */
+/** "Exceeds available stock". */
+export const exceedsStock = (parts: DraftComponent[], qty: number) => parts.length > 0 && suggestedQty(parts, qty) < qty;
+
+/** With "restrict product lot" on, every slot a component is taken from needs a lot. */
 export const missingLots = (parts: DraftComponent[]) => parts.some((c) => c.stockSlots.some((s) => !s.lot?.id));
+
+export function slotLine(s: DraftSlot, restrictLots: boolean): { name: string; lot: string; missingLot: boolean } {
+  const missingLot = restrictLots && !s.lot?.id;
+  return { name: s.slot?.name ?? s.message ?? '', lot: s.lot?.lotNumber ?? (restrictLots ? '⚠ Required' : 'N/A'), missingLot };
+}
 
 export interface ProductionForm {
   variantId: string;
+  /** The product's price: sent as the cost per unit of the new stock, as the web does. */
+  cost: number;
   qty: number;
   slotId: string;
-  lotNumber: string;
-  expiredAt: string;
-  cost: number;
 }
 
-export function validateProduction(f: ProductionForm, parts: DraftComponent[], restrictLots: boolean): 'product' | 'qty' | 'slot' | 'parts' | 'short' | 'lots' | null {
+export const emptyProduction = (): ProductionForm => ({ variantId: '', cost: 0, qty: 0, slotId: '' });
+
+/** The web disables Produce until all of this holds. */
+export function produceBlocker(f: ProductionForm, parts: DraftComponent[], busy: boolean): 'busy' | 'product' | 'qty' | 'slot' | 'parts' | 'exceeds' | null {
+  if (busy) return 'busy';
   if (!f.variantId) return 'product';
-  if (!(n(f.qty) >= 1)) return 'qty';
+  if (!(n(f.qty) > 0)) return 'qty';
   if (!f.slotId) return 'slot';
   if (parts.length === 0) return 'parts';
-  if (shortComponents(parts).length > 0) return 'short';
-  if (restrictLots && missingLots(parts)) return 'lots';
+  if (exceedsStock(parts, n(f.qty))) return 'exceeds';
   return null;
 }
 
 /** The body kh-pos wants: what is made and into which slot, and from which slots each component is taken. */
 export function productionBody(f: ProductionForm, parts: DraftComponent[]) {
   return {
-    composedVariant: {
-      variantId: f.variantId,
-      slotId: f.slotId,
-      qty: n(f.qty),
-      productLot: {
-        ...(f.lotNumber.trim() ? { lotNumber: f.lotNumber.trim() } : {}),
-        ...(f.expiredAt.trim() ? { expiredAt: f.expiredAt.trim() } : {}),
-        ...(n(f.cost) > 0 ? { costPerUnit: n(f.cost) } : {}),
-      },
-    },
+    composedVariant: { variantId: f.variantId, productLot: { costPerUnit: n(f.cost) }, qty: n(f.qty), slotId: f.slotId },
     componentVariants: parts.map((c) => ({ id: c.id, stockSlots: c.stockSlots.map((s) => ({ slotId: s.slot?.id ?? '', qty: n(s.qty) })) })),
   };
 }
+
+// ---- lot verification (shown when "restrict product lot" is on) ----
+
+export interface LotRow {
+  lotNumber: string;
+  lotId: string;
+  title: string;
+  slot: string;
+  qty: number;
+}
+
+/** One row per lot number, the first time it is seen. */
+export function lotRows(parts: DraftComponent[]): LotRow[] {
+  const seen = new Set<string>();
+  const rows: LotRow[] = [];
+  for (const c of parts) {
+    for (const s of c.stockSlots) {
+      const lotNumber = s.lot?.lotNumber;
+      const lotId = s.lot?.id;
+      if (!lotNumber || !lotId || seen.has(lotNumber)) continue;
+      seen.add(lotNumber);
+      rows.push({ lotNumber, lotId, title: c.basicProduct?.title ?? c.name ?? c.id, slot: s.slot?.name ?? '—', qty: n(s.qty) });
+    }
+  }
+  return rows;
+}
+
+/** A scanned or typed lot id is matched against the lot ids, like the web. */
+export function verifyLot(raw: string, rows: LotRow[], verified: string[]): { result: 'empty' | 'verified' | 'already' | 'missing'; verified: string[] } {
+  const code = raw.trim();
+  if (!code) return { result: 'empty', verified };
+  if (!rows.some((r) => r.lotId === code)) return { result: 'missing', verified };
+  if (verified.includes(code)) return { result: 'already', verified };
+  return { result: 'verified', verified: [...verified, code] };
+}
+
+export const allVerified = (rows: LotRow[], verified: string[]) => rows.length > 0 && rows.every((r) => verified.includes(r.lotId));
+
+// ---- recent production (GET /api/inventory-transactions?status=COMPOSE_IN) ----
+
+export interface ProductionRow {
+  id: string;
+  transactionType?: string | null;
+  qty: number;
+  createdAt?: string | null;
+  variant?: { name?: string | null; basicProduct?: { title?: string | null; images?: { url: string }[] } | null } | null;
+  slot?: { name?: string | null; posSlot?: boolean | number | null; warehouse?: { name?: string | null } | null } | null;
+  productLot?: { costPerUnit?: number | string | null } | null;
+}
+
+export const historyQuery = (offset: number, limit = PAGE) => new URLSearchParams({ offset: String(offset), limit: String(limit), status: 'COMPOSE_IN' }).toString();
+
+/** The cost of the row: cost per unit times quantity. */
+export const rowAmount = (r: ProductionRow) => Math.abs(n(r.productLot?.costPerUnit) * n(r.qty));
+
+export const rowImage = (r: ProductionRow) => r.variant?.basicProduct?.images?.[0]?.url ?? null;
+
+export const slotText = (r: ProductionRow) => (r.slot?.name ? `${r.slot.name}${r.slot.posSlot ? ' (POS)' : ''}` : '');

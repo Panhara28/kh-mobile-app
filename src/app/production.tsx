@@ -1,44 +1,75 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { fetchAllPages } from '@/lib/catalog';
+import { can } from '@/lib/line';
+import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
-import type { SlotRow } from '@/lib/org';
-import { componentName, productionBody, shortComponents, suggestedQty, validateProduction, type DraftComponent, type ProductionForm } from '@/lib/production';
+import { historyQuery, rowAmount, rowImage, slotText, type ProductionRow } from '@/lib/production';
 import { useSession } from '@/lib/session';
 import { pickSetting } from '@/lib/settings';
-import { Button, Card, Chip, Input } from '@/ui/components';
-import { NumberField } from '@/ui/form-fields';
+import { useBranch } from '@/lib/use-branch';
+import { Badge, Button, Card } from '@/ui/components';
+import { ProduceForm } from '@/ui/production/produce-form';
 import { ScreenHeader } from '@/ui/screen-header';
-import { VariantPicker } from '@/ui/variant-picker';
+import { EmptyState, ErrorState, LoadingState } from '@/ui/states';
+import { StaleBanner } from '@/ui/sync-status';
 import { colors, font, radius, space } from '@/ui/theme';
 
-const EMPTY: ProductionForm = { variantId: '', qty: 0, slotId: '', lotNumber: '', expiredAt: '', cost: 0 };
-
-/** Production: make a composed product from its components' stock, into a slot. Needs the server. */
+/**
+ * Production like the kh-pos web page: the list of recent production (Compose In transactions) and a
+ * "+" button (needs create permission) for the Add Products sheet. Making stock needs the server.
+ */
 export default function ProductionScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
-  const { data } = useOffline();
-  const guard = useOnlineOnly();
+  const { data, state } = useOffline();
+  const { currency } = useBranch();
   const warehouseId = user?.currentWarehouseId ?? '';
 
-  const [form, setForm] = useState<ProductionForm>(EMPTY);
-  const [name, setName] = useState('');
-  const [picking, setPicking] = useState(false);
-  const [slots, setSlots] = useState<SlotRow[]>([]);
-  const [parts, setParts] = useState<DraftComponent[]>([]);
+  const [rows, setRows] = useState<ProductionRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [moreLoading, setMoreLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [staleAt, setStaleAt] = useState<number | null | false>(false);
+  const [adding, setAdding] = useState(false);
   const [restrictLots, setRestrictLots] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const run = useRef(0);
+
+  const load = useCallback(
+    async (offset: number) => {
+      const id = ++run.current;
+      const qs = historyQuery(offset);
+      try {
+        const r = await data.cachedRead('production-history', qs, async () => (await api.call<{ result?: { data: ProductionRow[]; total: number } }>('GET', `/api/inventory-transactions?${qs}`)).result ?? { data: [], total: 0 });
+        if (id !== run.current) return;
+        setRows((prev) => (offset === 0 ? r.data.data : [...prev, ...r.data.data]));
+        setTotal(Number(r.data.total) || 0);
+        setStaleAt(r.stale ? r.savedAt : false);
+        setError(null);
+      } catch (e) {
+        if (id === run.current) setError(e);
+      }
+    },
+    [data, api],
+  );
+
+  const { online, syncVersion } = state;
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setLoading(true);
+      await load(0);
+      if (!cancelled) setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [load, online, syncVersion]);
 
   useEffect(() => {
-    data
-      .cachedRead('slots-ref', warehouseId, () => fetchAllPages<SlotRow>(async (o, l) => (await api.call<{ result: { data: SlotRow[]; total: number } }>('GET', `/api/warehouse/slot?warehouse_id=${encodeURIComponent(warehouseId)}&limit=${l}&offset=${o}`)).result))
-      .then((r) => setSlots(r.data), () => undefined);
     data.settings(warehouseId).then(
       ({ data: s }) => {
         try {
@@ -49,109 +80,65 @@ export default function ProductionScreen() {
       },
       () => undefined,
     );
-  }, [data, api, warehouseId]);
+  }, [data, warehouseId]);
 
-  const set = <K extends keyof ProductionForm>(k: K, v: ProductionForm[K]) => setForm((f) => ({ ...f, [k]: v }));
-
-  /** What the recipe needs for this quantity, and where it would be taken from. */
-  function plan(variantId: string, qty: number) {
-    if (!variantId || !(qty >= 1)) {
-      setParts([]);
-      return;
-    }
-    guard(async () => {
-      setLoading(true);
-      try {
-        const r = await api.call<{ result?: DraftComponent[] }>('GET', `/api/composition/draft?variantId=${encodeURIComponent(variantId)}&qty=${qty}`);
-        setParts(r.result ?? []);
-      } catch (e) {
-        setParts([]);
-        Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
-      } finally {
-        setLoading(false);
-      }
-    });
-  }
-
-  function produce() {
-    const bad = validateProduction(form, parts, restrictLots);
-    setProblem(bad);
-    if (bad) return;
-    guard(async () => {
-      setBusy(true);
-      try {
-        await api.call('POST', '/api/composition', productionBody(form, parts));
-        Alert.alert(t('production.done'));
-        setForm(EMPTY);
-        setName('');
-        setParts([]);
-      } catch (e) {
-        Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
-      } finally {
-        setBusy(false);
-      }
-    });
-  }
-
-  const short = shortComponents(parts);
+  const mayAdd = can(user, 'production', 'create');
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScreenHeader title={t('more.production')} />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Button title={name || t('production.pickProduct')} variant="outline" onPress={() => setPicking(true)} />
-          <Card style={styles.card}>
-            <NumberField label={t('production.qty')} value={form.qty} onChange={(q) => set('qty', q)} />
-            <Button title={t('production.plan')} variant="outline" loading={loading} onPress={() => plan(form.variantId, form.qty)} />
-          </Card>
-
-          {parts.map((c) => (
-            <Card key={c.id} style={styles.card}>
-              <View style={styles.row}>
-                <Text style={styles.heading}>{componentName(c)}</Text>
-                <Text style={[styles.value, { color: c.canProduce ? colors.foreground : colors.destructive }]}>
-                  {c.requiredStock} / {c.availableStock}
-                </Text>
-              </View>
-              <Text style={styles.muted}>{t('production.needHave')}</Text>
-              {c.stockSlots.map((s, i) => (
-                <Text key={i} style={styles.muted}>
-                  {s.slot?.name ?? '?'}
-                  {s.lot?.lotNumber ? ` · ${s.lot.lotNumber}` : ''}: {s.qty}
-                </Text>
-              ))}
-            </Card>
-          ))}
-          {short.length > 0 ? <Text style={styles.error}>{t('production.short', { max: suggestedQty(parts, form.qty) })}</Text> : null}
-
-          {parts.length > 0 ? (
-            <Card style={styles.card}>
-              <Text style={styles.section}>{t('production.intoSlot')}</Text>
-              <View style={styles.chips}>
-                {slots.map((s) => (
-                  <Chip key={s.id} label={s.name} selected={form.slotId === s.id} onPress={() => set('slotId', s.id)} />
-                ))}
-              </View>
-              <Input value={form.lotNumber} onChangeText={(v) => set('lotNumber', v)} placeholder={t('po.lot')} accessibilityLabel={t('po.lot')} />
-              <Input value={form.expiredAt} onChangeText={(v) => set('expiredAt', v)} placeholder={`${t('po.expires')} (YYYY-MM-DD)`} autoCapitalize="none" accessibilityLabel={t('po.expires')} />
-              <NumberField label={t('po.cost')} value={form.cost} decimal onChange={(c) => set('cost', c)} />
-            </Card>
-          ) : null}
-
-          {problem ? <Text style={styles.error}>{t(`production.error_${problem}`)}</Text> : null}
-          {parts.length > 0 ? <Button title={t('production.make')} loading={busy} onPress={produce} /> : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
-      {picking ? (
-        <VariantPicker
+      <ScreenHeader title={t('more.production')} right={mayAdd ? <Button title={`+ ${t('production.add')}`} size="sm" onPress={() => setAdding(true)} /> : undefined} />
+      {staleAt !== false ? <StaleBanner savedAt={staleAt} /> : null}
+      {loading ? (
+        <LoadingState />
+      ) : error && rows.length === 0 ? (
+        <ErrorState error={error} onRetry={() => void load(0)} />
+      ) : (
+        <FlatList
+          data={rows}
+          keyExtractor={(r, i) => r.id ?? String(i)}
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(0); setRefreshing(false); }} />}
+          onEndReached={async () => {
+            if (moreLoading || rows.length >= total) return;
+            setMoreLoading(true);
+            await load(rows.length);
+            setMoreLoading(false);
+          }}
+          onEndReachedThreshold={0.5}
+          ListHeaderComponent={<Text style={styles.warn}>{t('production.recent', { count: total })}</Text>}
+          ListEmptyComponent={<EmptyState title={t('production.empty')} />}
+          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
+          renderItem={({ item: r }) => {
+            const img = rowImage(r);
+            return (
+              <Card style={styles.card}>
+                <View style={styles.row}>
+                  {img ? <Image source={{ uri: img }} style={styles.img} resizeMode="cover" /> : <View style={[styles.img, styles.noimg]} />}
+                  <View style={styles.flex}>
+                    <Text style={styles.heading} numberOfLines={2}>{r.variant?.basicProduct?.title ?? '-'}</Text>
+                    <Text style={styles.muted}>{[slotText(r), r.slot?.warehouse?.name].filter(Boolean).join(' · ')}</Text>
+                    <Text style={styles.muted}>{(r.createdAt ?? '').slice(0, 10)}</Text>
+                  </View>
+                  <View style={styles.right}>
+                    <Badge tone="info" text={`${t('production.composeIn')}: ${r.qty}`} />
+                    <Text style={styles.amount}>{formatMoney(rowAmount(r), currency)}</Text>
+                  </View>
+                </View>
+              </Card>
+            );
+          }}
+        />
+      )}
+      {adding ? (
+        <ProduceForm
           api={api}
-          onClose={() => setPicking(false)}
-          onPick={(v) => {
-            setPicking(false);
-            setName(v.name);
-            setForm((f) => ({ ...f, variantId: v.variantId, cost: v.price }));
-            plan(v.variantId, form.qty);
+          warehouseId={warehouseId}
+          currency={currency}
+          restrictLots={restrictLots}
+          onClose={() => setAdding(false)}
+          onSaved={() => {
+            setAdding(false);
+            void load(0);
           }}
         />
       ) : null}
@@ -162,13 +149,15 @@ export default function ProductionScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.page },
   flex: { flex: 1 },
-  content: { padding: space.md, gap: space.sm },
-  card: { padding: space.md, gap: space.sm, borderRadius: radius.lg },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  section: { fontSize: font.small, fontWeight: '700', color: colors.mutedForeground, textTransform: 'uppercase' },
-  heading: { fontSize: font.body, fontWeight: '700', color: colors.foreground, flexShrink: 1 },
-  value: { fontSize: font.body, fontWeight: '700' },
+  list: { padding: space.md, gap: space.sm },
+  card: { padding: space.md, borderRadius: radius.lg },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  right: { alignItems: 'flex-end', gap: 4 },
+  img: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.muted },
+  noimg: { borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border },
+  warn: { fontSize: font.body, fontWeight: '700', color: colors.warning },
+  heading: { fontSize: font.body, fontWeight: '700', color: colors.foreground },
   muted: { fontSize: font.small, color: colors.mutedForeground },
-  error: { fontSize: font.small, color: colors.destructive },
+  amount: { fontSize: font.small, fontWeight: '700', color: colors.success },
+  more: { marginVertical: space.lg },
 });

@@ -108,6 +108,7 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 | Discounts, 100% of the web module | `770bb25` | Campaign list with Applies On, form, and the Applies sheet (all / products and variants / categories); see [DISCOUNTS.md](DISCOUNTS.md) |
 | Payment methods, 100% of the web module | `1c135b6` | Numbered list with created date, add, rename, delete with the web wording; see [PAYMENT-METHODS.md](PAYMENT-METHODS.md) |
 | Suppliers and supplier product prices, 100% of the web modules | `954dd00` | Numbered supplier list with the web fields, add/edit/delete with the web wording; new Supplier product price screen (filters, order, add, edit, scheduled price, delete); see [SUPPLIERS.md](SUPPLIERS.md) |
+| Production, 100% of the web module | (this commit) | Recent production list, Add Products sheet with composed-product search, plan, stock summary, lot verification; see [PRODUCTION.md](PRODUCTION.md) |
 
 **Offline, per module.** Ordering at tables (including checkout, shifts, discounts, order type) works offline and is sent later, as above. Every other module **reads** from the saved copy offline and **needs the server to save**: it says so instead of failing. Retail POS and cinema ticket sale need the server to charge, because the stock, the seats taken and the invoice number come from kh-pos.
 
