@@ -121,7 +121,7 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 | Purchase Order, 100% of the web page | `6a4c884` | Full row columns and menu, edit, details, create/edit form with stock and checks, receive sheet with modes and cancel remaining; see [PURCHASE-ORDERS.md](PURCHASE-ORDERS.md) |
 | Replenishment, 100% of the web pages | `fece422` | TR codes, main/other branch lists, edit/delete drafts, form with picking list and Check Stock, general information, lot-gated approve, suggestions page; see [REPLENISHMENT.md](REPLENISHMENT.md) |
 | Reports (sale, breakdown, end of day, items, void, guests, stock, expiry) | `5c336ee` | Filters, chart, totals, export/print like the web; stock report now sends its dates; see [REPORTS.md](REPORTS.md) |
-| Profile menu (account) | (this commit) | Change password checklist, device name sent as X-Device headers, print and device settings, shift and settings links; see [PROFILE-MENU.md](PROFILE-MENU.md) |
+| Profile menu (account) | `75226d3` | Change password checklist, device name sent as X-Device headers, print and device settings, shift and settings links; see [PROFILE-MENU.md](PROFILE-MENU.md) |
 
 **Offline, per module.** Ordering at tables (including checkout, shifts, discounts, order type) works offline and is sent later, as above. Every other module **reads** from the saved copy offline and **needs the server to save**: it says so instead of failing. Retail POS and cinema ticket sale need the server to charge, because the stock, the seats taken and the invoice number come from kh-pos.
 
