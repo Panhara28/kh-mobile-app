@@ -28,7 +28,7 @@ export default function MoreScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Button title={`‹ ${t('common.back')}`} variant="ghost" size="sm" onPress={() => router.back()} />
+        <Button title={`‹ ${t('common.back')}`} variant="ghost" size="sm" onPress={() => (router.canGoBack() ? router.back() : router.replace('/tables'))} />
         <Text style={styles.title}>{t('more.title')}</Text>
         <SyncBadge />
       </View>

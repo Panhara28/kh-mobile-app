@@ -10,7 +10,7 @@ export function ScreenHeader({ title, right, onBack }: { title: string; right?: 
   const { t } = useTranslation();
   return (
     <View style={styles.header}>
-      <Button title={`‹ ${t('common.back')}`} variant="ghost" size="sm" onPress={onBack ?? (() => router.back())} />
+      <Button title={`‹ ${t('common.back')}`} variant="ghost" size="sm" onPress={onBack ?? (() => (router.canGoBack() ? router.back() : router.replace('/tables')))} />
       <Text style={styles.title} numberOfLines={1}>
         {title}
       </Text>

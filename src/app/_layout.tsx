@@ -42,7 +42,8 @@ function Navigator() {
     if (landed.current || !user) return;
     landed.current = true;
     const home = homeRoute(user);
-    if (home !== '/tables') router.replace(home as never);
+    // pushed on top of the tables, so Back from the home screen has somewhere to go
+    if (home !== '/tables') router.push(home as never);
   }, [status, user]);
 
   if (status === 'loading') {
