@@ -322,7 +322,8 @@
     "production": "ផលិតកម្ម",
     "board": "ការលក់តាមសាខា",
     "booking": "ការកក់បញ្ជី",
-    "chartOfAccounts": "បញ្ជីគណនី"
+    "chartOfAccounts": "បញ្ជីគណនី",
+    "showtimes": "ការចាក់បញ្ចាំង"
   },
   "range": {
     "today": "ថ្ងៃនេះ",
@@ -794,5 +795,29 @@
     "error_bookingName": "សូមបញ្ចូលថាការកក់បញ្ជីនេះសម្រាប់អ្វី។",
     "error_accountId": "សូមជ្រើសរើសគណនី។",
     "error_amount": "សូមបញ្ចូលចំនួនលើសពី 0។"
+  },
+  "cinema": {
+    "day": "ថ្ងៃ",
+    "empty": "គ្មានការចាក់បញ្ចាំងនៅថ្ងៃនេះទេ។",
+    "new": "ការចាក់បញ្ចាំងថ្មី",
+    "pickMovie": "ជ្រើសរើសភាពយន្ត",
+    "hall": "សាលមើលកុន",
+    "price": "តម្លៃមូលដ្ឋាន",
+    "seats": "កៅអី",
+    "statusLabel": "ស្ថានភាព",
+    "template": "គំរូតម្លៃ",
+    "noTemplate": "គ្មាន",
+    "status_scheduled": "បានកំណត់ពេល",
+    "status_selling": "កំពុងលក់",
+    "status_sold_out": "អស់សំបុត្រ",
+    "status_started": "បានចាប់ផ្តើម",
+    "status_ended": "បានបញ្ចប់",
+    "status_cancelled": "បានលុបចោល",
+    "error_movieId": "សូមជ្រើសរើសភាពយន្ត។",
+    "error_hallId": "សូមជ្រើសរើសសាល។",
+    "error_showDate": "ថ្ងៃមានទម្រង់ 2026-01-31។",
+    "error_start": "ម៉ោងចាប់ផ្តើមមានទម្រង់ 19:30។",
+    "error_end": "ម៉ោងបញ្ចប់មានទម្រង់ 21:45 ហើយត្រូវខុសពីម៉ោងចាប់ផ្តើម។",
+    "error_basePrice": "តម្លៃមិនអាចអវិជ្ជមានទេ។"
   }
 }

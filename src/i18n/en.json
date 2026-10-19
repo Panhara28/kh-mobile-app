@@ -322,7 +322,8 @@
     "production": "Production",
     "board": "Sales by branch",
     "booking": "Bookings",
-    "chartOfAccounts": "Chart of accounts"
+    "chartOfAccounts": "Chart of accounts",
+    "showtimes": "Showtimes"
   },
   "range": {
     "today": "Today",
@@ -794,5 +795,29 @@
     "error_bookingName": "Enter what the booking is for.",
     "error_accountId": "Choose an account.",
     "error_amount": "Enter an amount above 0."
+  },
+  "cinema": {
+    "day": "Day",
+    "empty": "No showtimes this day.",
+    "new": "New showtime",
+    "pickMovie": "Choose the movie",
+    "hall": "Hall",
+    "price": "Base price",
+    "seats": "Seats",
+    "statusLabel": "Status",
+    "template": "Pricing template",
+    "noTemplate": "None",
+    "status_scheduled": "Scheduled",
+    "status_selling": "Selling",
+    "status_sold_out": "Sold out",
+    "status_started": "Started",
+    "status_ended": "Ended",
+    "status_cancelled": "Cancelled",
+    "error_movieId": "Choose the movie.",
+    "error_hallId": "Choose the hall.",
+    "error_showDate": "The day looks like 2026-01-31.",
+    "error_start": "The start looks like 19:30.",
+    "error_end": "The end looks like 21:45 and must differ from the start.",
+    "error_basePrice": "The price cannot be negative."
   }
 }
