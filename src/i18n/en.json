@@ -323,7 +323,8 @@
     "board": "Sales by branch",
     "booking": "Bookings",
     "chartOfAccounts": "Chart of accounts",
-    "showtimes": "Showtimes"
+    "showtimes": "Showtimes",
+    "tickets": "Cinema tickets"
   },
   "range": {
     "today": "Today",
@@ -819,5 +820,19 @@
     "error_start": "The start looks like 19:30.",
     "error_end": "The end looks like 21:45 and must differ from the start.",
     "error_basePrice": "The price cannot be negative."
+  },
+  "tickets": {
+    "empty": "No tickets for this day.",
+    "seat": "Seat",
+    "admit": "Admit",
+    "admitted": "Seat {{seat}} admitted.",
+    "notFound": "No confirmed ticket has this code.",
+    "cannotAdmit": "This ticket is {{status}}, so it cannot be admitted.",
+    "scanHint": "Point at the ticket code",
+    "status_pending": "Pending",
+    "status_confirmed": "Confirmed",
+    "status_admitted": "Admitted",
+    "status_cancelled": "Cancelled",
+    "status_expired": "Expired"
   }
 }

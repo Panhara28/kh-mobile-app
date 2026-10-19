@@ -62,6 +62,7 @@ function Navigator() {
         <Stack.Screen name="orders" />
         <Stack.Screen name="table-setup" />
         <Stack.Screen name="account" />
+        <Stack.Screen name="tickets" />
         <Stack.Screen name="showtimes" />
         <Stack.Screen name="booking" />
         <Stack.Screen name="chart-of-accounts" />
