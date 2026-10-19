@@ -16,6 +16,8 @@ export interface OrderRow {
   tableNumber?: string | null;
   items?: { qty?: number | string }[];
   printCount?: number;
+  servedType?: string | null;
+  customerLoader?: { customerName?: string | null; phone?: string | null; email?: string | null } | null;
 }
 
 export interface OrderFilter {
@@ -24,9 +26,32 @@ export interface OrderFilter {
   startDate?: string;
   endDate?: string;
   shiftId?: string;
+  customerPhone?: string;
+  ticketCode?: string;
   limit?: number;
   offset?: number;
 }
+
+/** The web order filter offers only these two statuses. */
+export const LIST_STATUSES: OrderStatus[] = ['DRAFT', 'COMPLETED'];
+
+export type SearchType = 'invoice' | 'phone' | 'ticketCode';
+
+/**
+ * What the web search box sets: the invoice number (digits only), the customer phone or a cinema
+ * ticket code. While something is searched the status filter is dropped.
+ */
+export function searchFilter(type: SearchType, text: string): Pick<OrderFilter, 'invoiceNo' | 'customerPhone' | 'ticketCode'> {
+  const v = text.trim();
+  if (!v) return {};
+  if (type === 'invoice') {
+    const digits = invoiceDigits(v);
+    return digits ? { invoiceNo: digits } : {};
+  }
+  return type === 'phone' ? { customerPhone: v } : { ticketCode: v };
+}
+
+export const hasActiveFilters = (f: OrderFilter) => !!(f.invoiceNo || f.customerPhone || f.startDate || f.endDate || f.status || f.shiftId || f.ticketCode);
 
 /** The web filter keeps only the digits of what is typed in the invoice box ("#1234" → "1234"). */
 export function invoiceDigits(text: string): string | undefined {
@@ -42,12 +67,28 @@ export function orderQuery(f: OrderFilter): string {
   if (f.startDate) p.set('startDate', f.startDate);
   if (f.endDate) p.set('endDate', f.endDate);
   if (f.shiftId) p.set('shiftId', f.shiftId);
+  if (f.customerPhone) p.set('customerPhone', f.customerPhone);
+  if (f.ticketCode) p.set('ticketCode', f.ticketCode);
   return p.toString();
 }
 
-/** Counts and totals of the orders shown, like the web's order summary cards. */
-export function summarize(orders: OrderRow[]) {
-  const out = { completedCount: 0, completedTotal: 0, draftCount: 0, draftTotal: 0 };
+/** The web summary reads every order of the period (up to 10000), not only the page shown. */
+export const SUMMARY_LIMIT = 10000;
+
+export interface OrderSummary {
+  completedCount: number;
+  completedTotal: number;
+  draftCount: number;
+  draftTotal: number;
+  expectationCount: number;
+  expectationTotal: number;
+  byServedType: { servedType: string; count: number; total: number }[];
+}
+
+/** Completed, draft and expected revenue, and the totals per served type (biggest first), like the web summary cards. */
+export function summarize(orders: OrderRow[]): OrderSummary {
+  const out = { completedCount: 0, completedTotal: 0, draftCount: 0, draftTotal: 0, expectationCount: 0, expectationTotal: 0 };
+  const byType = new Map<string, { count: number; total: number }>();
   for (const o of orders) {
     const amount = parseFloat(o.totalAmount ?? '0') || 0;
     if (o.orderStatus === 'COMPLETED') {
@@ -57,8 +98,48 @@ export function summarize(orders: OrderRow[]) {
       out.draftCount++;
       out.draftTotal += amount;
     }
+    out.expectationCount++;
+    out.expectationTotal += amount;
+    const key = o.servedType ?? 'unknown';
+    const e = byType.get(key) ?? { count: 0, total: 0 };
+    e.count++;
+    e.total += amount;
+    byType.set(key, e);
   }
-  return { ...out, completedTotal: Math.round(out.completedTotal * 100) / 100, draftTotal: Math.round(out.draftTotal * 100) / 100 };
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  return {
+    ...out,
+    completedTotal: r2(out.completedTotal),
+    draftTotal: r2(out.draftTotal),
+    expectationTotal: r2(out.expectationTotal),
+    byServedType: [...byType.entries()].map(([servedType, v]) => ({ servedType, count: v.count, total: r2(v.total) })).sort((x, y) => y.total - x.total),
+  };
+}
+
+/** Served types the web summary names; anything else is "unknown". */
+export const SERVED_TYPES = ['dine_in', 'take_away', 'food_delivery', 'customer', 'unknown'] as const;
+export const servedTypeKey = (t: string) => ((SERVED_TYPES as readonly string[]).includes(t) ? t : 'unknown');
+
+/** The web list shows the paid time, else the created time. */
+export const orderWhen = (o: Pick<OrderRow, 'paidAt' | 'createdAt'>) => o.paidAt ?? o.createdAt;
+
+/** Portions on the order (the web "Items" column). */
+export const itemCount = (o: Pick<OrderRow, 'items'>) => (o.items ?? []).reduce((a, i) => a + (Number(i.qty) || 0), 0);
+
+/** The web "Created By" column: the customer (with phone and email) for an order they made, else the staff member. */
+export function whoFor(o: Pick<OrderRow, 'servedType' | 'customerLoader' | 'createdBy'>): { kind: 'customer' | 'staff'; name: string; phone?: string; email?: string } {
+  if (o.servedType === 'customer') return { kind: 'customer', name: o.customerLoader?.customerName || 'Customer', ...(o.customerLoader?.phone ? { phone: o.customerLoader.phone } : {}), ...(o.customerLoader?.email ? { email: o.customerLoader.email } : {}) };
+  return { kind: 'staff', name: o.createdBy?.fullname || 'Unknown' };
+}
+
+export type OrderAction = 'print' | 'view' | 'open' | 'reverse';
+
+/** The web row menu: print and view always; a draft on a table can be opened, a completed order reversed. */
+export function orderActions(o: Pick<OrderRow, 'orderStatus' | 'tableNumber'>): OrderAction[] {
+  const out: OrderAction[] = ['print', 'view'];
+  if (o.orderStatus === 'DRAFT' && o.tableNumber) out.push('open');
+  if (o.orderStatus === 'COMPLETED') out.push('reverse');
+  return out;
 }
 
 export const statusTone = (status: string) => (status === 'COMPLETED' ? 'success' : status === 'CANCELLED' || status === 'REFUND' ? 'destructive' : status === 'DRAFT' ? 'outline' : 'info') as 'success' | 'destructive' | 'outline' | 'info';

@@ -1,6 +1,6 @@
 import type { OrderLine } from './api';
 import { dayText, parseDay, rangeFor } from './dates';
-import { buildReturns, invoiceDigits, orderQuery, refundFor, returnableQty, returnedQty, statusTone, summarize, type OrderRow } from './orders';
+import { LIST_STATUSES, hasActiveFilters, itemCount, orderActions, orderWhen, searchFilter, servedTypeKey, whoFor, buildReturns, invoiceDigits, orderQuery, refundFor, returnableQty, returnedQty, statusTone, summarize, type OrderRow } from './orders';
 
 const line = (over: Partial<OrderLine> = {}): OrderLine => ({ orderDetailId: 'L1', variantId: 'v', title: 'Dish', qty: 4, price: '2', totalAmount: '8', ...over });
 const row = (over: Partial<OrderRow>): OrderRow => ({ orderId: 'o', invoiceNo: 1, orderStatus: 'COMPLETED', createdAt: null, totalAmount: '10', ...over });
@@ -44,7 +44,7 @@ describe('order list', () => {
 
   it('summarises completed and draft orders', () => {
     const s = summarize([row({ totalAmount: '10.10' }), row({ totalAmount: '5.20' }), row({ orderStatus: 'DRAFT', totalAmount: '3' }), row({ orderStatus: 'CANCELLED', totalAmount: '99' })]);
-    expect(s).toEqual({ completedCount: 2, completedTotal: 15.3, draftCount: 1, draftTotal: 3 });
+    expect(s).toMatchObject({ completedCount: 2, completedTotal: 15.3, draftCount: 1, draftTotal: 3 });
   });
 
   it('colours the status', () => {
@@ -74,5 +74,38 @@ describe('returns', () => {
       { orderId: 'o1', orderItemId: 'A', quantity: 2, refundAmount: 4, reason: 'cold' },
       { orderId: 'o1', orderItemId: 'B', quantity: 1, refundAmount: 2 },
     ]);
+  });
+});
+
+describe('customer order page', () => {
+  it('searches by invoice digits, phone or ticket code', () => {
+    expect(searchFilter('invoice', ' #123 ')).toEqual({ invoiceNo: '123' });
+    expect(searchFilter('invoice', 'abc')).toEqual({});
+    expect(searchFilter('phone', ' 012345 ')).toEqual({ customerPhone: '012345' });
+    expect(searchFilter('ticketCode', 'T9')).toEqual({ ticketCode: 'T9' });
+    expect(searchFilter('phone', '  ')).toEqual({});
+    expect(orderQuery({ customerPhone: '012', ticketCode: 'T9', shiftId: 's1' })).toContain('customerPhone=012&ticketCode=T9');
+    expect(hasActiveFilters({ limit: 30, offset: 0 })).toBe(false);
+    expect(hasActiveFilters({ shiftId: 's' })).toBe(true);
+    expect(LIST_STATUSES).toEqual(['DRAFT', 'COMPLETED']);
+  });
+  it('sums completed, draft, expected and per served type', () => {
+    const s = summarize([row({ totalAmount: '10', servedType: 'dine_in' }), row({ orderStatus: 'DRAFT', totalAmount: '5.5', servedType: 'dine_in' }), row({ totalAmount: '20', servedType: null }), row({ orderStatus: 'CANCELLED', totalAmount: '1', servedType: 'customer' })]);
+    expect(s).toMatchObject({ completedCount: 2, completedTotal: 30, draftCount: 1, draftTotal: 5.5, expectationCount: 4, expectationTotal: 36.5 });
+    expect(s.byServedType.map((x) => x.servedType)).toEqual(['unknown', 'dine_in', 'customer']);
+    expect(servedTypeKey('weird')).toBe('unknown');
+    expect(servedTypeKey('take_away')).toBe('take_away');
+  });
+  it('shows when, how many, who and which actions', () => {
+    expect(orderWhen({ paidAt: 'p', createdAt: 'c' })).toBe('p');
+    expect(orderWhen({ paidAt: null, createdAt: 'c' })).toBe('c');
+    expect(itemCount({ items: [{ qty: 2 }, { qty: '3' }, {}] })).toBe(5);
+    expect(whoFor({ servedType: 'customer', customerLoader: { customerName: 'Sok', phone: '012' } })).toEqual({ kind: 'customer', name: 'Sok', phone: '012' });
+    expect(whoFor({ servedType: 'customer' }).name).toBe('Customer');
+    expect(whoFor({ servedType: 'dine_in', createdBy: { fullname: 'Dara' } })).toEqual({ kind: 'staff', name: 'Dara' });
+    expect(whoFor({}).name).toBe('Unknown');
+    expect(orderActions({ orderStatus: 'DRAFT', tableNumber: 't1' })).toEqual(['print', 'view', 'open']);
+    expect(orderActions({ orderStatus: 'DRAFT' })).toEqual(['print', 'view']);
+    expect(orderActions({ orderStatus: 'COMPLETED' })).toEqual(['print', 'view', 'reverse']);
   });
 });

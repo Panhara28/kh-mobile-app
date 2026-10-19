@@ -1,5 +1,5 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,7 +37,7 @@ function optionNames(lines: OrderLine[]): Map<string, ModifierItem> {
  */
 export default function OrderDetailScreen() {
   const { t } = useTranslation();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, receipt: openReceipt } = useLocalSearchParams<{ id: string; receipt?: string }>();
   const { api, user } = useSession();
   const { data } = useOffline();
   const { currency, exchangeRate } = useBranch();
@@ -70,6 +70,15 @@ export default function OrderDetailScreen() {
   );
 
   const names = useMemo(() => optionNames(detail?.orderDetail ?? []), [detail]);
+
+  // Opened from the order list's "Print Receipt": show the receipt once the order has loaded.
+  const receiptShown = useRef(false);
+  useEffect(() => {
+    if (detail && openReceipt === '1' && !receiptShown.current) {
+      receiptShown.current = true;
+      setReceipt(receiptFromDetail(detail, { names, methods: methodNames(methods), exchangeRate, currency }));
+    }
+  }, [detail, openReceipt, names, methods, exchangeRate, currency]);
 
   if (!detail) {
     return (

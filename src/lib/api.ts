@@ -3,6 +3,7 @@
  * Response shapes are copied from the kh-pos sources; only the fields the app uses are typed.
  */
 
+import { stripSecrets } from './redact';
 import { orderQuery, type OrderFilter, type OrderRow, type ReturnInput } from './orders';
 import type { TransferBody } from './transfer';
 
@@ -357,7 +358,8 @@ export class KhPosApi {
     if (res.status === 401) throw new ApiError('unauthorized', 401, message);
     if (res.status === 403) throw new ApiError('forbidden', 403, message);
     if (!res.ok || json.success === false) throw new ApiError('server', res.status, message);
-    return json as T;
+    // the login answer is the one place a token is wanted; everywhere else other people's tokens are dropped
+    return (path === '/api/auth/login' ? json : stripSecrets(json)) as T;
   }
 
   /**
@@ -629,6 +631,11 @@ export class KhPosApi {
   async createReturns(returns: ReturnInput[]): Promise<string[]> {
     const json = await this.request<{ result?: string[] }>('POST', '/api/pos/return', returns);
     return json.result ?? [];
+  }
+
+  /** Counts a receipt print on the order (the web does this before printing). */
+  async markPrinted(orderId: string): Promise<void> {
+    await this.request('POST', `/api/pos/order/${encodeURIComponent(orderId)}/print`, {});
   }
 
   /** Reopens a paid order as a draft (removes its payments and puts the stock back). */
