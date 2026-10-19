@@ -304,7 +304,10 @@
     "discounts": "Discounts",
     "paymentMethods": "Payment methods",
     "suppliers": "Suppliers",
-    "products": "Products"
+    "products": "Products",
+    "account": "My account",
+    "users": "Users",
+    "branches": "Branches"
   },
   "range": {
     "today": "Today",
@@ -528,5 +531,34 @@
     "error_cost": "The cost cannot be negative.",
     "error_discount": "Enter a discount value (a percentage up to 100).",
     "error_duplicateVariant": "Two variants have the same name."
+  },
+  "users": {
+    "username": "Login name",
+    "password": "Password",
+    "fullname": "Full name",
+    "phone": "Phone",
+    "role": "Role",
+    "branch": "Branch",
+    "resetPassword": "Reset password",
+    "resetFor": "New password for {{name}}",
+    "newPassword": "New password",
+    "passwordShort": "The password needs at least 4 characters.",
+    "passwordChanged": "Password changed."
+  },
+  "branches": {
+    "name": "Branch name",
+    "owner": "Owner name",
+    "ownerLogin": "Owner's login name",
+    "useMainVisibility": "Use the main branch product visibility",
+    "main": "Main",
+    "slots": "Stock slots",
+    "slotName": "Slot name",
+    "posSlot": "POS slot",
+    "replenishment": "For replenishment"
+  },
+  "account": {
+    "changePassword": "Change password",
+    "oldPassword": "Current password",
+    "oldRequired": "Enter your current password."
   }
 }
