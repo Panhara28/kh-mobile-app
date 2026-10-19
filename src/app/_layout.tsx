@@ -1,4 +1,6 @@
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { homeRoute } from '@/lib/modules';
 import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
@@ -27,8 +29,21 @@ export default function RootLayout() {
 
 /** Login screen while signed out; tables, then a table's menu and order, while signed in. */
 function Navigator() {
-  const { status, retry, logout } = useSession();
+  const { status, retry, logout, user } = useSession();
   const { t } = useTranslation();
+
+  // After signing in, open the role's home screen (the owner's dashboard, a board member's board, ...).
+  const landed = useRef(false);
+  useEffect(() => {
+    if (status !== 'signedIn') {
+      landed.current = false;
+      return;
+    }
+    if (landed.current || !user) return;
+    landed.current = true;
+    const home = homeRoute(user);
+    if (home !== '/tables') router.replace(home as never);
+  }, [status, user]);
 
   if (status === 'loading') {
     return (

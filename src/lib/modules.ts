@@ -79,3 +79,17 @@ export function visibleModules(user: StaffUser | null | undefined, enabled: (opt
 }
 
 export const GROUP_ORDER: ModuleGroup[] = ['daily', 'reports', 'stock', 'setup'];
+
+/**
+ * Where the app opens after signing in, like the web: the owner lands on the dashboard, a board
+ * member on the board dashboard, anyone else on the tables when their role allows them, otherwise on
+ * the first module they may open (More).
+ */
+export function homeRoute(user: StaffUser | null | undefined): string {
+  if (!user?.role) return '/tables';
+  if (user.role.role === 'OWNER') return '/report/dashboard';
+  if (user.role.role.toUpperCase() === 'BOARD MEMBER' && can(user, 'board-member-dashboard', 'read')) return '/board';
+  if (can(user, 'restaurant', 'read')) return '/tables';
+  const first = visibleModules(user).find((m) => m.resource !== null);
+  return first ? first.route : '/more';
+}

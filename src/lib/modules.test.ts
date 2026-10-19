@@ -1,6 +1,6 @@
 import type { StaffUser } from './api';
 import { can } from './line';
-import { MODULES, visibleModules } from './modules';
+import { homeRoute, MODULES, visibleModules } from './modules';
 
 const user = (role: string, permissions: Record<string, string> = {}) => ({ id: 'u', role: { role, permissions } }) as unknown as StaffUser;
 
@@ -41,5 +41,16 @@ describe('which modules show', () => {
     expect(can(user('CASHIER'), 'accounting', 'create')).toBe(true);
     expect(can(user('CASHIER'), 'accounting', 'delete')).toBe(true);
     expect(can(null, 'accounting', 'read')).toBe(false);
+  });
+});
+
+describe('where the app opens', () => {
+  it('owner to the dashboard, board member to the board, others to the tables', () => {
+    expect(homeRoute(user('OWNER'))).toBe('/report/dashboard');
+    expect(homeRoute(user('Board Member', { 'board-member-dashboard': 'read' }))).toBe('/board');
+    expect(homeRoute(user('Service', { restaurant: 'read,create' }))).toBe('/tables');
+    expect(homeRoute(user('Supervisor', { shift: 'read' }))).toBe('/shift');
+    expect(homeRoute(user('Nobody', {}))).toBe('/more');
+    expect(homeRoute(null)).toBe('/tables');
   });
 });
