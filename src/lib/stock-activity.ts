@@ -83,8 +83,39 @@ export interface ReturnRow {
   returnedAt?: string | null;
   returnedBy?: { fullname?: string | null } | null;
   stockInAt?: string | null;
-  productVariant?: VariantRef | null;
+  stockInBy?: { fullname?: string | null } | null;
+  productVariant?: (VariantRef & { id?: string; basicProduct?: { title?: string | null; images?: { url: string; productVariantId?: string | null }[] } | null }) | null;
   orderInvoiceNumber?: string | number | null;
+}
+
+export const RETURN_PAGE = 30;
+
+export type ReturnTab = 'returned' | 'stock_in';
+
+/** The web Order Return list: one tab per status, 30 at a time. */
+export const returnsQuery = (status: ReturnTab, offset: number, limit = RETURN_PAGE) => new URLSearchParams({ offset: String(offset), limit: String(limit), status }).toString();
+
+/** The "RTN-00001" number the web shows in front of each row. */
+export const returnCode = (position: number) => `RTN-${String(position).padStart(5, '0')}`;
+
+/** The web product cell: "Title (Variant)". */
+export const returnProduct = (r: Pick<ReturnRow, 'productVariant'>) => `${r.productVariant?.basicProduct?.title ?? ''} (${r.productVariant?.name ?? ''})`;
+
+export const returnImage = (r: Pick<ReturnRow, 'productVariant'>) => r.productVariant?.basicProduct?.images?.find((i) => i.productVariantId === r.productVariant?.id)?.url ?? null;
+
+/** The lines of the status tooltip: when and by whom it was returned and put back in stock. */
+export function returnHistory(r: Pick<ReturnRow, 'returnedAt' | 'returnedBy' | 'stockInAt' | 'stockInBy'>): { kind: 'returned' | 'stock_in'; at: string; by: string }[] {
+  const out: { kind: 'returned' | 'stock_in'; at: string; by: string }[] = [];
+  if (r.returnedAt) out.push({ kind: 'returned', at: r.returnedAt, by: r.returnedBy?.fullname ?? '' });
+  if (r.stockInAt) out.push({ kind: 'stock_in', at: r.stockInAt, by: r.stockInBy?.fullname ?? '' });
+  return out;
+}
+
+/** One line of "Stock info": where a returned item goes back to. */
+export interface StockInSlot {
+  variant?: (VariantRef & { id?: string; basicProduct?: { title?: string | null; images?: { url: string; productVariantId?: string | null }[] } | null }) | null;
+  slot?: { name?: string | null; posSlot?: boolean | number | null } | null;
+  qty: number;
 }
 
 export const canStockIn = (r: Pick<ReturnRow, 'status'>) => r.status === 'returned';

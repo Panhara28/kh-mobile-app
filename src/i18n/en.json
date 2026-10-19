@@ -793,7 +793,24 @@
     "waiting": "Waiting for stock",
     "inStock": "Back in stock",
     "stockIn": "Put back in stock",
-    "stockInConfirm": "Put these items back in stock?"
+    "stockInConfirm": "Put these items back in stock?",
+    "tab_returned": "Returned",
+    "tab_stock_in": "Stock In",
+    "total": "{{count}} returns",
+    "empty": "No returns",
+    "invoice": "Order Invoice",
+    "quantity": "Quantity",
+    "refund": "Refund Amount",
+    "orderDetail": "Order Detail",
+    "stockInfo": "Stock info",
+    "stockInTitle": "Return Stock",
+    "stockInAsk": "Do you want to proceed with returning the item(s) to the selected slot?",
+    "yes": "Yes",
+    "stockedIn": "Return item was stock in",
+    "stockInFailed": "Failed to return stock in",
+    "stockInHelp": "Returned items go into this slot.",
+    "slot": "Slot",
+    "returnStock": "Return Stock"
   },
   "backlog": {
     "resolve": "Resolve"

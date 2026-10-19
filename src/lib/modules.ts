@@ -51,7 +51,7 @@ export const MODULES: AppModule[] = [
   { id: 'discounts', route: '/discounts', resource: 'discount', icon: '🏷', titleKey: 'more.discounts', group: 'setup' },
   { id: 'payment-methods', route: '/payment-methods', resource: 'payment', icon: '💳', titleKey: 'more.paymentMethods', group: 'setup' },
   { id: 'stock-movements', route: '/stock-movements', resource: 'transaction', icon: '🔁', titleKey: 'more.stockMovements', group: 'stock' },
-  { id: 'returns', route: '/returns', resource: 'order', icon: '↩️', titleKey: 'more.returns', group: 'stock' },
+  { id: 'returns', route: '/returns', resource: 'return', icon: '↩️', titleKey: 'more.returns', group: 'stock' },
   { id: 'backlog', route: '/backlog', resource: 'backlog', icon: '⏱', titleKey: 'more.backlog', group: 'stock' },
   { id: 'customers', route: '/customers', resource: 'order', icon: '🛵', titleKey: 'more.customers', group: 'daily' },
   { id: 'promotion-sets', route: '/promotion-sets', resource: 'discount', icon: '🎁', titleKey: 'more.promotionSets', group: 'setup' },

@@ -1,4 +1,4 @@
-import { MOVEMENT_TYPES, canStockIn, movementAmount, movementDate, movementQty, movementSlot, rowTypeKey, movementDirection, movementQuery, oldestFirst, returnsSummary, variantLabel, type ReturnRow } from './stock-activity';
+import { returnCode, returnHistory, returnImage, returnProduct, returnsQuery, MOVEMENT_TYPES, canStockIn, movementAmount, movementDate, movementQty, movementSlot, rowTypeKey, movementDirection, movementQuery, oldestFirst, returnsSummary, variantLabel, type ReturnRow } from './stock-activity';
 
 describe('stock activity', () => {
   it('names a variant, leaving out the default "ns"', () => {
@@ -50,5 +50,26 @@ describe('transactions page rows', () => {
     expect(rowTypeKey('SALE')).toBe('SALE');
     expect(movementDate('2026-04-25T19:03:20')).toBe('Apr 25, 2026');
     expect(movementDate(null)).toBe('');
+  });
+});
+
+describe('order return page', () => {
+  it('builds the tab query and the RTN code', () => {
+    expect(returnsQuery('returned', 0)).toBe('offset=0&limit=30&status=returned');
+    expect(returnsQuery('stock_in', 30)).toBe('offset=30&limit=30&status=stock_in');
+    expect(returnCode(1)).toBe('RTN-00001');
+    expect(returnCode(123)).toBe('RTN-00123');
+  });
+  it('shows the product, its picture and the history', () => {
+    const r = { productVariant: { id: 'v', name: '1kg', basicProduct: { title: 'Rice', images: [{ url: 'a', productVariantId: 'x' }, { url: 'b', productVariantId: 'v' }] } } };
+    expect(returnProduct(r)).toBe('Rice (1kg)');
+    expect(returnImage(r)).toBe('b');
+    expect(returnImage({})).toBeNull();
+    expect(returnHistory({ returnedAt: '2026-10-01 10:00', returnedBy: { fullname: 'A' }, stockInAt: '2026-10-02 09:00', stockInBy: { fullname: 'B' } })).toEqual([
+      { kind: 'returned', at: '2026-10-01 10:00', by: 'A' },
+      { kind: 'stock_in', at: '2026-10-02 09:00', by: 'B' },
+    ]);
+    expect(returnHistory({ returnedAt: '2026-10-01 10:00' })).toHaveLength(1);
+    expect(returnHistory({})).toEqual([]);
   });
 });
