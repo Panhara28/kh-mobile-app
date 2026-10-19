@@ -313,7 +313,8 @@
     "returns": "Returns",
     "backlog": "Backlog",
     "customers": "Customers",
-    "purchaseOrders": "Purchase orders"
+    "purchaseOrders": "Purchase orders",
+    "replenishment": "Replenishment"
   },
   "range": {
     "today": "Today",
@@ -654,5 +655,21 @@
     "error_lines": "Add at least one item.",
     "error_qty": "Every item needs a quantity.",
     "error_cost": "A cost cannot be negative."
+  },
+  "rep": {
+    "new": "New replenishment",
+    "empty": "No replenishments.",
+    "sendTo": "Send to branch",
+    "sendNow": "Approve and send",
+    "totalQty": "Total quantity",
+    "deleteConfirm": "Delete this replenishment?",
+    "status_draft": "Draft",
+    "status_approved": "Approved",
+    "status_receiving": "Receiving",
+    "status_received": "Received",
+    "status_deleted": "Deleted",
+    "error_to": "Choose another branch to send to.",
+    "error_lines": "Add at least one item.",
+    "error_qty": "Every item needs a quantity."
   }
 }
