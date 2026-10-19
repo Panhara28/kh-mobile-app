@@ -320,7 +320,9 @@
     "roles": "តួនាទី និងសិទ្ធិ",
     "retail": "ការលក់រាយ",
     "production": "ផលិតកម្ម",
-    "board": "ការលក់តាមសាខា"
+    "board": "ការលក់តាមសាខា",
+    "booking": "ការកក់បញ្ជី",
+    "chartOfAccounts": "បញ្ជីគណនី"
   },
   "range": {
     "today": "ថ្ងៃនេះ",
@@ -779,5 +781,18 @@
     "local": "សាខា",
     "total": "សរុប",
     "unreachable": "មិនអាចទាក់ទងបាន"
+  },
+  "accounting": {
+    "type_revenue": "ចំណូល",
+    "type_expense": "ចំណាយ",
+    "accountName": "ឈ្មោះគណនី",
+    "accountType": "ប្រភេទ",
+    "bookingName": "សម្រាប់អ្វី",
+    "amount": "ចំនួនទឹកប្រាក់",
+    "net": "សុទ្ធ",
+    "empty": "គ្មានការកក់បញ្ជីសម្រាប់ដំណាក់កាលនេះទេ។",
+    "error_bookingName": "សូមបញ្ចូលថាការកក់បញ្ជីនេះសម្រាប់អ្វី។",
+    "error_accountId": "សូមជ្រើសរើសគណនី។",
+    "error_amount": "សូមបញ្ចូលចំនួនលើសពី 0។"
   }
 }

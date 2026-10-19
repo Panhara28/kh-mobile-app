@@ -320,7 +320,9 @@
     "roles": "Roles and access",
     "retail": "Retail POS",
     "production": "Production",
-    "board": "Sales by branch"
+    "board": "Sales by branch",
+    "booking": "Bookings",
+    "chartOfAccounts": "Chart of accounts"
   },
   "range": {
     "today": "Today",
@@ -779,5 +781,18 @@
     "local": "Branches",
     "total": "Total",
     "unreachable": "Could not be reached"
+  },
+  "accounting": {
+    "type_revenue": "Revenue",
+    "type_expense": "Expense",
+    "accountName": "Account name",
+    "accountType": "Type",
+    "bookingName": "What is it for",
+    "amount": "Amount",
+    "net": "Net",
+    "empty": "No bookings for this period.",
+    "error_bookingName": "Enter what the booking is for.",
+    "error_accountId": "Choose an account.",
+    "error_amount": "Enter an amount above 0."
   }
 }
