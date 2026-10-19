@@ -298,7 +298,12 @@
     "group_stock": "ស្តុក",
     "group_setup": "ការកំណត់",
     "orders": "ការកុម្ម៉ង់",
-    "tableSetup": "ការកំណត់តុ"
+    "tableSetup": "ការកំណត់តុ",
+    "categories": "ប្រភេទ",
+    "modifiers": "ជម្រើសបន្ថែម",
+    "discounts": "ការបញ្ចុះតម្លៃ",
+    "paymentMethods": "វិធីទូទាត់",
+    "suppliers": "អ្នកផ្គត់ផ្គង់"
   },
   "range": {
     "today": "ថ្ងៃនេះ",
@@ -434,5 +439,52 @@
     "expiry_ok": "ល្អ",
     "noExpiry": "គ្មានអ្វីជិតផុតកំណត់ទេ។",
     "daysLeft": "នៅសល់ {{count}} ថ្ងៃ"
+  },
+  "admin": {
+    "add": "បន្ថែម",
+    "edit": "កែ",
+    "delete": "លុប",
+    "search": "ស្វែងរក",
+    "empty": "មិនទាន់មានអ្វីទេ។",
+    "required": "ត្រូវបំពេញ។",
+    "deleteConfirm": "លុប {{name}} ឬ?"
+  },
+  "categories": {
+    "title": "ឈ្មោះ",
+    "description": "ពិពណ៌នា",
+    "parent": "ប្រភេទមេ",
+    "printer": "ម៉ាស៊ីនបោះពុម្ពផ្ទះបាយ",
+    "none": "គ្មាន",
+    "sort": "លំដាប់ក្នុងម៉ឺនុយ",
+    "noDeliveryFee": "គ្មានថ្លៃដឹក",
+    "extraFee": "ថ្លៃបន្ថែម",
+    "products": "{{count}} ផលិតផល",
+    "sub": "ប្រភេទរង"
+  },
+  "modifiers": {
+    "title": "ឈ្មោះ",
+    "description": "ពិពណ៌នា",
+    "items": "ជម្រើស",
+    "itemsHint": "ជម្រើសមួយក្នុងមួយបន្ទាត់៖ ឈ្មោះ = តម្លៃ"
+  },
+  "discounts": {
+    "title": "ឈ្មោះ",
+    "description": "ពិពណ៌នា",
+    "type": "ប្រភេទ",
+    "percentage": "ភាគរយ",
+    "amount": "ចំនួនទឹកប្រាក់",
+    "value": "តម្លៃ"
+  },
+  "suppliers": {
+    "name": "ឈ្មោះ",
+    "contactName": "អ្នកទំនាក់ទំនង",
+    "contactPhone": "ទូរស័ព្ទ",
+    "contactEmail": "អ៊ីមែល",
+    "address": "អាសយដ្ឋាន",
+    "note": "កំណត់ចំណាំ",
+    "consignment": "ដាក់លក់"
+  },
+  "paymentMethods": {
+    "name": "ឈ្មោះវិធីទូទាត់"
   }
 }

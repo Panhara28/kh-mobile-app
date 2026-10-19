@@ -298,7 +298,12 @@
     "group_stock": "Stock",
     "group_setup": "Setup",
     "orders": "Orders",
-    "tableSetup": "Table setup"
+    "tableSetup": "Table setup",
+    "categories": "Categories",
+    "modifiers": "Modifiers",
+    "discounts": "Discounts",
+    "paymentMethods": "Payment methods",
+    "suppliers": "Suppliers"
   },
   "range": {
     "today": "Today",
@@ -434,5 +439,52 @@
     "expiry_ok": "OK",
     "noExpiry": "Nothing is expiring.",
     "daysLeft": "{{count}} days left"
+  },
+  "admin": {
+    "add": "Add",
+    "edit": "Edit",
+    "delete": "Delete",
+    "search": "Search",
+    "empty": "Nothing here yet.",
+    "required": "This is required.",
+    "deleteConfirm": "Delete {{name}}?"
+  },
+  "categories": {
+    "title": "Name",
+    "description": "Description",
+    "parent": "Parent category",
+    "printer": "Kitchen printer",
+    "none": "None",
+    "sort": "Order in the menu",
+    "noDeliveryFee": "No delivery fee",
+    "extraFee": "Extra fee",
+    "products": "{{count}} products",
+    "sub": "Sub-category"
+  },
+  "modifiers": {
+    "title": "Name",
+    "description": "Description",
+    "items": "Options",
+    "itemsHint": "One option per line: Name = price"
+  },
+  "discounts": {
+    "title": "Name",
+    "description": "Description",
+    "type": "Type",
+    "percentage": "Percentage",
+    "amount": "Amount",
+    "value": "Value"
+  },
+  "suppliers": {
+    "name": "Name",
+    "contactName": "Contact person",
+    "contactPhone": "Phone",
+    "contactEmail": "Email",
+    "address": "Address",
+    "note": "Note",
+    "consignment": "Consignment"
+  },
+  "paymentMethods": {
+    "name": "Method name"
   }
 }
