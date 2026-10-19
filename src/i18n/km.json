@@ -311,7 +311,9 @@
     "settings": "ការកំណត់",
     "stockMovements": "ចលនាស្តុក",
     "returns": "ការប្រគល់មកវិញ",
-    "backlog": "ការកុម្ម៉ង់ជំពាក់"
+    "backlog": "ការកុម្ម៉ង់ជំពាក់",
+    "customers": "អតិថិជន",
+    "purchaseOrders": "ការបញ្ជាទិញ"
   },
   "range": {
     "today": "ថ្ងៃនេះ",
@@ -617,5 +619,40 @@
     "extraPrice": "ថ្លៃដឹក",
     "searchPhone": "ស្វែងរកតាមលេខទូរស័ព្ទ",
     "newCustomer": "អតិថិជនថ្មី"
+  },
+  "customers": {
+    "general": "អតិថិជនទូទៅ"
+  },
+  "po": {
+    "new": "ការបញ្ជាទិញថ្មី",
+    "empty": "គ្មានការបញ្ជាទិញទេ។",
+    "supplier": "អ្នកផ្គត់ផ្គង់",
+    "expected": "រំពឹងថានឹងមកដល់",
+    "items": "មុខទំនិញ",
+    "qty": "ចំនួន",
+    "cost": "ថ្លៃដើម",
+    "addItem": "បន្ថែមមុខទំនិញ",
+    "extraCosts": "ថ្លៃបន្ថែម",
+    "extraName": "ឈ្មោះ",
+    "addExtra": "បន្ថែមថ្លៃបន្ថែម",
+    "saveDraft": "រក្សាទុកជាព្រាង",
+    "approve": "អនុម័ត",
+    "receive": "ទទួលស្តុក",
+    "confirmReceive": "បញ្ជាក់ការទទួល",
+    "nothingToReceive": "គ្មានអ្វីត្រូវទទួលទេ។",
+    "deleteConfirm": "លុបការបញ្ជាទិញនេះឬ?",
+    "received": "បានទទួល {{got}} ក្នុងចំណោម {{of}}",
+    "receiveQty": "ចំនួនដែលបានទទួល",
+    "lot": "លេខឡូ",
+    "expires": "ផុតកំណត់នៅ",
+    "status_draft": "ព្រាង",
+    "status_approved": "បានអនុម័ត",
+    "status_completed": "បានបញ្ចប់",
+    "status_closed": "បានបិទ",
+    "status_deleted": "បានលុប",
+    "error_supplier": "សូមជ្រើសរើសអ្នកផ្គត់ផ្គង់។",
+    "error_lines": "សូមបន្ថែមមុខទំនិញយ៉ាងហោចណាស់មួយ។",
+    "error_qty": "មុខទំនិញនីមួយៗត្រូវមានចំនួន។",
+    "error_cost": "ថ្លៃដើមមិនអាចអវិជ្ជមានទេ។"
   }
 }

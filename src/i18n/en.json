@@ -311,7 +311,9 @@
     "settings": "Settings",
     "stockMovements": "Stock movements",
     "returns": "Returns",
-    "backlog": "Backlog"
+    "backlog": "Backlog",
+    "customers": "Customers",
+    "purchaseOrders": "Purchase orders"
   },
   "range": {
     "today": "Today",
@@ -617,5 +619,40 @@
     "extraPrice": "Delivery fee",
     "searchPhone": "Search by phone number",
     "newCustomer": "New customer"
+  },
+  "customers": {
+    "general": "Walk-in"
+  },
+  "po": {
+    "new": "New purchase order",
+    "empty": "No purchase orders.",
+    "supplier": "Supplier",
+    "expected": "Expected on",
+    "items": "Items",
+    "qty": "Quantity",
+    "cost": "Cost",
+    "addItem": "Add item",
+    "extraCosts": "Extra costs",
+    "extraName": "Name",
+    "addExtra": "Add extra cost",
+    "saveDraft": "Save as draft",
+    "approve": "Approve",
+    "receive": "Receive stock",
+    "confirmReceive": "Confirm receiving",
+    "nothingToReceive": "Nothing to receive.",
+    "deleteConfirm": "Delete this purchase order?",
+    "received": "Received {{got}} of {{of}}",
+    "receiveQty": "Quantity received",
+    "lot": "Lot number",
+    "expires": "Expires on",
+    "status_draft": "Draft",
+    "status_approved": "Approved",
+    "status_completed": "Completed",
+    "status_closed": "Closed",
+    "status_deleted": "Deleted",
+    "error_supplier": "Choose a supplier.",
+    "error_lines": "Add at least one item.",
+    "error_qty": "Every item needs a quantity.",
+    "error_cost": "A cost cannot be negative."
   }
 }
