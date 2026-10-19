@@ -97,14 +97,16 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 | Accounting gating | `026d094` | Shown when the branch turns Accounting on; any signed-in staff |
 | Board drill-down | `ca8837f` | Open a branch (or integrated brand) for its sales by category and item |
 | Replenishment suggestion | `778a8d0` | Fills the lines with what the receiving branch is low on |
-| Digital tickets | (this commit) | Find a ticket by code or phone number, admit |
+| Digital tickets | `23fb3c5` | Find a ticket by code or phone number, admit |
+| Manual ticket upload | `00ec928` | Record tickets sold outside the system per movie, hall, day and show time |
+| Replenishment picking list | (next commit) | Shows slot and lot per item; the sender checks lots by tapping or typing the lot number |
 
 **Offline, per module.** Ordering at tables (including checkout, shifts, discounts, order type) works offline and is sent later, as above. Every other module **reads** from the saved copy offline and **needs the server to save**: it says so instead of failing. Retail POS and cinema ticket sale need the server to charge, because the stock, the seats taken and the invoice number come from kh-pos.
 
 **Not built, on purpose.**
 - *Product groups*: kh-pos has the permission name but no API for it.
 - *Printer settings*: `/api/printer` prints from the kh-pos server's own Windows printers; a phone has nothing to configure. The phone prints receipts through the system print dialog.
-- *Stock picking list* for replenishment and *manual ticket upload*.
+- Picking list: the web lets staff pick which slots and lots to take; the phone shows the list and verifies lots but does not re-plan it.
 - Accounting has no permission of its own in kh-pos: the web shows it whenever the branch's Accounting setting is on, to every admin. The phone does the same (`setting: 'ACCOUNTING'` in `lib/modules.ts`, and `OPEN_RESOURCES` in `lib/line.ts`).
 
 **Checks.** `tsc` clean, 312 tests in 44 suites pass, Android bundle builds, lint clean on every new file. **Nothing in this section has been opened on a real phone or run against a live kh-pos.** The assumptions most likely to be wrong are listed in the README under "Try the new modules".

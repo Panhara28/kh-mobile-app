@@ -9,7 +9,7 @@ import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import type { BranchRow, SlotRow } from '@/lib/org';
-import { suggestedLines, type SuggestGroup, createRepBody, itemName, receiveBody, remaining, repTone, repTotals, validateRep, type RepDetail, type RepLine, type RepPick } from '@/lib/replenishment';
+import { isVerified, matchLotNumber, pickName, pickProgress, type PickRow, suggestedLines, type SuggestGroup, createRepBody, itemName, receiveBody, remaining, repTone, repTotals, validateRep, type RepDetail, type RepLine, type RepPick } from '@/lib/replenishment';
 import { useSession } from '@/lib/session';
 import { Badge, Button, Card, Chip, Input } from '@/ui/components';
 import { NumberField } from '@/ui/form-fields';
@@ -43,6 +43,7 @@ export default function ReplenishmentScreen() {
   const [picking, setPicking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
+  const [lotText, setLotText] = useState('');
   const [receiving, setReceiving] = useState(false);
   const [picks, setPicks] = useState<Record<string, RepPick>>({});
 
@@ -198,6 +199,14 @@ export default function ReplenishmentScreen() {
   const canDelete = info.status === 'draft' && can(user, 'replenishment', 'delete');
   const canReceive = (info.status === 'approved' || info.status === 'receiving') && !mine && can(user, 'replenishment', 'update');
   const receivable = items.filter((i) => remaining(i) > 0);
+  const pickRows = d.replenishmentPickingList ?? [];
+  const progress = pickProgress(pickRows);
+  const canVerify = mine && (info.status === 'draft' || info.status === 'approved') && can(user, 'replenishment', 'update');
+
+  /** Marks a lot as picked and checked. Typing its lot number does the same as tapping it. */
+  function verify(p: PickRow) {
+    act(() => api.call('POST', `/api/replenishment/${encodeURIComponent(info.id)}/stock-picking-list`, { lotId: p.lot!.id }));
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -237,6 +246,33 @@ export default function ReplenishmentScreen() {
             ) : null}
           </Card>
         ))}
+
+        {pickRows.length > 0 ? (
+          <Card style={styles.card}>
+            <View style={styles.row}>
+              <Text style={styles.section}>{t('rep.picking')}</Text>
+              <Text style={styles.muted}>{t('rep.verified', { done: progress.verified, total: progress.total })}</Text>
+            </View>
+            {pickRows.map((p, i) => (
+              <View key={i} style={styles.row}>
+                <View style={styles.flex}>
+                  <Text style={styles.label}>{`${p.qty} × ${pickName(p)}`}</Text>
+                  <Text style={styles.muted}>{[p.slot?.name, p.lot?.lotNumber].filter(Boolean).join(' · ')}</Text>
+                </View>
+                {isVerified(p) ? <Text style={styles.ok}>✓</Text> : canVerify && p.lot?.id ? <Button title={t('rep.verify')} size="sm" variant="outline" onPress={() => verify(p)} /> : null}
+              </View>
+            ))}
+            {canVerify && progress.total > progress.verified ? (
+              <Input value={lotText} onChangeText={setLotText} placeholder={t('rep.lotNumber')} autoCapitalize="none" returnKeyType="done" onSubmitEditing={() => {
+                const m = matchLotNumber(pickRows, lotText);
+                if (m) {
+                  setLotText('');
+                  verify(m);
+                } else Alert.alert(t('rep.lotNotFound'));
+              }} accessibilityLabel={t('rep.lotNumber')} />
+            ) : null}
+          </Card>
+        ) : null}
 
         <Card style={styles.card}>
           <View style={styles.row}>
@@ -297,5 +333,6 @@ const styles = StyleSheet.create({
   muted: { fontSize: font.small, color: colors.mutedForeground },
   error: { fontSize: font.small, color: colors.destructive },
   receive: { gap: space.sm, marginTop: space.xs },
+  ok: { fontSize: font.title, fontWeight: '700', color: colors.success },
   footer: { flexDirection: 'row', gap: space.sm, padding: space.md, backgroundColor: colors.card, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
 });

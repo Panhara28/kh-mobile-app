@@ -29,6 +29,7 @@ export interface RepItem {
 export interface RepDetail {
   replenishmentInfo: RepRow;
   replenishmentDetails: RepItem[];
+  replenishmentPickingList?: PickRow[];
 }
 
 export interface RepLine {
@@ -134,4 +135,39 @@ export function suggestedLines(items: SuggestItem[]): RepLine[] {
     const variant = i.name && i.name !== 'ns' ? i.name : '';
     return [{ variantId: i.id, name: [title, variant && title ? `(${variant})` : variant].filter(Boolean).join(' ') || '?', sentQty: qty, cost: n(i.purchasedCost) }];
   });
+}
+
+// ---- picking list (GET /api/replenishment/{id}/stock-picking-list) ----
+
+export interface PickRow {
+  variant?: { id?: string; name?: string | null; basicProduct?: { title?: string | null } | null } | null;
+  slot?: { id?: string; name?: string } | null;
+  lot?: { id?: string; lotNumber?: string } | null;
+  qty: number;
+  /** "verified" once the lot was checked by the sender. */
+  status?: string | null;
+}
+
+export const pickName = (p: Pick<PickRow, 'variant'>) => itemName({ id: '', sentQty: 0, cost: 0, receivedQty: 0, productVariant: p.variant ?? null });
+
+export const isVerified = (p: Pick<PickRow, 'status'>) => p.status === 'verified';
+
+/** Rows that have a lot to verify (rows without one cannot be verified). */
+export const verifiable = (rows: PickRow[]) => rows.filter((p) => !!p.lot?.id && !isVerified(p));
+
+export function pickProgress(rows: PickRow[]): { verified: number; total: number } {
+  const withLot = rows.filter((p) => !!p.lot?.id);
+  return { verified: withLot.filter(isVerified).length, total: withLot.length };
+}
+
+/** The lot a typed or scanned lot number belongs to, among the rows still to verify. */
+export function matchLotNumber(rows: PickRow[], text: string): PickRow | null {
+  const v = text.trim().toLowerCase();
+  if (!v) return null;
+  return verifiable(rows).find((p) => p.lot?.lotNumber?.trim().toLowerCase() === v) ?? null;
+}
+
+/** Saving the pick: every row with its slot, lot and quantity, as kh-pos stores it. */
+export function pickBody(rows: PickRow[]) {
+  return rows.flatMap((p) => (p.variant?.id && p.slot?.id && p.lot?.id ? [{ variantId: p.variant.id, slotId: p.slot.id, qty: Number(p.qty) || 0, lotId: p.lot.id }] : []));
 }

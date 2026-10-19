@@ -689,7 +689,12 @@
     "error_lines": "Add at least one item.",
     "error_qty": "Every item needs a quantity.",
     "suggest": "Suggest what the branch needs",
-    "noSuggestion": "Nothing to suggest for this branch."
+    "noSuggestion": "Nothing to suggest for this branch.",
+    "picking": "Picking list",
+    "verified": "{{done}} of {{total}} checked",
+    "verify": "Check",
+    "lotNumber": "Type a lot number to check it",
+    "lotNotFound": "That lot is not in the picking list, or is already checked."
   },
   "stockops": {
     "mode_count": "Count",

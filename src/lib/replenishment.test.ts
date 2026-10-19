@@ -1,4 +1,4 @@
-import { suggestedLines, createRepBody, itemName, receiveBody, remaining, repQuery, repTone, repTotals, validateRep, type RepItem } from './replenishment';
+import { isVerified, matchLotNumber, pickBody, pickName, pickProgress, verifiable, type PickRow, suggestedLines, createRepBody, itemName, receiveBody, remaining, repQuery, repTone, repTotals, validateRep, type RepItem } from './replenishment';
 
 const item = (over: Partial<RepItem> = {}): RepItem => ({ id: 'd1', sentQty: 10, cost: 2, receivedQty: 4, ...over });
 const lines = [{ variantId: 'v1', name: 'Rice', sentQty: 3, cost: 1.5 }, { variantId: 'v2', name: 'Oil', sentQty: 2, cost: 4 }];
@@ -65,5 +65,22 @@ describe('suggestions', () => {
   it('uses the low level when no ideal is set and skips what cannot be sent', () => {
     expect(suggestedLines([s({ idealStockQty: null })])[0]!.sentQty).toBe(3);
     expect(suggestedLines([s({ sourceStock: 0 }), s({ stock: 30 })])).toEqual([]);
+  });
+});
+
+describe('picking list', () => {
+  const row = (over: Partial<PickRow> = {}): PickRow => ({ variant: { id: 'v1', name: 'Bag', basicProduct: { title: 'Flour' } }, slot: { id: 's1', name: 'A1' }, lot: { id: 'l1', lotNumber: 'LOT-1' }, qty: 4, ...over });
+  it('names, counts and finds rows to verify', () => {
+    const rows = [row(), row({ lot: { id: 'l2', lotNumber: 'LOT-2' }, status: 'verified' }), row({ lot: null })];
+    expect(pickName(rows[0]!)).toBe('Flour (Bag)');
+    expect(isVerified(rows[1]!)).toBe(true);
+    expect(verifiable(rows)).toHaveLength(1);
+    expect(pickProgress(rows)).toEqual({ verified: 1, total: 2 });
+    expect(matchLotNumber(rows, ' lot-1 ')?.lot?.id).toBe('l1');
+    expect(matchLotNumber(rows, 'LOT-2')).toBeNull();
+    expect(matchLotNumber(rows, '')).toBeNull();
+  });
+  it('builds the pick body from complete rows only', () => {
+    expect(pickBody([row(), row({ lot: null })])).toEqual([{ variantId: 'v1', slotId: 's1', qty: 4, lotId: 'l1' }]);
   });
 });
