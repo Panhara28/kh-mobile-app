@@ -324,7 +324,8 @@
     "booking": "ការកក់បញ្ជី",
     "chartOfAccounts": "បញ្ជីគណនី",
     "showtimes": "ការចាក់បញ្ចាំង",
-    "tickets": "សំបុត្រកុន"
+    "tickets": "សំបុត្រកុន",
+    "pricingTemplates": "តម្លៃសំបុត្រកុន"
   },
   "range": {
     "today": "ថ្ងៃនេះ",
@@ -834,5 +835,22 @@
     "status_admitted": "បានចូល",
     "status_cancelled": "បានលុបចោល",
     "status_expired": "ផុតកំណត់"
+  },
+  "pricing": {
+    "name": "ឈ្មោះគំរូ",
+    "timeSlot": "ពេលវេលាក្នុងថ្ងៃ",
+    "dayType": "ថ្ងៃ",
+    "slot_matinee": "ពេលរសៀល",
+    "slot_evening": "ពេលល្ងាច",
+    "slot_late_night": "យប់ជ្រៅ",
+    "slot_all_day": "ពេញមួយថ្ងៃ",
+    "day_weekday": "ថ្ងៃធ្វើការ",
+    "day_weekend": "ចុងសប្តាហ៍",
+    "day_holiday": "ថ្ងៃបុណ្យ",
+    "day_all_days": "រាល់ថ្ងៃ",
+    "seat_standard": "បន្ថែមសម្រាប់កៅអីធម្មតា",
+    "seat_wheelchair": "បន្ថែមសម្រាប់កៅអីរទេះរុញ",
+    "seat_vip": "បន្ថែមសម្រាប់កៅអី VIP",
+    "seat_couple": "បន្ថែមសម្រាប់កៅអីគូ"
   }
 }
