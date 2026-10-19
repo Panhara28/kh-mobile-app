@@ -102,6 +102,7 @@ function Navigator() {
         <Stack.Screen name="stock-counting" />
         <Stack.Screen name="replenishments" />
         <Stack.Screen name="replenishment/[id]" />
+        <Stack.Screen name="replenishment/suggest" />
         <Stack.Screen name="purchase-orders" />
         <Stack.Screen name="purchase-order/[id]" />
         <Stack.Screen name="customers" />

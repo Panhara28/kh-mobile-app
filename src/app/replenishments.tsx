@@ -1,12 +1,13 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { can } from '@/lib/line';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { REP_STATUSES, repQuery, repTone, type RepRow, type RepStatus } from '@/lib/replenishment';
+import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { otherBranch, REP_PAGE, repActions, repCode, repFilters, repListQuery, repTone, type RepRow, type RepStatus } from '@/lib/replenishment';
 import { useSession } from '@/lib/session';
 import { Badge, Button, Card, Chip } from '@/ui/components';
 import { ScreenHeader } from '@/ui/screen-header';
@@ -14,13 +15,17 @@ import { EmptyState, ErrorState, LoadingState } from '@/ui/states';
 import { StaleBanner } from '@/ui/sync-status';
 import { colors, font, radius, space } from '@/ui/theme';
 
-const PAGE = 30;
-
-/** Replenishment (stock sent between branches): filter by status, open one, or make a new one. */
+/**
+ * Replenishment like the kh-pos web page. The main branch sees what it sends (and can add, edit and
+ * delete drafts); another branch sees what is sent to it. Details open the replenishment.
+ */
 export default function ReplenishmentsScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data, state } = useOffline();
+  const guard = useOnlineOnly();
+  const isMain = !!user?.warehouse?.isMain;
+  const warehouseId = user?.currentWarehouseId ?? '';
   const [status, setStatus] = useState<RepStatus | ''>('');
   const [rows, setRows] = useState<RepRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,19 +39,19 @@ export default function ReplenishmentsScreen() {
   const load = useCallback(
     async (offset: number) => {
       const id = ++request.current;
-      const qs = repQuery({ status: status || undefined, limit: PAGE, offset });
+      const qs = repListQuery({ status: status || undefined, isMain, warehouseId, offset });
       try {
         const r = await data.cachedRead('replenishments', qs, async () => (await api.call<{ result?: { data: RepRow[] } }>('GET', `/api/replenishment?${qs}`)).result?.data ?? []);
         if (id !== request.current) return;
         setRows((prev) => (offset === 0 ? r.data : [...prev, ...r.data.filter((p) => !prev.some((q) => q.id === p.id))]));
-        setDone(r.data.length < PAGE);
+        setDone(r.data.length < REP_PAGE);
         setStaleAt(r.stale ? r.savedAt : false);
         setError(null);
       } catch (e) {
         if (id === request.current) setError(e);
       }
     },
-    [data, api, status],
+    [data, api, status, isMain, warehouseId],
   );
 
   const { online, syncVersion } = state;
@@ -62,13 +67,35 @@ export default function ReplenishmentsScreen() {
     };
   }, [load, online, syncVersion]);
 
+  function remove(r: RepRow) {
+    Alert.alert(t('rep.deleteTitle'), t('rep.deleteAsk'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('admin.delete'),
+        style: 'destructive',
+        onPress: () =>
+          guard(async () => {
+            try {
+              await api.call('DELETE', '/api/replenishment', { id: r.id });
+              Alert.alert(t('rep.deleted'));
+              await load(0);
+            } catch (e) {
+              Alert.alert(t('rep.deleteFailed'), e instanceof Error ? e.message : undefined);
+            }
+          }),
+      },
+    ]);
+  }
+
+  const mayAdd = isMain && can(user, 'replenishment', 'create');
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScreenHeader title={t('more.replenishment')} right={can(user, 'replenishment', 'create') ? <Button title={`+ ${t('admin.add')}`} size="sm" onPress={() => router.push({ pathname: '/replenishment/[id]', params: { id: 'new' } })} /> : undefined} />
+      <ScreenHeader title={t('more.replenishment')} right={isMain ? <View style={styles.headRight}><Button title={t('rep.suggestions')} variant="outline" size="sm" onPress={() => router.push('/replenishment/suggest')} />{mayAdd ? <Button title={`+ ${t('rep.addNew')}`} size="sm" onPress={() => router.push({ pathname: '/replenishment/[id]', params: { id: 'new' } })} /> : null}</View> : undefined} />
       <View style={styles.filters}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
           <Chip label={t('orders.all')} selected={status === ''} onPress={() => setStatus('')} />
-          {REP_STATUSES.map((s) => (
+          {repFilters(isMain).map((s) => (
             <Chip key={s} label={t(`rep.status_${s}`)} selected={status === s} onPress={() => setStatus(s)} />
           ))}
         </ScrollView>
@@ -93,21 +120,30 @@ export default function ReplenishmentsScreen() {
           onEndReachedThreshold={0.5}
           ListEmptyComponent={<EmptyState title={t('rep.empty')} />}
           ListFooterComponent={more ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
-          renderItem={({ item }) => (
-            <Pressable onPress={() => router.push({ pathname: '/replenishment/[id]', params: { id: item.id } })} accessibilityRole="button" style={({ pressed }) => [pressed && styles.pressed]}>
+          renderItem={({ item }) => {
+            const actions = repActions(item.status, isMain);
+            return (
               <Card style={styles.card}>
                 <View style={styles.row}>
-                  <Text style={styles.heading}>#{item.autoId ?? item.id.slice(0, 6)}</Text>
+                  <Text style={styles.heading}>{repCode(item.autoId)}</Text>
                   <Badge tone={repTone(item.status)} text={t(`rep.status_${item.status}`, { defaultValue: item.status })} />
                 </View>
-                <Text style={styles.muted}>{[`${item.fromWarehouseId?.name ?? '?'} → ${item.toWarehouseId?.name ?? '?'}`, item.createdAt?.slice(0, 10)].filter(Boolean).join(' · ')}</Text>
+                <Text style={styles.body}>
+                  {isMain ? t('rep.toWarehouse') : t('rep.fromWarehouse')}: {otherBranch(item, isMain)}
+                </Text>
+                <Text style={styles.muted}>{t('rep.createdAt')}: {item.createdAt?.slice(0, 10)}</Text>
+                <Text style={styles.body}>
+                  {t('rep.totalSent')}: {item.totalSentQty ?? 0} · {t('rep.totalReceived')}: {item.totalReceivedQty ?? 0}
+                </Text>
+                <Text style={styles.total}>{t('rep.totalCost')}: {formatMoney(item.totalCost ?? 0, 'USD')}</Text>
                 <View style={styles.row}>
-                  <Text style={styles.muted}>{t('tables.items', { count: item.totalSentQty ?? 0 })}</Text>
-                  <Text style={styles.total}>{formatMoney(item.totalCost ?? 0, 'USD')}</Text>
+                  {actions.includes('details') ? <Button title={t('rep.details')} variant="outline" size="sm" onPress={() => router.push({ pathname: '/replenishment/[id]', params: { id: item.id } })} /> : null}
+                  {actions.includes('edit') && can(user, 'replenishment', 'update') ? <Button title={t('admin.edit')} variant="outline" size="sm" onPress={() => router.push({ pathname: '/replenishment/[id]', params: { id: item.id, edit: '1' } })} /> : null}
+                  {actions.includes('delete') && can(user, 'replenishment', 'delete') ? <Button title={t('admin.delete')} variant="ghost" size="sm" onPress={() => remove(item)} /> : null}
                 </View>
               </Card>
-            </Pressable>
-          )}
+            );
+          }}
         />
       )}
     </SafeAreaView>
@@ -120,10 +156,11 @@ const styles = StyleSheet.create({
   chips: { gap: 6 },
   list: { padding: space.md, gap: space.sm },
   card: { padding: space.md, gap: 4, borderRadius: radius.lg },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm, flexWrap: 'wrap' },
   heading: { fontSize: font.body, fontWeight: '700', color: colors.foreground },
+  body: { fontSize: font.small, color: colors.foreground },
   muted: { fontSize: font.small, color: colors.mutedForeground },
   total: { fontSize: font.body, fontWeight: '700', color: colors.foreground },
-  pressed: { opacity: 0.7 },
   more: { marginVertical: space.lg },
+  headRight: { flexDirection: 'row', gap: space.sm },
 });

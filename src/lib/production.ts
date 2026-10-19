@@ -22,8 +22,8 @@ export interface CompositeOption {
 }
 
 /** The web product search; `compositeOnly` for Production, `includeNotForSale` for purchase orders and product groups. */
-export function compositeQuery(search: string, warehouseId: string, offset: number, limit = 20, opts: { compositeOnly?: boolean; includeNotForSale?: boolean } = {}): string {
-  const q = new URLSearchParams({ limit: String(limit), offset: String(offset), replenishment: 'false', compositeOnly: String(opts.compositeOnly ?? true), includeProductNotForSale: String(opts.includeNotForSale ?? false) });
+export function compositeQuery(search: string, warehouseId: string, offset: number, limit = 20, opts: { compositeOnly?: boolean; includeNotForSale?: boolean; forReplenishment?: boolean } = {}): string {
+  const q = new URLSearchParams({ limit: String(limit), offset: String(offset), replenishment: String(opts.forReplenishment ?? false), compositeOnly: String(opts.compositeOnly ?? true), includeProductNotForSale: String(opts.includeNotForSale ?? false) });
   if (warehouseId) q.set('warehouse', warehouseId);
   if (search.trim()) q.set('search', search.trim());
   return q.toString();

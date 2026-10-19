@@ -11,7 +11,7 @@ import { colors, font, radius, space } from '../theme';
 const PAGE = 20;
 
 /** The web's product search on the Production form: only composed products (those with a recipe), for this branch. */
-export function CompositePicker({ api, warehouseId, onPick, onClose, compositeOnly = true, includeNotForSale = false }: { api: KhPosApi; warehouseId: string; onPick: (v: CompositeOption) => void; onClose: () => void; compositeOnly?: boolean; includeNotForSale?: boolean }) {
+export function CompositePicker({ api, warehouseId, onPick, onClose, compositeOnly = true, includeNotForSale = false, forReplenishment = false }: { api: KhPosApi; warehouseId: string; onPick: (v: CompositeOption) => void; onClose: () => void; compositeOnly?: boolean; includeNotForSale?: boolean; forReplenishment?: boolean }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
@@ -26,7 +26,7 @@ export function CompositePicker({ api, warehouseId, onPick, onClose, compositeOn
       const id = ++run.current;
       setLoading(true);
       try {
-        const r = await api.call<{ result?: CompositeOption[] }>('GET', `/api/product/search-product?${compositeQuery(search, warehouseId, offset, PAGE, { compositeOnly, includeNotForSale })}`);
+        const r = await api.call<{ result?: CompositeOption[] }>('GET', `/api/product/search-product?${compositeQuery(search, warehouseId, offset, PAGE, { compositeOnly, includeNotForSale, forReplenishment })}`);
         if (id !== run.current) return;
         const got = r.result ?? [];
         setRows((prev) => (offset === 0 ? got : [...prev, ...got]));
@@ -38,7 +38,7 @@ export function CompositePicker({ api, warehouseId, onPick, onClose, compositeOn
         if (id === run.current) setLoading(false);
       }
     },
-    [api, warehouseId, compositeOnly, includeNotForSale],
+    [api, warehouseId, compositeOnly, includeNotForSale, forReplenishment],
   );
 
   useEffect(() => {
