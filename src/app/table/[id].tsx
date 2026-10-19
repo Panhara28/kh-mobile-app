@@ -21,6 +21,7 @@ import { Badge, Button } from '@/ui/components';
 import { CartDrawer } from '@/ui/cart-drawer';
 import { CheckoutSheet } from '@/ui/checkout-sheet';
 import { TransferSheet } from '@/ui/transfer-sheet';
+import { CartDiscountSheet, type CartDiscountRow } from '@/ui/cart-discount-sheet';
 import { ReceiptSheet } from '@/ui/receipt-sheet';
 import { CustomizeLine, type LineApi } from '@/ui/customize-line';
 import { MenuBrowser } from '@/ui/menu-browser';
@@ -59,6 +60,7 @@ export default function TableScreen() {
   const [busy, setBusy] = useState(false);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [discountOpen, setDiscountOpen] = useState(false);
   const [transferTables, setTransferTables] = useState<RestaurantTable[] | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [products, setProducts] = useState<MenuProduct[]>([]);
@@ -311,6 +313,26 @@ export default function TableScreen() {
     }
   }
 
+  /** Discount cart: one manual-discount change per line, each done now or kept for later like any other. */
+  async function applyCartDiscount(rows: CartDiscountRow[]) {
+    const orderId = table?.order?.orderId;
+    if (!orderId) return;
+    setBusy(true);
+    try {
+      for (const r of rows) {
+        await engine.run(command('setDiscount', { orderDetailId: r.orderDetailId, amount: r.amount, discountType: r.discountType }), () =>
+          api.setManualDiscount(orderId, { itemId: r.orderDetailId, amount: r.amount, discountType: r.discountType }),
+        );
+      }
+      setDiscountOpen(false);
+    } catch (e) {
+      showError(e);
+    } finally {
+      await load();
+      setBusy(false);
+    }
+  }
+
   async function resend(line: OrderLine, qty: number) {
     const result = await submit(command('resend', { orderDetailId: line.orderDetailId, qty }), () => api.resendToKitchen(line.orderDetailId, qty));
     if (result === 'done') Alert.alert(t('cart.resent'));
@@ -488,6 +510,10 @@ export default function TableScreen() {
         onResend={(line, qty) => void resend(line, qty)}
         onSend={() => void send()}
         onServeAll={() => void serveAll()}
+        onDiscount={() => {
+          setCartOpen(false);
+          setDiscountOpen(true);
+        }}
         onCheckout={() => {
           setCartOpen(false);
           void startCheckout();
@@ -495,6 +521,7 @@ export default function TableScreen() {
         onSetGuests={setGuests}
         onOpenLine={openCustomize}
       />
+      {discountOpen && table.order ? <CartDiscountSheet order={table.order} currency={currency} busy={busy} onClose={() => setDiscountOpen(false)} onApply={(rows) => void applyCartDiscount(rows)} /> : null}
       {checkoutOpen && table.order ? (
         <CheckoutSheet
           total={orderTotal(activeLines(table.order))}

@@ -205,6 +205,14 @@ describe('applyOutbox: Customize Your Order actions', () => {
     expect(first(t4).discounts!.map((d) => d.discountId)).toEqual(['manual']);
   });
 
+  it('a discount of 0 removes the manual discount and gives the money back', () => {
+    const t1 = applyOutbox(taken([serverLine('S1', 'v1', { pending: 5 })]), [cmd('setDiscount', { orderDetailId: 'S1', amount: 10, discountType: 'PERCENTAGE' })]);
+    expect(first(t1).totalAmount).toBe('9');
+    const t2 = applyOutbox(t1, [cmd('setDiscount', { orderDetailId: 'S1', amount: 0, discountType: 'PERCENTAGE' })]);
+    expect(first(t2).totalAmount).toBe('10');
+    expect(first(t2).discounts ?? []).toHaveLength(0);
+  });
+
   it('works on a line made offline, in the same queue', () => {
     const t = applyOutbox(free, [
       cmd('addLine', { lineId: 'L1', product: dish('v1'), qty: 2, options: [], note: '', warehouseId: 'w1', capEnabled: false } satisfies AddLinePayload),

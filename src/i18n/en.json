@@ -591,5 +591,18 @@
   },
   "backlog": {
     "resolve": "Resolve"
+  },
+  "cartDiscount": {
+    "title": "Discount cart",
+    "percent": "Percentage",
+    "money": "Amount to take off",
+    "lines": "Items to discount",
+    "off": "Discount",
+    "removeAll": "Remove discounts",
+    "apply": "Apply discount",
+    "error_value": "Enter a discount.",
+    "error_percentage": "A percentage cannot be more than 100.",
+    "error_amount": "The amount is more than the chosen items cost.",
+    "error_noLines": "Choose at least one item."
   }
 }

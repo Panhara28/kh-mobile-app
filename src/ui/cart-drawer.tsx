@@ -33,6 +33,7 @@ export function CartDrawer({
   onSend,
   onServeAll,
   onCheckout,
+  onDiscount,
   onSetGuests,
   onOpenLine,
 }: {
@@ -54,6 +55,8 @@ export function CartDrawer({
   onServeAll: () => void;
   /** Opens the payment screen. */
   onCheckout: () => void;
+  /** Opens the "Discount cart" sheet. */
+  onDiscount: () => void;
   onSetGuests: (count: number) => void;
   /** Tapping a line opens "Customize Your Order" for it. */
   onOpenLine: (line: OrderLine) => void;
@@ -272,6 +275,7 @@ export function CartDrawer({
             <Text style={styles.totalLabel}>{t('order.total')}</Text>
             <Text style={styles.total}>{formatMoney(order?.totalAmount ?? 0, currency)}</Text>
           </View>
+          {order && counts.lines > 0 ? <Button title={`🏷 ${t('cartDiscount.title')}`} variant="ghost" size="sm" onPress={onDiscount} /> : null}
 
           {guestDraft !== null ? (
             <View style={styles.guestEditor}>

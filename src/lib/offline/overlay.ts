@@ -79,6 +79,13 @@ function setDiscountLocal(line: OrderLine, p: SetDiscountPayload) {
   const discounts = (line.discounts ??= []);
   const old = discounts.find((d) => d.isManualDiscount || d.discountId === 'manual');
   const before = num(old?.amount);
+  if (!(p.amount > 0)) {
+    // an amount of 0 removes the manual discount (that is how kh-pos is told to)
+    line.discounts = discounts.filter((d) => d !== old);
+    line.discountAmount = money(Math.max(0, num(line.discountAmount) - before));
+    adjustTotal(line, before);
+    return;
+  }
   const amount = manualAmount(line, p);
   const next = { discountId: 'manual', name: 'Manual discount', discountType: p.discountType, value: p.amount, isManualDiscount: true, amount };
   if (old) Object.assign(old, next);
