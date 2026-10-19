@@ -2,7 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as Print from 'expo-print';
-import { Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { rangeFor, type DateRange } from '@/lib/dates';
 import { averageOrder, discountTypes, eodEntries, eodHtml, eodLines, eodQuery, eodText, topCustomers, totalDiscounts, type EodLabels, type EodReport } from '@/lib/end-of-day';
@@ -32,6 +32,8 @@ import {
 import { itemLines, itemsQuery, itemsSummary } from '@/lib/sale-items';
 import { guestCsv, guestQuery, guestSummary, guestTable, recordCount, type GuestItem } from '@/lib/guest-report';
 import { stockCells, stockCsv, stockQuery, type StockLine } from '@/lib/stock-report';
+import { chartItems, chartCaption, type SaleRow } from '@/lib/sale-report';
+import { cinemaCsv, cinemaExportName, cinemaQuery, clockOf, dayShort, defaultMovieFilter, hasMovieFilter, movieEntries, type CinemaReport, type MovieFilter, type SortBy } from '@/lib/cinema-report';
 import { useSession } from '@/lib/session';
 import { actualAmount, amountDiff, itemName, logRows, printLogAmount, qtyDiff, voidCsv, voidGroups, voidQuery, voidSummary, whoText, type VoidItem } from '@/lib/void-report';
 import { useBranch } from '@/lib/use-branch';
@@ -84,6 +86,10 @@ function Body({ kind, range }: { kind: ReportKind; range: DateRange | null }) {
       return <Stock range={range!} />;
     case 'expiry':
       return <Expiry />;
+    case 'sale-product':
+      return <SaleProduct range={range!} />;
+    case 'cinema-showtime-sale':
+      return <CinemaSales range={range!} />;
     default:
       return <EmptyState title={t('reports.unknown')} />;
   }
@@ -566,8 +572,145 @@ function Expiry() {
   );
 }
 
+// ---- sale product (the product chart of the web) ----
+
+function SaleProduct({ range }: { range: DateRange }) {
+  const { t } = useTranslation();
+  const { user } = useSession();
+  const money = useMoney();
+  const [view, setView] = useState<'revenue' | 'qty'>('revenue');
+  const q = new URLSearchParams({ startDate: range.start.slice(0, 10), endDate: range.end.slice(0, 10), warehouseId: user?.currentWarehouseId ?? '', groupBy: 'product' }).toString();
+  const load = useReport<SaleRow[]>('sale-product', `/api/report/sale-by-category?${q}`);
+  return (
+    <Boundary load={load}>
+      {(rows) => {
+        const items = chartItems(rows, view);
+        const total = items.reduce((a, i) => a + i.value, 0);
+        return (
+          <>
+            <View style={styles.chips}>
+              <Chip label={t('reports.revenue')} selected={view === 'revenue'} onPress={() => setView('revenue')} />
+              <Chip label={t('reports.quantity')} selected={view === 'qty'} onPress={() => setView('qty')} />
+            </View>
+            <Big label={view === 'revenue' ? t('reports.totalSalesWord') : t('reports.totalQuantityWord')} value={view === 'revenue' ? money(total) : t('reports.units', { count: total })} />
+            {items.length === 0 ? (
+              <EmptyState title={t('reports.noData')} />
+            ) : (
+              <Section title={t('reports.bestSelling')}>
+                <BarList rows={items.map((i) => ({ label: i.fullName, value: i.value }))} format={(v) => (view === 'revenue' ? money(v) : v.toLocaleString())} />
+                <Text style={styles.note}>{chartCaption(items.length, view)}</Text>
+              </Section>
+            )}
+          </>
+        );
+      }}
+    </Boundary>
+  );
+}
+
+// ---- cinema sales ----
+
+function CinemaSales({ range }: { range: DateRange }) {
+  const { t } = useTranslation();
+  const { user, api } = useSession();
+  const money = useMoney();
+  const [f, setF] = useState<MovieFilter>(defaultMovieFilter());
+  const [open, setOpen] = useState<string[]>([]);
+  const [sending, setSending] = useState(false);
+  const load = useReport<CinemaReport>('cinema-sales', `/api/report/cinema/showtime?${cinemaQuery(range, user?.currentWarehouseId ?? '')}`);
+  const sortLabel = (s: SortBy) => t(`reports.sort_${s}`);
+
+  function email() {
+    Alert.alert(t('reports.sendEmail'), t('reports.sendEmailAsk'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('reports.sendEmail'),
+        onPress: async () => {
+          setSending(true);
+          try {
+            await api.call('POST', '/api/reports/cinema-showtime/send-email', { date: range.start.slice(0, 10) });
+            Alert.alert(t('reports.emailSent'));
+          } catch {
+            Alert.alert(t('reports.emailFailed'));
+          } finally {
+            setSending(false);
+          }
+        },
+      },
+    ]);
+  }
+
+  return (
+    <Boundary load={load}>
+      {(r) => {
+        const movies = movieEntries(r, f);
+        const g = r.grand;
+        return (
+          <>
+            <Input value={f.search} onChangeText={(v) => setF({ ...f, search: v })} placeholder={t('reports.searchMovie')} autoCorrect={false} accessibilityLabel={t('reports.searchMovie')} />
+            <View style={styles.bigRow}>
+              <View style={styles.flexOne}>
+                <Input value={f.minTickets} onChangeText={(v) => setF({ ...f, minTickets: v })} placeholder={t('reports.minTickets')} keyboardType="number-pad" accessibilityLabel={t('reports.minTickets')} />
+              </View>
+              <View style={styles.flexOne}>
+                <Input value={f.minAmount} onChangeText={(v) => setF({ ...f, minAmount: v })} placeholder={t('reports.minAmount')} keyboardType="decimal-pad" accessibilityLabel={t('reports.minAmount')} />
+              </View>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+              {(['showtime', 'tickets', 'amount'] as SortBy[]).map((s) => (
+                <Chip key={s} label={sortLabel(s)} selected={f.sortBy === s} onPress={() => setF({ ...f, sortBy: s })} />
+              ))}
+              <Chip label={f.order === 'asc' ? t('reports.ascending') : t('reports.descending')} selected onPress={() => setF({ ...f, order: f.order === 'asc' ? 'desc' : 'asc' })} />
+              {hasMovieFilter(f) ? <Chip label={t('reports.clearFilters')} selected={false} onPress={() => setF(defaultMovieFilter())} /> : null}
+            </ScrollView>
+            <View style={styles.chips}>
+              <Button title={t('reports.export')} variant="outline" size="sm" disabled={movies.length === 0} onPress={() => void Share.share({ title: cinemaExportName(range.start, range.end), message: cinemaCsv(r, movies) }).catch(() => undefined)} />
+              <Button title={t('reports.sendEmail')} variant="outline" size="sm" loading={sending} onPress={email} />
+            </View>
+            {g ? (
+              <>
+                <View style={styles.bigRow}>
+                  <Big label={t('reports.ticketsQty')} value={String(g.qty)} />
+                  <Big label={t('reports.finalAmount')} value={money(g.amount)} />
+                </View>
+                <View style={styles.bigRow}>
+                  <Big label={t('reports.totalPrice')} value={money(g.totalPrice)} />
+                  <Big label={t('reports.discount')} value={money(g.discount)} />
+                </View>
+                <Big label={t('reports.modifier')} value={money(g.modifier)} />
+              </>
+            ) : null}
+            {movies.length === 0 ? (
+              <EmptyState title={t('reports.noData')} />
+            ) : (
+              <Section title={t('reports.salesByMovie', { count: movies.length })}>
+                {movies.map(([title, m]) => {
+                  const isOpen = open.includes(title);
+                  return (
+                    <View key={title} style={styles.group}>
+                      <Pressable onPress={() => setOpen((o) => (isOpen ? o.filter((x) => x !== title) : [...o, title]))} accessibilityRole="button">
+                        <Row label={`${isOpen ? '▾' : '▸'} ${title}`} value={money(m.totals.amount)} bold note={`${t('reports.ticketsQty')} ${m.totals.qty} · ${t('reports.showtimeCount', { count: m.showtimes.length })} · ${t('reports.totalPrice')} ${money(m.totals.totalPrice)} · ${t('reports.discount')} ${money(m.totals.discount)}`} />
+                      </Pressable>
+                      {isOpen
+                        ? m.showtimes.map((s, i) => (
+                            <Row key={i} label={`${dayShort(s.showDate)}  ${clockOf(s.startTime)}–${clockOf(s.endTime)}`} value={money(s.amount)} note={`${t('reports.ticketsQty')} ${s.qty} · ${t('reports.totalPrice')} ${money(s.totalPrice)} · ${t('reports.modifier')} ${money(s.modifier)} · ${t('reports.discount')} ${money(s.discount)}`} />
+                          ))
+                        : null}
+                    </View>
+                  );
+                })}
+              </Section>
+            )}
+          </>
+        );
+      }}
+    </Boundary>
+  );
+}
+
 const styles = StyleSheet.create({
   chipRow: { gap: 6 },
+  flexOne: { flex: 1 },
   group: { gap: 2, paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   sub: { gap: 2, paddingLeft: space.md, paddingVertical: 6 },
   safe: { flex: 1, backgroundColor: colors.page },

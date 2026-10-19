@@ -14,9 +14,11 @@ Phone: `app/report/[kind].tsx`, `ui/reports/sale-report.tsx`, `lib/sale-report.t
 | Guest Number | Total, daily average, peak hour, grand total / daily total with hourly rows that open, Export |
 | Stock Report | Branch, category and date filters, cost / price / quantity / totals per row, Export |
 | Expiry | Total items and value, status cards, search by name / SKU / barcode, status, slot and category filters |
+| Sale Product | Top 30 products (ties kept) by revenue or quantity, the total, same data as the breakdown. The web has no menu item for it; the phone lists it with the sale reports |
+| Cinema Sales | Grand totals, movies with search, minimum tickets and amount, sort by showtime count / tickets / amount, open a movie for its showtimes, Export and Send to email |
 
 **Bug fixed:** the server refuses the stock report without `startDate` and `endDate`; the phone sent neither, so Stock Report always failed. It now sends the dates (and has a date bar).
 
-**Differences:** Export shares the rows as CSV text (the web writes an .xlsx file); Print uses the phone's print dialog. The stock and sale-report filters for branch show only to the owner. Dashboard is unchanged. Not done: the Sale Product report and Cinema Showtime Sale report.
+**Differences:** Export shares the rows as CSV text (the web writes an .xlsx file); Print uses the phone's print dialog. The stock and sale-report filters for branch show only to the owner. Dashboard is unchanged. The cinema report has no data in the local database (no movies), so it was checked against the source only.
 
 **Offline:** each report is read from the saved copy when the server can't be reached.
