@@ -48,49 +48,6 @@ export interface ModifierRow {
   items: { id: string; name: string; price: number | string }[];
 }
 
-export interface ModifierForm {
-  title: string;
-  description: string;
-  /** One option per line: "Name = price" (price may be left out for 0). */
-  items: string;
-  [key: string]: unknown;
-}
-
-export const emptyModifier = (): ModifierForm => ({ title: '', description: '', items: '' });
-
-export const itemsToText = (items: ModifierRow['items']) => items.map((i) => `${i.name} = ${num(i.price)}`).join('\n');
-
-/** "Egg = 0.5" lines → options. Empty lines and lines without a name are dropped; a missing or bad price is 0. */
-export function parseModifierItems(textValue: string): { name: string; price: number }[] {
-  const out: { name: string; price: number }[] = [];
-  for (const raw of textValue.split('\n')) {
-    const line = raw.trim();
-    if (!line) continue;
-    const eq = line.lastIndexOf('=');
-    const name = (eq >= 0 ? line.slice(0, eq) : line).trim();
-    const price = eq >= 0 ? Number(line.slice(eq + 1).replace(/[$,\s]/g, '')) : 0;
-    if (!name) continue;
-    out.push({ name, price: Number.isFinite(price) && price > 0 ? price : 0 });
-  }
-  return out;
-}
-
-export const modifierForm = (r: ModifierRow): ModifierForm => ({ title: r.title, description: text(r.description), items: itemsToText(r.items) });
-
-/**
- * kh-pos only saves the options that come with an id on update (it replaces them all), so every
- * option is sent with one: the existing id when the name is unchanged, otherwise a new one.
- */
-export function modifierBody(f: ModifierForm, newId: () => string, existing?: ModifierRow) {
-  const byName = new Map((existing?.items ?? []).map((i) => [i.name.toLowerCase(), i.id]));
-  return {
-    ...(existing ? { id: existing.modifierId } : {}),
-    title: f.title.trim(),
-    description: f.description.trim(),
-    items: parseModifierItems(f.items).map((i) => ({ id: byName.get(i.name.toLowerCase()) ?? newId(), name: i.name, price: i.price })),
-  };
-}
-
 // ---- discounts ----
 
 export interface DiscountRow {

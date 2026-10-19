@@ -1,4 +1,4 @@
-import { discountBody, discountForm, emptyDiscount, fetchAllPages, modifierBody, parseModifierItems, supplierBody, supplierForm, validateDiscount, type ModifierRow } from './catalog';
+import { discountBody, discountForm, emptyDiscount, fetchAllPages, supplierBody, supplierForm, validateDiscount } from './catalog';
 
 describe('paging', () => {
   it('reads every page until the total is reached', async () => {
@@ -14,24 +14,6 @@ describe('paging', () => {
   it('stops on an empty page, and on a short one', async () => {
     expect(await fetchAllPages(async () => ({ data: [], total: 999 }))).toEqual([]);
     expect(await fetchAllPages(async () => ({ data: [1, 2], total: 999 }))).toEqual([1, 2]);
-  });
-});
-
-describe('modifiers', () => {
-  it('reads options from lines', () => {
-    expect(parseModifierItems('Egg = 0.5\n  Cheese=1,5 \n\nPlain\nBad = abc\n = 3\nNeg = -2')).toEqual([
-      { name: 'Egg', price: 0.5 },
-      { name: 'Cheese', price: 15 },
-      { name: 'Plain', price: 0 },
-      { name: 'Bad', price: 0 },
-      { name: 'Neg', price: 0 },
-    ]);
-  });
-  it('sends every option with an id: the old one when the name is the same, a new one otherwise', () => {
-    const existing: ModifierRow = { modifierId: 'm1', title: 'Add-ons', items: [{ id: 'i1', name: 'Egg', price: 0.5 }] };
-    let n = 0;
-    const body = modifierBody({ title: ' Add-ons ', description: '', items: 'egg = 0.75\nBacon = 1' }, () => `new${++n}`, existing);
-    expect(body).toEqual({ id: 'm1', title: 'Add-ons', description: '', items: [{ id: 'i1', name: 'egg', price: 0.75 }, { id: 'new1', name: 'Bacon', price: 1 }] });
   });
 });
 
