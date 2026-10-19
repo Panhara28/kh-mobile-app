@@ -327,7 +327,8 @@
     "tickets": "Cinema tickets",
     "pricingTemplates": "Cinema pricing",
     "settlement": "Producer settlement",
-    "tableLayout": "Table floor plan"
+    "tableLayout": "Table floor plan",
+    "ticketSale": "Sell cinema tickets"
   },
   "range": {
     "today": "Today",
@@ -883,5 +884,11 @@
     "reset": "Reset",
     "discard": "Undo",
     "resetConfirm": "Clear every saved table position?"
+  },
+  "sale": {
+    "taken": "Some of those seats were just taken. Choose again.",
+    "seatsLeft": "{{count}} seats left",
+    "screen": "SCREEN",
+    "legend": "Yellow border: VIP. Blue border: couple (two seats). Grey: taken."
   }
 }
