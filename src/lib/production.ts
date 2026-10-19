@@ -17,11 +17,13 @@ export interface CompositeOption {
   sku?: string | null;
   barcode?: string | null;
   stock?: number | null;
+  purchasedCost?: number | null;
   images?: { url: string }[] | null;
 }
 
-export function compositeQuery(search: string, warehouseId: string, offset: number, limit = 20): string {
-  const q = new URLSearchParams({ limit: String(limit), offset: String(offset), replenishment: 'false', compositeOnly: 'true', includeProductNotForSale: 'false' });
+/** The web product search; `compositeOnly` for Production, `includeNotForSale` for purchase orders and product groups. */
+export function compositeQuery(search: string, warehouseId: string, offset: number, limit = 20, opts: { compositeOnly?: boolean; includeNotForSale?: boolean } = {}): string {
+  const q = new URLSearchParams({ limit: String(limit), offset: String(offset), replenishment: 'false', compositeOnly: String(opts.compositeOnly ?? true), includeProductNotForSale: String(opts.includeNotForSale ?? false) });
   if (warehouseId) q.set('warehouse', warehouseId);
   if (search.trim()) q.set('search', search.trim());
   return q.toString();

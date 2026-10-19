@@ -1,12 +1,13 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { can } from '@/lib/line';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { PO_STATUSES, poQuery, statusTone, type PoRow, type PoStatus } from '@/lib/purchase';
+import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { PO_STATUSES, poQuery, receivedText, rowActions, statusTone, type PoRow, type PoStatus } from '@/lib/purchase';
 import { useSession } from '@/lib/session';
 import { Badge, Button, Card, Chip } from '@/ui/components';
 import { ScreenHeader } from '@/ui/screen-header';
@@ -21,6 +22,8 @@ export default function PurchaseOrdersScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data, state } = useOffline();
+  const guard = useOnlineOnly();
+  const warehouseId = user?.currentWarehouseId ?? '';
   const [status, setStatus] = useState<PoStatus | ''>('');
   const [rows, setRows] = useState<PoRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +37,7 @@ export default function PurchaseOrdersScreen() {
   const load = useCallback(
     async (offset: number) => {
       const id = ++request.current;
-      const qs = poQuery({ status: status || undefined, limit: PAGE, offset });
+      const qs = poQuery({ status: status || undefined, warehouseId, limit: PAGE, offset });
       try {
         const r = await data.cachedRead('pos', qs, async () => (await api.call<{ result?: PoRow[] }>('GET', `/api/purchase-order?${qs}`)).result ?? []);
         if (id !== request.current) return;
@@ -46,7 +49,7 @@ export default function PurchaseOrdersScreen() {
         if (id === request.current) setError(e);
       }
     },
-    [data, api, status],
+    [data, api, status, warehouseId],
   );
 
   const { online, syncVersion } = state;
@@ -61,6 +64,28 @@ export default function PurchaseOrdersScreen() {
       cancelled = true;
     };
   }, [load, online, syncVersion]);
+
+  function remove(p: PoRow) {
+    Alert.alert(t('po.deleteTitle'), t('po.deleteAsk'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('admin.delete'),
+        style: 'destructive',
+        onPress: () =>
+          guard(async () => {
+            try {
+              await api.call('DELETE', '/api/purchase-order', { id: p.id });
+              Alert.alert(t('po.deleted'));
+              await load(0);
+            } catch (e) {
+              Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
+            }
+          }),
+      },
+    ]);
+  }
+
+  const open = (p: PoRow, extra: Record<string, string> = {}) => router.push({ pathname: '/purchase-order/[id]', params: { id: p.id, ...extra } });
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -93,21 +118,28 @@ export default function PurchaseOrdersScreen() {
           onEndReachedThreshold={0.5}
           ListEmptyComponent={<EmptyState title={t('po.empty')} />}
           ListFooterComponent={more ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
-          renderItem={({ item }) => (
-            <Pressable onPress={() => router.push({ pathname: '/purchase-order/[id]', params: { id: item.id } })} accessibilityRole="button" style={({ pressed }) => [pressed && styles.pressed]}>
+          renderItem={({ item }) => {
+            const actions = rowActions(item.status);
+            return (
               <Card style={styles.card}>
                 <View style={styles.row}>
                   <Text style={styles.heading}>#{item.poIncrement ?? item.id.slice(0, 6)}</Text>
                   <Badge tone={statusTone(item.status)} text={t(`po.status_${item.status}`, { defaultValue: item.status })} />
                 </View>
-                <Text style={styles.muted}>{[item.supplier?.name, item.purchasedAt?.slice(0, 10)].filter(Boolean).join(' · ')}</Text>
+                <Text style={styles.body}>{item.supplier?.name}</Text>
+                <Text style={styles.muted}>{[item.purchasedAt?.slice(0, 10), item.warehouse?.name].filter(Boolean).join(' · ')}</Text>
+                <Text style={styles.body}>{t('po.receivedCol')}: {receivedText(item)}</Text>
+                <Text style={styles.muted}>{t('po.expectedOn')}: {item.expectedAt ? item.expectedAt.slice(0, 10) : 'N/A'}</Text>
+                <Text style={styles.total}>{formatMoney(item.receivedTotal ?? 0, 'USD')} / {formatMoney(item.total ?? 0, 'USD')}</Text>
                 <View style={styles.row}>
-                  <Text style={styles.muted}>{t('tables.items', { count: item.totalQty ?? 0 })}</Text>
-                  <Text style={styles.total}>{formatMoney(item.total ?? 0, 'USD')}</Text>
+                  <Button title={item.status === 'draft' ? t('po.approve') : t('po.viewDetails')} variant="outline" size="sm" onPress={() => open(item)} />
+                  {actions.includes('receive') && can(user, 'purchase-order', 'update') ? <Button title={t('po.createReceive')} variant="outline" size="sm" onPress={() => open(item, { receive: '1' })} /> : null}
+                  {actions.includes('edit') && can(user, 'purchase-order', 'update') ? <Button title={t('admin.edit')} variant="outline" size="sm" onPress={() => open(item, { edit: '1' })} /> : null}
+                  {actions.includes('delete') && can(user, 'purchase-order', 'delete') ? <Button title={t('admin.delete')} variant="ghost" size="sm" onPress={() => remove(item)} /> : null}
                 </View>
               </Card>
-            </Pressable>
-          )}
+            );
+          }}
         />
       )}
     </SafeAreaView>
@@ -120,10 +152,10 @@ const styles = StyleSheet.create({
   chips: { gap: 6 },
   list: { padding: space.md, gap: space.sm },
   card: { padding: space.md, gap: 4, borderRadius: radius.lg },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm, flexWrap: 'wrap' },
+  body: { fontSize: font.small, color: colors.foreground },
   heading: { fontSize: font.body, fontWeight: '700', color: colors.foreground },
   muted: { fontSize: font.small, color: colors.mutedForeground },
   total: { fontSize: font.body, fontWeight: '700', color: colors.foreground },
-  pressed: { opacity: 0.7 },
   more: { marginVertical: space.lg },
 });
