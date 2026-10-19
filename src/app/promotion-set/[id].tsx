@@ -169,7 +169,7 @@ export default function PromotionSetScreen() {
       {canSave ? (
         <View style={[styles.footer, { paddingBottom: insets.bottom + space.md }]}>
           <Button title={t('common.cancel')} variant="outline" onPress={() => router.back()} style={styles.flex} />
-          <Button title={t('admin.save')} loading={busy} onPress={save} style={styles.flex} />
+          <Button title={t('customize.save')} loading={busy} onPress={save} style={styles.flex} />
         </View>
       ) : null}
       {addType === 'VARIANT' || addType === 'PRODUCT' ? (
