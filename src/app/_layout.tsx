@@ -94,6 +94,7 @@ function Navigator() {
         <Stack.Screen name="board-sale" />
         <Stack.Screen name="production" />
         <Stack.Screen name="retail" />
+        <Stack.Screen name="product-import" />
         <Stack.Screen name="roles" />
         <Stack.Screen name="role/[id]" />
         <Stack.Screen name="promotion-sets" />

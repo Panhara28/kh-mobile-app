@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -25,8 +26,10 @@ export default function StockCountingScreen() {
   const guard = useOnlineOnly();
   const warehouseId = user?.currentWarehouseId ?? '';
 
-  const [mode, setMode] = useState<StockMode>('count');
-  const [variant, setVariant] = useState<PickedVariant | null>(null);
+  // opened from a product's variant menu with the variant (and the job) already chosen
+  const params = useLocalSearchParams<{ variantId?: string; productId?: string; name?: string; mode?: string }>();
+  const [mode, setMode] = useState<StockMode>(() => (STOCK_MODES as string[]).includes(params.mode ?? '') ? (params.mode as StockMode) : 'count');
+  const [variant, setVariant] = useState<PickedVariant | null>(() => (params.variantId ? { variantId: params.variantId, productId: params.productId ?? '', name: params.name ?? '', price: 0, cost: 0, barcode: '' } : null));
   const [picking, setPicking] = useState(false);
   const [slots, setSlots] = useState<SlotRow[]>([]);
   const [slotId, setSlotId] = useState('');

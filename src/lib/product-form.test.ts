@@ -201,7 +201,8 @@ describe('checking before saving', () => {
     expect(validateProduct(patchVariant(f, 0, { price: -1 }))).toEqual({ field: 'price', index: 0 });
     expect(validateProduct(patchVariant(f, 0, { purchasedCost: -1 }))).toEqual({ field: 'cost', index: 0 });
     expect(validateProduct(patchVariant(f, 0, { lowStockQty: -2 }))).toEqual({ field: 'stock', index: 0 });
-    expect(validateProduct(patchVariant(f, 0, { discountType: 'AMOUNT', discountValue: 0 }))).toEqual({ field: 'discount', index: 0 });
+    expect(validateProduct(patchVariant(f, 0, { discountType: 'AMOUNT', discountValue: -1 }))).toEqual({ field: 'discount', index: 0 });
+    expect(validateProduct(patchVariant(f, 0, { discountType: 'AMOUNT', discountValue: 0 }))).toBeNull();
     expect(validateProduct(patchVariant(f, 0, { discountType: 'PERCENTAGE', discountValue: 101 }))).toEqual({ field: 'discount', index: 0 });
     expect(validateProduct(patchVariant(f, 0, { discountType: 'PERCENTAGE', discountValue: 10 }))).toBeNull();
     f = patchVariant(f, 0, { isComposite: true });

@@ -493,7 +493,8 @@ export function validateProduct(f: ProductFormData): ProductProblem | null {
     if (v.purchasedCost < 0) return { field: 'cost', index };
     if (v.lowStockQty !== null && v.lowStockQty < 0) return { field: 'stock', index };
     if (v.idealStockQty !== null && v.idealStockQty < 0) return { field: 'stock', index };
-    if (v.discountType && !(num(v.discountValue) > 0)) return { field: 'discount', index };
+    // like the web: a discount may be left at 0, but never negative, and a percentage never above 100
+    if (v.discountType && num(v.discountValue) < 0) return { field: 'discount', index };
     if (v.discountType === 'PERCENTAGE' && num(v.discountValue) > 100) return { field: 'discount', index };
     if (v.isComposite && v.compositeVariants.length === 0) return { field: 'composite', index };
   }
