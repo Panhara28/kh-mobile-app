@@ -34,6 +34,7 @@ export const MODULES: AppModule[] = [
   { id: 'report-guest-number', route: '/report/guest-number', resource: 'guest-number', icon: '🧍', titleKey: 'reports.guest-number', group: 'reports' },
   { id: 'report-stock-report', route: '/report/stock-report', resource: 'stock-report', icon: '📦', titleKey: 'reports.stock-report', group: 'reports' },
   { id: 'report-expiry', route: '/report/expiry', resource: 'expiry', icon: '⏳', titleKey: 'reports.expiry', group: 'reports' },
+  { id: 'products', route: '/products', resource: 'product', icon: '🍜', titleKey: 'more.products', group: 'setup' },
   { id: 'categories', route: '/categories', resource: 'category', icon: '🗂', titleKey: 'more.categories', group: 'setup' },
   { id: 'modifiers', route: '/modifiers', resource: 'modifier', icon: '➕', titleKey: 'more.modifiers', group: 'setup' },
   { id: 'discounts', route: '/discounts', resource: 'discount', icon: '🏷', titleKey: 'more.discounts', group: 'setup' },

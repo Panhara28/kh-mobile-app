@@ -303,7 +303,8 @@
     "modifiers": "Modifiers",
     "discounts": "Discounts",
     "paymentMethods": "Payment methods",
-    "suppliers": "Suppliers"
+    "suppliers": "Suppliers",
+    "products": "Products"
   },
   "range": {
     "today": "Today",
@@ -486,5 +487,46 @@
   },
   "paymentMethods": {
     "name": "Method name"
+  },
+  "products": {
+    "search": "Search products",
+    "empty": "No products found.",
+    "notForSale": "Not for sale",
+    "variants": "{{count}} variants",
+    "deleteConfirm": "Delete {{name}}?",
+    "add": "Add product",
+    "edit": "Edit product",
+    "name": "Name",
+    "description": "Description",
+    "forSale": "For sale",
+    "trackStock": "Track stock",
+    "categories": "Categories",
+    "pictures": "Pictures",
+    "library": "Choose photo",
+    "camera": "Take photo",
+    "removePicture": "Remove picture",
+    "noPermission": "Allow access in the phone settings to add pictures.",
+    "uploadFailed": "Couldn't upload the picture",
+    "variantsTitle": "Variants (sizes, flavours)",
+    "variantName": "Variant name",
+    "price": "Price",
+    "cost": "Cost",
+    "barcode": "Barcode",
+    "visible": "Shown in the menu",
+    "popular": "Popular",
+    "new": "New",
+    "mostOrdered": "Most ordered",
+    "discount": "Discount",
+    "noDiscount": "None",
+    "removeVariant": "Remove variant",
+    "addVariant": "Add variant",
+    "lockedStructure": "This product has several options. Add or rename its variants in the KH POS web app; price, cost, barcode and badges can be changed here.",
+    "error_title": "Name the product.",
+    "error_variants": "A product needs at least one variant.",
+    "error_variantName": "Every variant needs a name.",
+    "error_price": "The price cannot be negative.",
+    "error_cost": "The cost cannot be negative.",
+    "error_discount": "Enter a discount value (a percentage up to 100).",
+    "error_duplicateVariant": "Two variants have the same name."
   }
 }

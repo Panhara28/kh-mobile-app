@@ -33,7 +33,14 @@
       "expo-router",
       "expo-secure-store",
       "expo-status-bar",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "KH POS uses your photos to add pictures to products.",
+          "cameraPermission": "KH POS uses the camera to take pictures of products."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
