@@ -1,16 +1,17 @@
 import * as Crypto from 'expo-crypto';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchAllPages } from '@/lib/catalog';
 import { can } from '@/lib/line';
 import { useOffline } from '@/lib/offline/provider';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import type { BranchRow } from '@/lib/org';
-import { assignBody, emptyGroup, groupBody, groupForm, notInGroup, productLabel, validateGroup, warehouseChanges, type GroupForm, type GroupRow } from '@/lib/product-groups';
+import { deleteSteps, emptyGroup, groupForm, groupListQuery, GROUP_PAGE, heldLabel, pickedLabel, saveSteps, slimGroup, validateGroup, type GroupForm, type GroupRow, type PickedProduct, type Step } from '@/lib/product-groups';
 import { useSession } from '@/lib/session';
-import { Button, Card, Chip, Input } from '@/ui/components';
+import { dateOnly } from '@/lib/suppliers';
+import { Badge, Button, Card, Chip, Input } from '@/ui/components';
 import { ScreenHeader } from '@/ui/screen-header';
 import { EmptyState, ErrorState, LoadingState } from '@/ui/states';
 import { StaleBanner } from '@/ui/sync-status';
@@ -19,71 +20,104 @@ import { colors, font, radius, space } from '@/ui/theme';
 
 /**
  * Product groups like the kh-pos web page: a named set of product variants and the branches that
- * show them. Opening a group lets staff rename it, choose its branches, add or remove products, or delete it.
- * Saving needs the server.
+ * show them. The list can be filtered by branch; saving a group also shows (or hides) its products in
+ * its branches, exactly as the web form does. Needs the server to save.
  */
 export default function ProductGroupsScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
-  const { data } = useOffline();
+  const { data, state } = useOffline();
   const guard = useOnlineOnly();
   const insets = useSafeAreaInsets();
-  const [groups, setGroups] = useState<GroupRow[] | null>(null);
+
+  const [warehouseId, setWarehouseId] = useState('');
+  const [groups, setGroups] = useState<GroupRow[]>([]);
+  const [total, setTotal] = useState(0);
   const [branches, setBranches] = useState<BranchRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [moreLoading, setMoreLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [staleAt, setStaleAt] = useState<number | null | false>(false);
-  const [editing, setEditing] = useState<{ id: string; isNew: boolean; row: GroupRow | null; form: GroupForm; wanted: string[]; added: { productId: string; variantId: string; label: string }[]; removed: { productId: string; variantId: string }[] } | null>(null);
+  const [editing, setEditing] = useState<{ id: string; row: GroupRow | null; form: GroupForm; products: PickedProduct[]; warehouseIds: string[] } | null>(null);
   const [picking, setPicking] = useState(false);
-  const [problem, setProblem] = useState(false);
+  const [problem, setProblem] = useState('');
   const [busy, setBusy] = useState(false);
-  const [version, setVersion] = useState(0);
+  const run = useRef(0);
 
-  const load = useCallback(async () => {
-    try {
-      const r = await data.cachedRead('product-groups', 'all', async () => (await api.call<{ result?: { result: GroupRow[] } }>('GET', '/api/product-v2/group?limit=200&offset=0')).result?.result ?? []);
-      setGroups(r.data);
-      setStaleAt(r.stale ? r.savedAt : false);
-      setError(null);
-    } catch (e) {
-      setError(e);
-    }
-  }, [data, api]);
+  const load = useCallback(
+    async (offset: number) => {
+      const id = ++run.current;
+      const qs = groupListQuery(offset, warehouseId);
+      try {
+        const r = await data.cachedRead('product-groups-page', qs, async () => {
+          const res = (await api.call<{ result?: { result: GroupRow[]; total: number } }>('GET', `/api/product-v2/group?${qs}`)).result ?? { result: [], total: 0 };
+          return { ...res, result: res.result.map(slimGroup) };
+        });
+        if (id !== run.current) return;
+        setGroups((prev) => (offset === 0 ? r.data.result : [...prev, ...r.data.result]));
+        setTotal(Number(r.data.total) || 0);
+        setStaleAt(r.stale ? r.savedAt : false);
+        setError(null);
+      } catch (e) {
+        if (id === run.current) setError(e);
+      }
+    },
+    [data, api, warehouseId],
+  );
+
+  const { online, syncVersion } = state;
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setLoading(true);
+      await load(0);
+      if (!cancelled) setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [load, online, syncVersion]);
 
   useEffect(() => {
-    // loads after an await, so the state is set asynchronously
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load, version]);
-
-  useEffect(() => {
-    data.cachedRead('branches-ref', 'all', () => fetchAllPages<BranchRow>(async (o, l) => (await api.call<{ result: { data: BranchRow[]; total: number } }>('GET', `/api/warehouse?limit=${l}&offset=${o}`)).result)).then((r) => setBranches(r.data), () => undefined);
+    data.cachedRead('branches-ref', 'all', () => fetchAllPages<BranchRow>(async (o, l) => (await api.call<{ result: { data: BranchRow[]; total: number } }>('GET', `/api/warehouse?limit=${Math.min(l, 100)}&offset=${o}`)).result)).then((r) => setBranches(r.data), () => undefined);
   }, [data, api]);
+
+  const mayAdd = can(user, 'product-group', 'create');
+  const mayEdit = can(user, 'product-group', 'update');
+  const mayDelete = can(user, 'product-group', 'delete');
 
   function open(row: GroupRow | null) {
-    setProblem(false);
-    setEditing({ id: row?.groupId ?? Crypto.randomUUID(), isNew: !row, row, form: row ? groupForm(row) : emptyGroup(), wanted: row ? row.warehouses.map((w) => w.warehouseId) : [], added: [], removed: [] });
+    setProblem('');
+    setEditing({
+      id: row?.groupId ?? Crypto.randomUUID(),
+      row,
+      form: row ? groupForm(row) : emptyGroup(),
+      products: row ? row.products.map((p) => ({ productId: p.productId, variantId: p.productVariantId, label: heldLabel(p) })) : [],
+      warehouseIds: row ? row.warehouses.map((w) => w.warehouseId) : [],
+    });
+  }
+
+  /** Runs the calls one after the other, each waiting for the one before. */
+  async function run_(steps: Step[]) {
+    for (const s of steps) await api.call(s.method, s.path, s.body);
   }
 
   function save() {
     const e = editing!;
     if (validateGroup(e.form)) {
-      setProblem(true);
+      setProblem(t('groups.error_name'));
       return;
     }
+    setProblem('');
     guard(async () => {
       setBusy(true);
       try {
-        await api.call(e.isNew ? 'POST' : 'PUT', '/api/product-v2/group', groupBody(e.form, e.id));
-        const { add, remove } = warehouseChanges(e.row ? e.row.warehouses.map((w) => w.warehouseId) : [], e.wanted);
-        const base = `/api/product-v2/group/${encodeURIComponent(e.id)}`;
-        if (add.length) await api.call('POST', `${base}/warehouse`, { warehouseIds: add });
-        if (remove.length) await api.call('DELETE', `${base}/warehouse`, { warehouseIds: remove });
-        if (e.added.length) await api.call('POST', `${base}/products`, assignBody(e.added));
-        if (e.removed.length) await api.call('DELETE', `${base}/products`, assignBody(e.removed));
+        await run_(saveSteps({ id: e.id, existing: e.row, form: e.form, products: e.products, warehouseIds: e.warehouseIds }));
         setEditing(null);
-        setVersion((v) => v + 1);
-      } catch (err) {
-        Alert.alert(t('errors.server'), err instanceof Error ? err.message : undefined);
+        await load(0);
+      } catch {
+        setProblem(t('groups.error_save'));
       } finally {
         setBusy(false);
       }
@@ -91,7 +125,7 @@ export default function ProductGroupsScreen() {
   }
 
   function remove(g: GroupRow) {
-    Alert.alert(t('admin.deleteConfirm', { name: g.groupName }), undefined, [
+    Alert.alert(t('groups.deleteTitle'), t('groups.deleteAsk'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('admin.delete'),
@@ -99,9 +133,8 @@ export default function ProductGroupsScreen() {
         onPress: () =>
           guard(async () => {
             try {
-              await api.call('DELETE', '/api/product-v2/group', { groupId: g.groupId });
-              setEditing(null);
-              setVersion((v) => v + 1);
+              await run_(deleteSteps(g));
+              await load(0);
             } catch (err) {
               Alert.alert(t('errors.server'), err instanceof Error ? err.message : undefined);
             }
@@ -111,26 +144,60 @@ export default function ProductGroupsScreen() {
   }
 
   const e = editing;
-  const kept = e?.row ? e.row.products.filter((p) => !e.removed.some((r) => r.variantId === p.productVariantId)) : [];
+  const set = (patch: Partial<NonNullable<typeof editing>>) => setEditing((cur) => (cur ? { ...cur, ...patch } : cur));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScreenHeader title={t('more.productGroups')} right={can(user, 'product-group', 'create') ? <Button title={`+ ${t('admin.add')}`} size="sm" onPress={() => open(null)} /> : undefined} />
+      <ScreenHeader title={t('more.productGroups')} right={mayAdd ? <Button title={`+ ${t('admin.add')}`} size="sm" onPress={() => open(null)} /> : undefined} />
+      <View style={styles.filters}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          <Chip label={t('groups.allWarehouses')} selected={warehouseId === ''} onPress={() => setWarehouseId('')} />
+          {branches
+            .filter((b) => b.id)
+            .map((b) => (
+              <Chip key={b.id} label={b.name} selected={warehouseId === b.id} onPress={() => setWarehouseId(b.id!)} />
+            ))}
+        </ScrollView>
+      </View>
       {staleAt !== false ? <StaleBanner savedAt={staleAt} /> : null}
-      {groups === null ? (
-        error ? <ErrorState error={error} onRetry={() => setVersion((v) => v + 1)} /> : <LoadingState />
+      {loading ? (
+        <LoadingState />
+      ) : error && groups.length === 0 ? (
+        <ErrorState error={error} onRetry={() => void load(0)} />
       ) : (
         <FlatList
           data={groups}
           keyExtractor={(g) => g.groupId}
           contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(0); setRefreshing(false); }} />}
+          onEndReached={async () => {
+            if (moreLoading || groups.length >= total || groups.length < GROUP_PAGE) return;
+            setMoreLoading(true);
+            await load(groups.length);
+            setMoreLoading(false);
+          }}
+          onEndReachedThreshold={0.5}
+          ListHeaderComponent={<Text style={styles.muted}>{t('groups.total', { count: total })}</Text>}
           ListEmptyComponent={<EmptyState title={t('groups.empty')} />}
-          renderItem={({ item }) => (
+          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
+          renderItem={({ item, index }) => (
             <Card style={styles.card}>
-              <Text style={styles.heading}>{item.groupName}</Text>
-              {item.description ? <Text style={styles.muted}>{item.description}</Text> : null}
-              <Text style={styles.muted}>{t('groups.summary', { products: item.products.length, branches: item.warehouses.length })}</Text>
-              {can(user, 'product-group', 'update') ? <Button title={t('admin.edit')} variant="outline" size="sm" onPress={() => open(item)} /> : null}
+              <View style={styles.row}>
+                <Text style={styles.no}>{index + 1}</Text>
+                <Text style={[styles.heading, styles.flex]}>{item.groupName}</Text>
+              </View>
+              <Text style={styles.muted}>{item.description || '—'}</Text>
+              <View style={styles.chips}>
+                {item.warehouses.map((w) => (
+                  <Badge key={w.warehouseId} tone="outline" text={w.warehouse?.name || w.warehouseId} />
+                ))}
+              </View>
+              <Text style={styles.body}>{t('groups.productCount', { count: item.products.length })}</Text>
+              <Text style={styles.muted}>{t('groups.createdBy', { name: item.createdBy?.fullname || '—', date: dateOnly(item.createdAt) })}</Text>
+              <View style={styles.row}>
+                {mayEdit ? <Button title={t('admin.edit')} variant="outline" size="sm" onPress={() => open(item)} /> : null}
+                {mayDelete ? <Button title={t('admin.delete')} variant="ghost" size="sm" onPress={() => remove(item)} /> : null}
+              </View>
             </Card>
           )}
         />
@@ -141,38 +208,39 @@ export default function ProductGroupsScreen() {
           {e ? (
             <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
               <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-                <Input value={e.form.name} onChangeText={(v) => setEditing({ ...e, form: { ...e.form, name: v } })} placeholder={t('groups.name')} accessibilityLabel={t('groups.name')} />
-                {problem ? <Text style={styles.error}>{t('groups.error_name')}</Text> : null}
-                <Input value={e.form.description} onChangeText={(v) => setEditing({ ...e, form: { ...e.form, description: v } })} placeholder={t('groups.description')} multiline accessibilityLabel={t('groups.description')} />
+                <Text style={styles.section}>{t('groups.general')}</Text>
+                <Text style={styles.label}>{t('groups.name')}</Text>
+                <Input value={e.form.name} onChangeText={(v) => set({ form: { ...e.form, name: v } })} placeholder={t('groups.nameHint')} accessibilityLabel={t('groups.name')} />
+                <Text style={styles.label}>{t('groups.description')}</Text>
+                <Input value={e.form.description} onChangeText={(v) => set({ form: { ...e.form, description: v } })} placeholder={t('groups.descriptionHint')} accessibilityLabel={t('groups.description')} />
+
+                <Text style={styles.section}>{t('groups.products')}</Text>
+                <Text style={styles.muted}>{t('groups.productsHint')}</Text>
+                {e.products.map((p) => (
+                  <View key={p.variantId} style={styles.pick}>
+                    <Text style={styles.label2} numberOfLines={2}>{p.label}</Text>
+                    <Button title="✕" variant="ghost" size="sm" onPress={() => set({ products: e.products.filter((x) => x.variantId !== p.variantId) })} />
+                  </View>
+                ))}
+                <Button title={`+ ${t('po.addItem')}`} variant="outline" onPress={() => setPicking(true)} />
+                {e.products.length > 0 ? <Text style={styles.muted}>{t('groups.selectedProducts', { count: e.products.length })}</Text> : null}
 
                 <Text style={styles.section}>{t('groups.branches')}</Text>
+                <Text style={styles.muted}>{t('groups.branchesHint')}</Text>
                 <View style={styles.chips}>
                   {branches
                     .filter((b) => b.id)
                     .map((b) => (
-                      <Chip key={b.id} label={b.name} selected={e.wanted.includes(b.id!)} onPress={() => setEditing({ ...e, wanted: e.wanted.includes(b.id!) ? e.wanted.filter((x) => x !== b.id) : [...e.wanted, b.id!] })} />
+                      <Chip key={b.id} label={b.name} selected={e.warehouseIds.includes(b.id!)} onPress={() => set({ warehouseIds: e.warehouseIds.includes(b.id!) ? e.warehouseIds.filter((x) => x !== b.id) : [...e.warehouseIds, b.id!] })} />
                     ))}
                 </View>
+                {e.warehouseIds.length > 0 ? <Text style={styles.muted}>{t('groups.selectedBranches', { count: e.warehouseIds.length })}</Text> : null}
 
-                <Text style={styles.section}>{t('groups.products')}</Text>
-                {kept.map((p) => (
-                  <View key={p.productVariantId} style={styles.row}>
-                    <Text style={styles.label} numberOfLines={2}>{productLabel(p)}</Text>
-                    <Button title="✕" variant="ghost" size="sm" onPress={() => setEditing({ ...e, removed: [...e.removed, { productId: p.productId, variantId: p.productVariantId }] })} />
-                  </View>
-                ))}
-                {e.added.map((p) => (
-                  <View key={p.variantId} style={styles.row}>
-                    <Text style={styles.label} numberOfLines={2}>{p.label}</Text>
-                    <Button title="✕" variant="ghost" size="sm" onPress={() => setEditing({ ...e, added: e.added.filter((x) => x.variantId !== p.variantId) })} />
-                  </View>
-                ))}
-                <Button title={`+ ${t('po.addItem')}`} variant="outline" onPress={() => setPicking(true)} />
-                {e.row && can(user, 'product-group', 'delete') ? <Button title={t('admin.delete')} variant="outline" onPress={() => remove(e.row!)} /> : null}
+                {problem ? <Text style={styles.error}>{problem}</Text> : null}
               </ScrollView>
               <View style={[styles.footer, { paddingBottom: insets.bottom + space.md }]}>
-                <Button title={t('common.cancel')} variant="outline" onPress={() => setEditing(null)} style={styles.flex} />
-                <Button title={t('customize.save')} loading={busy} onPress={save} style={styles.flex} />
+                <Button title={t('common.cancel')} variant="outline" onPress={() => setEditing(null)} disabled={busy} style={styles.flex} />
+                <Button title={busy ? t('groups.saving') : e.row ? t('groups.update') : t('groups.create')} loading={busy} onPress={save} style={styles.flex} />
               </View>
             </KeyboardAvoidingView>
           ) : null}
@@ -181,9 +249,7 @@ export default function ProductGroupsScreen() {
               api={api}
               onClose={() => setPicking(false)}
               onPick={(v) => {
-                const inGroup = e.row ? notInGroup(e.row, v.variantId) || e.removed.some((r) => r.variantId === v.variantId) : true;
-                const already = e.added.some((a) => a.variantId === v.variantId);
-                if (inGroup && !already) setEditing({ ...e, added: [...e.added, { productId: v.productId, variantId: v.variantId, label: v.name }], removed: e.removed.filter((r) => r.variantId !== v.variantId) });
+                if (!e.products.some((p) => p.variantId === v.variantId)) set({ products: [...e.products, { productId: v.productId, variantId: v.variantId, label: pickedLabel(v.name) }] });
                 setPicking(false);
               }}
             />
@@ -197,15 +263,22 @@ export default function ProductGroupsScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.page },
   flex: { flex: 1 },
+  filters: { backgroundColor: colors.card, padding: space.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  chipRow: { gap: 6 },
   list: { padding: space.md, gap: space.sm },
   card: { padding: space.md, gap: 4, borderRadius: radius.lg },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  pick: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm, backgroundColor: colors.muted, borderRadius: radius.md, paddingLeft: space.sm },
+  no: { fontSize: font.small, color: colors.mutedForeground, minWidth: 18 },
   heading: { fontSize: font.body, fontWeight: '700', color: colors.foreground },
-  label: { fontSize: font.body, color: colors.foreground, flexShrink: 1 },
+  label: { fontSize: font.small, fontWeight: '600', color: colors.mutedForeground },
+  label2: { fontSize: font.small, color: colors.foreground, flexShrink: 1, flex: 1 },
+  body: { fontSize: font.small, color: colors.foreground },
   muted: { fontSize: font.small, color: colors.mutedForeground },
-  section: { fontSize: font.small, fontWeight: '700', color: colors.mutedForeground, textTransform: 'uppercase' },
+  section: { fontSize: font.small, fontWeight: '700', color: colors.mutedForeground, textTransform: 'uppercase', marginTop: space.sm },
   error: { fontSize: font.small, color: colors.destructive },
+  more: { marginVertical: space.lg },
   form: { padding: space.md, gap: space.sm },
   footer: { flexDirection: 'row', gap: space.sm, padding: space.md, backgroundColor: colors.card, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
 });
