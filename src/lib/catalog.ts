@@ -20,7 +20,6 @@ export async function fetchAllPages<T>(get: (offset: number, limit: number) => P
 }
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '');
-const num = (v: unknown) => Number(v) || 0;
 
 // ---- categories ----
 
@@ -49,45 +48,6 @@ export interface ModifierRow {
 }
 
 // ---- discounts ----
-
-export interface DiscountRow {
-  id: string;
-  title: string;
-  description?: string | null;
-  discountType: 'AMOUNT' | 'PERCENTAGE';
-  value: number;
-  warehouseId?: string;
-}
-
-export interface DiscountForm {
-  title: string;
-  description: string;
-  discountType: string;
-  value: number;
-  [key: string]: unknown;
-}
-
-export const emptyDiscount = (): DiscountForm => ({ title: '', description: '', discountType: 'PERCENTAGE', value: 0 });
-export const discountForm = (r: DiscountRow): DiscountForm => ({ title: r.title, description: text(r.description), discountType: r.discountType, value: num(r.value) });
-
-export function validateDiscount(f: DiscountForm): string | null {
-  if (!f.title.trim()) return 'title';
-  if (f.discountType !== 'AMOUNT' && f.discountType !== 'PERCENTAGE') return 'discountType';
-  if (!(f.value > 0)) return 'value';
-  if (f.discountType === 'PERCENTAGE' && f.value > 100) return 'value';
-  return null;
-}
-
-export function discountBody(f: DiscountForm, warehouseId: string, newId: () => string, existing?: DiscountRow) {
-  return {
-    id: existing?.id ?? newId(),
-    title: f.title.trim(),
-    description: f.description.trim(),
-    discountType: f.discountType as 'AMOUNT' | 'PERCENTAGE',
-    value: f.value,
-    warehouseId: existing?.warehouseId || warehouseId,
-  };
-}
 
 // ---- suppliers ----
 

@@ -9,7 +9,7 @@ import { can } from '@/lib/line';
 import { useOffline } from '@/lib/offline/provider';
 import { promoSummary, type PromoRow } from '@/lib/promotion-sets';
 import { useSession } from '@/lib/session';
-import { Badge, Button, Card } from '@/ui/components';
+import { Badge, Button, Card, Chip } from '@/ui/components';
 import { ScreenHeader } from '@/ui/screen-header';
 import { EmptyState, ErrorState, LoadingState } from '@/ui/states';
 import { StaleBanner } from '@/ui/sync-status';
@@ -45,6 +45,10 @@ export default function PromotionSetsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader title={t('more.promotionSets')} right={can(user, 'discount', 'create') ? <Button title={`+ ${t('admin.add')}`} size="sm" onPress={() => router.push({ pathname: '/promotion-set/[id]', params: { id: Crypto.randomUUID(), isNew: '1' } })} /> : undefined} />
+      <View style={styles.tabs}>
+        <Chip label={t('discounts.tabDiscounts')} selected={false} onPress={() => router.replace('/discounts')} />
+        <Chip label={t('discounts.tabPromotionSets')} selected onPress={() => undefined} />
+      </View>
       {staleAt !== false ? <StaleBanner savedAt={staleAt} /> : null}
       {rows === null ? (
         error ? <ErrorState error={error} onRetry={() => void load()} /> : <LoadingState />
@@ -79,6 +83,7 @@ export default function PromotionSetsScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.page },
+  tabs: { flexDirection: 'row', gap: 6, padding: space.md, paddingBottom: 0 },
   list: { padding: space.md, gap: space.sm },
   card: { padding: space.md, gap: 4, borderRadius: radius.lg },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
