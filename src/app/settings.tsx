@@ -12,7 +12,7 @@ import { ErrorState, LoadingState } from '@/ui/states';
 import { StaleBanner } from '@/ui/sync-status';
 import { colors, font, radius, space } from '@/ui/theme';
 
-const ROUTES: Partial<Record<HubKey, string>> = { general: '/settings-general' };
+const ROUTES: Partial<Record<HubKey, string>> = { general: '/settings-general', users: '/users', delivery: '/deliveries', payment: '/payment-methods' };
 
 /**
  * The web Settings dialog (Profile → Settings): a tile for each section the role may open —

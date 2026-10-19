@@ -874,8 +874,24 @@
     "resetPassword": "Reset password",
     "resetFor": "New password for {{name}}",
     "newPassword": "New password",
-    "passwordShort": "The password needs at least 4 characters.",
-    "passwordChanged": "Password changed."
+    "passwordShort": "The password needs at least 6 characters.",
+    "passwordChanged": "Password changed.",
+    "passwordMismatch": "The passwords do not match.",
+    "confirmPassword": "Confirm password",
+    "resetFailed": "Failed to reset password",
+    "profile": "Profile",
+    "noRole": "No Role",
+    "deleteAsk": "Are you sure you want to delete user {{name}}?",
+    "cannotDeleteSelf": "You cannot delete your own account.",
+    "bindUsers": "Bind Users",
+    "noBound": "No bound branches yet. Add one to allow this user to sign in from another branch.",
+    "main": "Main",
+    "new": "New",
+    "addBranch": "Add Branch",
+    "available": "Available branches",
+    "removeBranch": "Remove {{name}}",
+    "bindFailed": "Could not load the branches this user is bound to.",
+    "bindHint": "Adding a branch creates an account for this person there (same name, phone and role). Removing one deletes that account when you Save."
   },
   "branches": {
     "name": "Branch name",
@@ -1922,5 +1938,12 @@
     "entryCount": "Entries: {{count}}",
     "addIntegration": "Add integration",
     "accessibilityLater": "Accessibility (roles and permissions) is built together with the Users section."
+  },
+  "delivery": {
+    "name": "Delivery Name",
+    "address": "Address",
+    "extraPrice": "Extra Price ($)",
+    "orders": "orders",
+    "deleteAsk": "Are you sure you want to delete customer \"{{name}}\"?"
   }
 }

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { can } from '@/lib/line';
 import { useCachedLoad } from '@/lib/offline/use-cached-load';
@@ -52,6 +52,17 @@ export interface EntityConfig<Row, F> {
   headerActions?: ReactNode;
   /** Text for the delete confirmation. */
   deleteMessage?: (r: Row) => string;
+  /** A small picture on the left of each row. */
+  rowImage?: (r: Row) => string | null | undefined;
+  /** Extra content above / below the fields of the add and edit form (a picture, a list of branches ...). */
+  renderTop?: (ctx: FormContext<Row, F>) => ReactNode;
+  renderBottom?: (ctx: FormContext<Row, F>) => ReactNode;
+}
+
+export interface FormContext<Row, F> {
+  row: Row | null;
+  form: F;
+  set: (key: string, value: unknown) => void;
 }
 
 /**
@@ -177,6 +188,7 @@ export function EntityScreen<Row, F extends Record<string, unknown>>({ config }:
                   accessibilityRole="button"
                   style={({ pressed }) => [styles.cardTop, pressed && styles.pressed]}
                 >
+                  {config.rowImage?.(item) ? <Image source={{ uri: config.rowImage(item)! }} style={styles.thumb} /> : null}
                   <View style={styles.flex}>
                     <Text style={styles.heading} numberOfLines={2}>
                       {config.rowTitle(item)}
@@ -206,6 +218,7 @@ export function EntityScreen<Row, F extends Record<string, unknown>>({ config }:
           <Text style={styles.modalTitle}>{editing?.row ? t('admin.edit') : t('admin.add')} · {config.title}</Text>
           <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+              {editing ? config.renderTop?.({ row: editing.row, form: editing.form, set }) : null}
               {editing
                 ? (typeof config.fields === 'function' ? config.fields(load.value ?? []) : config.fields)
                     .filter((f) => !f.visible || f.visible(editing.form))
@@ -243,6 +256,7 @@ export function EntityScreen<Row, F extends Record<string, unknown>>({ config }:
                       }
                     })
                 : null}
+              {editing ? config.renderBottom?.({ row: editing.row, form: editing.form, set }) : null}
             </ScrollView>
           </KeyboardAvoidingView>
           <View style={[styles.footer, { paddingBottom: insets.bottom + space.md }]}>
@@ -264,6 +278,7 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   pressed: { opacity: 0.7 },
+  thumb: { width: 40, height: 40, borderRadius: radius.full, backgroundColor: colors.muted },
   heading: { fontSize: font.body, fontWeight: '700', color: colors.foreground },
   muted: { fontSize: font.small, color: colors.mutedForeground },
   label: { fontSize: font.body, color: colors.foreground, flex: 1 },

@@ -98,7 +98,7 @@ function Choice({ label, options, value, onChange, disabled }: { label: string; 
 }
 
 /** Choose a picture from the library, upload it and hand back its address (5 MB at most, like the web). */
-function ImageBox({ url, onChange, disabled, label }: { url: string; onChange: (v: string) => void; disabled: boolean; label: string }) {
+export function ImageBox({ url, onChange, disabled, label }: { url: string; onChange: (v: string) => void; disabled: boolean; label: string }) {
   const { t } = useTranslation();
   const { api } = useSession();
   const guard = useOnlineOnly();

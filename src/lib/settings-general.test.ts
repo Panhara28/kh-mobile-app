@@ -199,7 +199,7 @@ describe('settings hub tiles', () => {
     expect(hubTiles(user({ setting: 'read' }), 'RESTAURANT', true).map((t) => t.key)).toEqual(['general']);
     expect(hubTiles(user({}), 'MART', true)).toEqual([]);
   });
-  it('only General is built on the phone so far', () => {
-    expect(hubTiles(owner, 'RESTAURANT', true).filter((t) => t.available).map((t) => t.key)).toEqual(['general']);
+  it('every section is built on the phone', () => {
+    expect(hubTiles(owner, 'RESTAURANT', true).every((t) => t.available)).toBe(true);
   });
 });

@@ -18,9 +18,9 @@ export interface HubTile {
 export function hubTiles(user: StaffUser | null | undefined, systemType: string, isMainBranch: boolean): HubTile[] {
   const all: HubTile[] = [
     { key: 'general', resource: 'setting', available: true },
-    { key: 'users', resource: 'users', available: false },
+    { key: 'users', resource: 'users', available: true },
   ];
-  if (systemType === 'RESTAURANT') all.push({ key: 'delivery', resource: 'delivery', available: false });
-  if (isMainBranch) all.push({ key: 'payment', resource: 'payment', available: false });
+  if (systemType === 'RESTAURANT') all.push({ key: 'delivery', resource: 'delivery', available: true });
+  if (isMainBranch) all.push({ key: 'payment', resource: 'payment', available: true });
   return all.filter((t) => can(user, t.resource, 'read'));
 }
