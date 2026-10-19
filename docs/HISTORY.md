@@ -2,6 +2,19 @@
 
 What was done in this project, newest work last. For the reasons behind the design see [DECISIONS.md](DECISIONS.md). Nothing here has been tried on a real phone unless it says so: the checks were the typecheck, the unit tests, and building the Android bundle.
 
+## Commits
+
+The work below is saved in git (nothing has been pushed). A commit can't contain its own ID, so the IDs are recorded here in a following commit.
+
+| Repo | Branch | Commit | What |
+|---|---|---|---|
+| `kh-pos-mobile` (this app) | `feat/offline-mode` | `d815a45afb2372893c3d5441fba79c69384364f7` (`d815a45`) | Offline mode, offline login, resend note and the fixes 11 to 17.1, docs |
+| `kh-pos` (the API, `C:\dev\kh-pos`) | `feat/resend-log` | `8e7d021b04ef57f98b3cf40f71391ef6f0ccba28` (`8e7d021`) | `print_resend_log` table, migration and loaders for the resend note |
+
+- The mobile branch was made from `master` (last earlier commit `30bee4a`); the kh-pos branch was made from `fix/customer-security` (last earlier commit `1368b6a`), so it also carries that branch's earlier history.
+- The commit also contains the `eslint.config.js` and the `eslint` dev dependencies that `expo lint` created on its first run.
+- To get back to exactly this work: `git checkout d815a45` in `kh-pos-mobile`, and `git checkout 8e7d021` in `kh-pos`.
+
 ## Setup used during this work
 
 - **kh-pos API** (`C:\dev\kh-pos`): `npx next dev -p 3001 --turbopack`. Its database is the local MySQL `mood-pos` on `127.0.0.1:3307`.
