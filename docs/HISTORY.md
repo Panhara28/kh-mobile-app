@@ -113,7 +113,7 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 | Slot, 100% of the web module | `7a9e591` | Own menu item for the current branch, searchable paged list with (POS), add/edit/delete; see [SLOTS.md](SLOTS.md) |
 | Transactions, 100% of the web page | `2575cee` | 17 filters, server paging, product image, slot + branch, date, quantity and amount; see [TRANSACTIONS.md](TRANSACTIONS.md) |
 | Product group, 100% of the web module | `f9b6b3e` | Branch filter, paging, badges, delete from list, and the visibility calls the web makes on save/delete; see [PRODUCT-GROUPS.md](PRODUCT-GROUPS.md) |
-| Customer Order, 100% of the web page | (this commit) | Whole-period summary, phone/ticket search, My Shift, row actions; all server answers now stripped of other users' tokens; see [ORDERS.md](ORDERS.md) |
+| Customer Order, 100% of the web page | `7c74d5e` | Whole-period summary, phone/ticket search, My Shift, row actions; all server answers now stripped of other users' tokens; see [ORDERS.md](ORDERS.md) |
 
 **Offline, per module.** Ordering at tables (including checkout, shifts, discounts, order type) works offline and is sent later, as above. Every other module **reads** from the saved copy offline and **needs the server to save**: it says so instead of failing. Retail POS and cinema ticket sale need the server to charge, because the stock, the seats taken and the invoice number come from kh-pos.
 
