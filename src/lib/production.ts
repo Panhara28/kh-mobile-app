@@ -12,6 +12,7 @@ export const PAGE = 30;
 
 export interface CompositeOption {
   variantId: string;
+  productId?: string;
   productTitle: string;
   price?: number | null;
   sku?: string | null;

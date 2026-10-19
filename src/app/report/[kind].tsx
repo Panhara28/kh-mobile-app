@@ -1,46 +1,43 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Print from 'expo-print';
+import { Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { rangeFor, type DateRange } from '@/lib/dates';
+import { averageOrder, discountTypes, eodEntries, eodHtml, eodLines, eodQuery, eodText, topCustomers, totalDiscounts, type EodLabels, type EodReport } from '@/lib/end-of-day';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
 import { useCachedLoad } from '@/lib/offline/use-cached-load';
 import {
-  breakdownSections,
   busiestHours,
   dateQuery,
   EXPIRY_ORDER,
-  expiryList,
-  guestSections,
+  expiryDashboard,
+  expiryTotals,
+  filterExpiry,
+  type ExpiryFilter,
   hourLabel,
   profitByDay,
   REPORT_HAS_DATES,
   salesByDay,
-  stockSections,
-  summaryRows,
-  topItems,
   totalSales,
-  voidLoss,
   WEEKDAYS,
-  type EndOfDayReport,
   type ExpiryReport,
-  type ExpiryStatus,
-  type GuestRow,
   type HotHourRow,
   type Metric,
   type ReportKind,
-  type SaleBreakdownRow,
   type SaleLine,
   type SoldItem,
-  type StockRow,
-  type Summary,
-  type VoidRow,
 } from '@/lib/reports';
+import { itemLines, itemsQuery, itemsSummary } from '@/lib/sale-items';
+import { guestCsv, guestQuery, guestSummary, guestTable, recordCount, type GuestItem } from '@/lib/guest-report';
+import { stockCells, stockCsv, stockQuery, type StockLine } from '@/lib/stock-report';
 import { useSession } from '@/lib/session';
+import { actualAmount, amountDiff, itemName, logRows, printLogAmount, qtyDiff, voidCsv, voidGroups, voidQuery, voidSummary, whoText, type VoidItem } from '@/lib/void-report';
 import { useBranch } from '@/lib/use-branch';
-import { Badge, Card, Chip } from '@/ui/components';
+import { Badge, Button, Card, Chip, Input } from '@/ui/components';
 import { BarList } from '@/ui/bar-list';
+import { SaleReportView } from '@/ui/reports/sale-report';
 import { DateRangeBar } from '@/ui/date-range-bar';
 import { ScreenHeader } from '@/ui/screen-header';
 import { EmptyState, ErrorState, LoadingState } from '@/ui/states';
@@ -72,11 +69,11 @@ function Body({ kind, range }: { kind: ReportKind; range: DateRange | null }) {
     case 'dashboard':
       return <Dashboard range={range!} />;
     case 'sale-report':
-      return <SalesByDay range={range!} />;
+      return <SaleReportView range={range!} full />;
     case 'end-of-day':
       return <EndOfDay range={range!} />;
     case 'sale-breakdown':
-      return <Breakdown range={range!} />;
+      return <SaleReportView range={range!} full={false} />;
     case 'sale-item-report':
       return <SoldItems range={range!} />;
     case 'void-order':
@@ -84,7 +81,7 @@ function Body({ kind, range }: { kind: ReportKind; range: DateRange | null }) {
     case 'guest-number':
       return <Guests range={range!} />;
     case 'stock-report':
-      return <Stock />;
+      return <Stock range={range!} />;
     case 'expiry':
       return <Expiry />;
     default:
@@ -190,97 +187,65 @@ function Dashboard({ range }: { range: DateRange }) {
   );
 }
 
-// ---- sale report ----
-
-function SalesByDay({ range }: { range: DateRange }) {
-  const { t } = useTranslation();
-  const money = useMoney();
-  const load = useReport<SaleLine[]>('sale', `/api/report/sale?${dateQuery(range)}`);
-  return (
-    <Boundary load={load}>
-      {(sales) => {
-        const days = salesByDay(sales);
-        return days.length === 0 ? (
-          <EmptyState title={t('reports.empty')} />
-        ) : (
-          <>
-            <Big label={t('reports.sales')} value={money(totalSales(sales))} />
-            <Section>
-              {days.map((d) => (
-                <Row key={d.date} label={d.date} value={money(d.amount)} note={t('reports.itemsCount', { count: d.qty })} />
-              ))}
-            </Section>
-          </>
-        );
-      }}
-    </Boundary>
-  );
-}
-
 // ---- end of day ----
 
 function EndOfDay({ range }: { range: DateRange }) {
   const { t } = useTranslation();
   const { user } = useSession();
   const money = useMoney();
-  const load = useReport<EndOfDayReport>('eod', `/api/report/end-of-day?${dateQuery(range)}&warehouseId=${encodeURIComponent(user?.currentWarehouseId ?? '')}`);
-  const block = (title: string, s: Summary | undefined) => {
-    const rows = summaryRows(s);
-    return rows.length === 0 ? null : (
-      <Section title={title}>
-        {rows.map((r) => (
-          <Row key={r.name} label={r.name} value={money(r.amount)} note={t('reports.itemsCount', { count: r.qty })} />
-        ))}
-      </Section>
-    );
+  const load = useReport<EodReport>('eod', `/api/report/end-of-day?${eodQuery(range, user?.currentWarehouseId ?? '')}`);
+  const labels: EodLabels = {
+    title: t('reports.eodTitle'),
+    totalSales: t('reports.totalSales'),
+    transactions: t('reports.transactions'),
+    average: t('reports.avgOrder'),
+    discounts: t('reports.totalDiscounts'),
+    payments: t('reports.paymentMethods'),
+    served: t('reports.serviceTypes'),
+    categories: t('reports.categoryPerformance'),
+    discountsApplied: t('reports.discountsApplied'),
+    customers: t('reports.customerSummary'),
   };
-  return (
-    <Boundary load={load}>
-      {(r) => (
-        <>
-          <View style={styles.bigRow}>
-            <Big label={t('reports.sales')} value={money(r.totalSale)} />
-            <Big label={t('reports.transactions')} value={String(r.transactionCount)} />
-          </View>
-          {block(t('reports.served'), r.servedSummary)}
-          {block(t('reports.paymentsBy'), r.paymentSummary)}
-          {block(t('reports.discounts'), r.discountSummary)}
-          {block(t('reports.categories'), r.categorySummary)}
-          {block(t('reports.customers'), r.customerSummary)}
-        </>
-      )}
-    </Boundary>
+  const block = (title: string, rows: { key?: string; label: string; qty: number; amount: number }[], hint: 'methods' | 'types' | 'categories' | 'discount types') => (
+    <Section title={`${title} · ${t(`reports.count_${hint.replace(' ', '_')}`, { count: rows.length })}`}>
+      {rows.length === 0 ? <Text style={styles.note}>{t('reports.noDataFor', { title: title.toLowerCase() })}</Text> : rows.map((r) => <Row key={r.key ?? r.label} label={r.label} value={money(r.amount)} note={t('reports.transactionsCount', { count: r.qty })} />)}
+    </Section>
   );
-}
-
-// ---- sale breakdown ----
-
-function Breakdown({ range }: { range: DateRange }) {
-  const { t } = useTranslation();
-  const { user } = useSession();
-  const money = useMoney();
-  const load = useReport<SaleBreakdownRow[]>('breakdown', `/api/report/sale-by-category?${dateQuery(range)}&groupBy=product&warehouseId=${encodeURIComponent(user?.currentWarehouseId ?? '')}`);
   return (
     <Boundary load={load}>
-      {(rows) => {
-        const { total, sections } = breakdownSections(rows);
-        return sections.length === 0 ? (
-          <EmptyState title={t('reports.empty')} />
-        ) : (
+      {(r) => {
+        const lines = eodLines(r, money, labels);
+        const top = topCustomers(r.customerSummary);
+        const discounts = discountTypes(r.discountSummary);
+        return (
           <>
-            {total ? (
-              <View style={styles.bigRow}>
-                <Big label={t('reports.revenue')} value={money(total.revenue)} />
-                <Big label={t('reports.profit')} value={money(total.profit)} />
-              </View>
-            ) : null}
-            {sections.map((s, i) => (
-              <Section key={i} title={`${s.category.name ?? ''} · ${money(s.category.revenue)}`}>
-                {s.items.map((it, k) => (
-                  <Row key={k} label={`${it.totalQty} × ${it.name ?? ''}`} value={money(it.revenue)} note={`${t('reports.profit')} ${money(it.profit)}${it.discount ? ` · ${t('receipt.discount')} ${money(it.discount)}` : ''}`} />
-                ))}
-              </Section>
-            ))}
+            <View style={styles.bigRow}>
+              <Big label={labels.totalSales} value={money(r.totalSale)} />
+              <Big label={labels.transactions} value={String(r.transactionCount)} />
+            </View>
+            <View style={styles.bigRow}>
+              <Big label={labels.average} value={money(averageOrder(r))} />
+              <Big label={labels.discounts} value={money(totalDiscounts(r.discountSummary))} />
+            </View>
+            <View style={styles.chips}>
+              <Button title={t('reports.print')} variant="outline" size="sm" onPress={() => void Print.printAsync({ html: eodHtml(labels.title, lines) }).catch(() => undefined)} />
+              <Button title={t('reports.export')} variant="outline" size="sm" onPress={() => void Share.share({ message: eodText(labels.title, lines) }).catch(() => undefined)} />
+            </View>
+            {block(labels.payments, eodEntries(r.paymentSummary), 'methods')}
+            {block(labels.served, eodEntries(r.servedSummary), 'types')}
+            {block(labels.categories, eodEntries(r.categorySummary), 'categories')}
+            {Object.keys(r.discountSummary ?? {}).length > 0 ? block(labels.discountsApplied, discounts, 'discount types') : null}
+            <Section title={`${labels.customers} · ${top.total}`}>
+              {top.rows.map((c) => (
+                <Row key={c.name} label={c.name} value={money(c.amount)} note={t('reports.ordersCount', { count: c.qty })} />
+              ))}
+              {top.total > 10 ? <Text style={styles.note}>{t('reports.topCustomers', { total: top.total })}</Text> : null}
+            </Section>
+            <Section title={t('reports.reportSummary')}>
+              <Row label={t('reports.totalRevenue')} value={money(r.totalSale)} bold />
+              <Row label={t('reports.totalOrders')} value={String(r.transactionCount)} bold />
+              <Row label={t('reports.averageOrder')} value={money(averageOrder(r))} bold />
+            </Section>
           </>
         );
       }}
@@ -293,25 +258,34 @@ function Breakdown({ range }: { range: DateRange }) {
 function SoldItems({ range }: { range: DateRange }) {
   const { t } = useTranslation();
   const money = useMoney();
-  const [by, setBy] = useState<'amount' | 'qty'>('amount');
-  const load = useReport<SoldItem[]>('items', `/api/report/sale/receipt?${dateQuery(range)}`);
+  const load = useReport<SoldItem[]>('items', `/api/report/sale/receipt?${itemsQuery(range)}`);
   return (
     <Boundary load={load}>
-      {(items) => (
-        <>
-          <View style={styles.chips}>
-            <Chip label={t('reports.byAmount')} selected={by === 'amount'} onPress={() => setBy('amount')} />
-            <Chip label={t('reports.byQty')} selected={by === 'qty'} onPress={() => setBy('qty')} />
-          </View>
-          {items.length === 0 ? (
-            <EmptyState title={t('reports.empty')} />
-          ) : (
-            <Section>
-              <BarList rows={topItems(items, by).map((i) => ({ label: i.description, value: by === 'amount' ? i.total_amount : i.qty, note: `${i.qty} × · ${money(i.total_amount)}${i.discount_amount ? ` · ${t('receipt.discount')} ${money(i.discount_amount)}` : ''}` }))} format={(v) => (by === 'amount' ? money(v) : String(v))} />
+      {(items) => {
+        const sum = itemsSummary(items);
+        const lines = itemLines(items, money, t('reports.grandTotal'));
+        return items.length === 0 ? (
+          <EmptyState title={t('reports.noDataRange')} />
+        ) : (
+          <>
+            <View style={styles.bigRow}>
+              <Big label={t('reports.totalItems')} value={sum.totalItems.toLocaleString()} />
+              <Big label={t('reports.totalQtySold')} value={sum.totalQty.toLocaleString()} />
+            </View>
+            <Big label={t('reports.totalRevenue')} value={money(sum.totalRevenue)} />
+            <View style={styles.chips}>
+              <Button title={t('reports.print')} variant="outline" size="sm" onPress={() => void Print.printAsync({ html: eodHtml(t('reports.itemTitle'), lines) }).catch(() => undefined)} />
+              <Button title={t('reports.export')} variant="outline" size="sm" onPress={() => void Share.share({ message: eodText(t('reports.itemTitle'), lines) }).catch(() => undefined)} />
+            </View>
+            <Section title={`${t('reports.itemBreakdown')} · ${t('reports.itemCount', { count: items.length })}`}>
+              {items.map((it, i) => (
+                <Row key={i} label={`${i + 1}. ${it.description}`} value={money(it.total_amount)} note={`${t('reports.qtyShort')} ${Number(it.qty).toLocaleString()}`} />
+              ))}
+              <Row label={t('reports.grandTotal')} value={money(sum.totalRevenue)} note={`${t('reports.qtyShort')} ${sum.totalQty.toLocaleString()}`} bold />
             </Section>
-          )}
-        </>
-      )}
+          </>
+        );
+      }}
     </Boundary>
   );
 }
@@ -321,31 +295,83 @@ function SoldItems({ range }: { range: DateRange }) {
 function Voids({ range }: { range: DateRange }) {
   const { t } = useTranslation();
   const money = useMoney();
-  const load = useReport<VoidRow[]>('void', `/api/report/order/void?${dateQuery(range)}`);
+  const [open, setOpen] = useState<string[]>([]);
+  const [log, setLog] = useState<VoidItem | null>(null);
+  const load = useReport<VoidItem[]>('void', `/api/report/order/void?${voidQuery(range)}`);
   return (
     <Boundary load={load}>
-      {(rows) =>
-        rows.length === 0 ? (
-          <EmptyState title={t('reports.noVoids')} />
-        ) : (
+      {(rows) => {
+        if (rows.length === 0) return <EmptyState title={t('reports.noVoids')} />;
+        const sum = voidSummary(rows);
+        return (
           <>
-            <Big label={t('reports.lost')} value={money(voidLoss(rows))} />
-            {rows.map((r) => (
-              <Card key={r.orderDetailId} style={styles.card}>
-                <View style={styles.row}>
-                  <Text style={styles.heading}>{r.invoice ? `#${r.invoice}` : t('reports.noInvoice')}</Text>
-                  <Badge tone={r.status === 'VOIDED' ? 'destructive' : 'warning'} text={t(`reports.void_${r.status}`)} />
-                </View>
-                <Text style={styles.note}>{r.printedAt}</Text>
-                <Text style={styles.label}>{t('reports.kitchenQty', { printed: r.qtyFromPrintLog, actual: r.actualQty })}</Text>
-                <Text style={styles.note}>
-                  {money(r.priceFromPrintLog)} → {money(r.actualPrice)}
-                </Text>
-              </Card>
-            ))}
+            <View style={styles.bigRow}>
+              <Big label={t('reports.totalIssues')} value={String(sum.issues)} />
+              <Big label={t('reports.voidedOrders')} value={String(sum.voidedOrders)} />
+            </View>
+            <View style={styles.bigRow}>
+              <Big label={t('reports.abnormalOrders')} value={String(sum.abnormal)} />
+              <Big label={t('reports.priceDiscrepancy')} value={money(sum.priceDiscrepancy)} />
+            </View>
+            <View style={styles.chips}>
+              <Button title={t('reports.export')} variant="outline" size="sm" onPress={() => void Share.share({ title: 'Void-Order-Report', message: voidCsv(rows) }).catch(() => undefined)} />
+            </View>
+            <Section title={`${t('reports.voidDetails')} · ${t('reports.issuesCount', { count: rows.length })}`}>
+              {voidGroups(rows).map((g) => {
+                const isOpen = open.includes(g.orderId);
+                return (
+                  <View key={g.orderId} style={styles.group}>
+                    <Pressable onPress={() => setOpen((o) => (isOpen ? o.filter((x) => x !== g.orderId) : [...o, g.orderId]))} accessibilityRole="button">
+                      <View style={styles.row}>
+                        <Text style={[styles.label, styles.bold]}>
+                          {isOpen ? '▾' : '▸'} {g.invoice}
+                        </Text>
+                        <Badge tone={g.status === 'VOIDED' ? 'destructive' : 'warning'} text={g.status} />
+                      </View>
+                      <Text style={styles.note}>{t('reports.itemsPrinted', { count: g.items.length, printed: g.printedAt ? g.printedAt : t('reports.notPrinted') })}</Text>
+                      <Text style={styles.note}>
+                        {t('reports.totalLabel')}: {money(g.actual)}
+                        {g.discrepancy > 0 ? ` · ${t('reports.discrepancy')}: ${money(g.discrepancy)}` : ''}
+                      </Text>
+                    </Pressable>
+                    {isOpen
+                      ? g.items.map((i, k) => (
+                          <View key={`${i.orderDetailId}-${k}`} style={styles.sub}>
+                            <Text style={styles.label}>{itemName(i)}</Text>
+                            <Text style={styles.note}>
+                              {i.status === 'VOIDED' ? t('reports.orderBy') : t('reports.checkoutBy')}: {whoText(i)}
+                            </Text>
+                            <Text style={styles.note}>
+                              {t('reports.qtyDiscrepancy')}: {t('reports.printLog')} {i.qtyFromPrintLog ?? 'N/A'} · {t('reports.actual')} {i.actualQty}
+                              {qtyDiff(i) > 0 ? ` · ${t('reports.diff')} ${qtyDiff(i)}` : ''}
+                            </Text>
+                            <Text style={styles.note}>
+                              {t('reports.amountDiscrepancy')}: {t('reports.printLog')} {money(printLogAmount(i))} · {t('reports.actual')} {money(actualAmount(i))}
+                              {amountDiff(i) > 0 ? ` · ${t('reports.diff')} ${money(amountDiff(i))}` : ''}
+                            </Text>
+                            <Button title={t('reports.viewLog')} variant="outline" size="sm" onPress={() => setLog(i)} />
+                          </View>
+                        ))
+                      : null}
+                  </View>
+                );
+              })}
+            </Section>
+            <Modal visible={!!log} animationType="slide" onRequestClose={() => setLog(null)}>
+              <SafeAreaView style={styles.safe}>
+                <ScrollView contentContainerStyle={styles.content}>
+                  <Text style={styles.sectionTitle}>{t('reports.voidLog')}</Text>
+                  {logRows(log?.content).length === 0 ? <Text style={styles.note}>{t('reports.noContent')}</Text> : null}
+                  {logRows(log?.content).map((r) => (
+                    <Row key={r.n} label={`${r.n}. ${r.field}`} value={r.value} note={r.type} />
+                  ))}
+                  <Button title={t('common.close')} variant="outline" onPress={() => setLog(null)} />
+                </ScrollView>
+              </SafeAreaView>
+            </Modal>
           </>
-        )
-      }
+        );
+      }}
     </Boundary>
   );
 }
@@ -354,21 +380,39 @@ function Voids({ range }: { range: DateRange }) {
 
 function Guests({ range }: { range: DateRange }) {
   const { t } = useTranslation();
-  const load = useReport<GuestRow[]>('guest', `/api/report/order/guest?${dateQuery(range)}`);
+  const [open, setOpen] = useState<string[]>([]);
+  const load = useReport<GuestItem[]>('guest', `/api/report/order/guest?${guestQuery(range)}`);
   return (
     <Boundary load={load}>
-      {(rows) => {
-        const { total, days } = guestSections(rows);
-        return days.length === 0 ? (
-          <EmptyState title={t('reports.empty')} />
-        ) : (
+      {(items) => {
+        if (items.length === 0) return <EmptyState title={t('reports.noGuests')} />;
+        const sum = guestSummary(items);
+        const table = guestTable(items);
+        return (
           <>
-            <Big label={t('reports.guests')} value={String(total)} />
-            {days.map((d) => (
-              <Section key={d.date} title={`${d.date} · ${t('reports.guestsCount', { count: d.guests })}`}>
-                <BarList tone="success" rows={d.hours.map((h) => ({ label: `${h.hour.padStart(2, '0')}:00`, value: h.guests }))} format={String} />
-              </Section>
-            ))}
+            <View style={styles.bigRow}>
+              <Big label={t('reports.totalGuests')} value={sum.total.toLocaleString()} />
+              <Big label={t('reports.dailyAverage')} value={sum.average.toLocaleString()} />
+            </View>
+            <Big label={`${t('reports.peakHour')} · ${t('reports.guestsCount', { count: sum.peakGuests })}`} value={sum.peakHour} />
+            <View style={styles.chips}>
+              <Button title={t('reports.export')} variant="outline" size="sm" onPress={() => void Share.share({ title: 'Guest-Number-Report', message: guestCsv(items) }).catch(() => undefined)} />
+            </View>
+            <Section title={`${t('reports.guestDetails')} · ${t('reports.records', { count: recordCount(items, open) })}`}>
+              <Text style={styles.note}>{t('reports.guestHint')}</Text>
+              {table.total ? <Row label={`${t('reports.grandTotal')} · ${table.total.date}`} value={table.total.guests.toLocaleString()} bold /> : null}
+              {table.days.map((d) => {
+                const isOpen = open.includes(d.date);
+                return (
+                  <View key={d.date}>
+                    <Pressable onPress={() => setOpen((o) => (isOpen ? o.filter((x) => x !== d.date) : [...o, d.date]))} accessibilityRole="button">
+                      <Row label={`${d.hours.length > 0 ? (isOpen ? '▾ ' : '▸ ') : ''}${t('reports.dailyTotal')} · ${d.date}`} value={d.guests.toLocaleString()} bold />
+                    </Pressable>
+                    {isOpen ? d.hours.map((h, i) => <Row key={i} label={`   ${h.hour}`} value={h.guests.toLocaleString()} />) : null}
+                  </View>
+                );
+              })}
+            </Section>
           </>
         );
       }}
@@ -378,35 +422,55 @@ function Guests({ range }: { range: DateRange }) {
 
 // ---- stock ----
 
-function Stock() {
+function Stock({ range }: { range: DateRange }) {
   const { t } = useTranslation();
-  const { user } = useSession();
+  const { api, user } = useSession();
   const money = useMoney();
-  const load = useReport<StockRow[]>('stock', `/api/report/stock?warehouseId=${encodeURIComponent(user?.currentWarehouseId ?? '')}`);
+  const [cats, setCats] = useState<{ id: string; title: string }[]>([]);
+  const [catIds, setCatIds] = useState<string[]>([]);
+  const [shown, setShown] = useState(200);
+  const wid = user?.currentWarehouseId ?? '';
+  useEffect(() => {
+    api.call<{ result?: { data: { id: string; title: string }[] } }>('GET', '/api/category?limit=100&offset=0').then((r) => setCats(r.result?.data ?? []), () => undefined);
+  }, [api]);
+  const load = useReport<StockLine[]>('stock', `/api/report/stock?${stockQuery({ range, warehouseIds: wid ? [wid] : [], categoryIds: catIds, productId: '' })}`);
   return (
     <Boundary load={load}>
-      {(rows) => {
-        const { total, sections } = stockSections(rows);
-        return sections.length === 0 ? (
-          <EmptyState title={t('reports.empty')} />
-        ) : (
-          <>
-            {total ? (
-              <View style={styles.bigRow}>
-                <Big label={t('reports.stockQty')} value={String(total.qty)} />
-                <Big label={t('reports.stockValue')} value={money(total.cost)} />
-              </View>
-            ) : null}
-            {sections.map((s, i) => (
-              <Section key={i} title={`${s.title.name} · ${s.title.qty} · ${money(s.title.cost)}`}>
-                {s.items.map((it, k) => (
-                  <Row key={k} label={it.name} value={String(it.qty)} note={`${t('reports.cost')} ${money(it.cost)} · ${t('reports.price')} ${money(it.price)}`} />
-                ))}
-              </Section>
-            ))}
-          </>
-        );
-      }}
+      {(rows) => (
+        <>
+          <Section title={t('reports.categories')}>
+            <View style={styles.chips}>
+              {cats.map((c) => (
+                <Chip key={c.id} label={c.title} selected={catIds.includes(c.id)} onPress={() => setCatIds((l) => (l.includes(c.id) ? l.filter((x) => x !== c.id) : [...l, c.id]))} />
+              ))}
+            </View>
+          </Section>
+          <View style={styles.chips}>
+            <Button title={t('reports.export')} variant="outline" size="sm" disabled={rows.length === 0} onPress={() => void Share.share({ title: 'Stock-Report', message: stockCsv(rows) }).catch(() => undefined)} />
+          </View>
+          {rows.length === 0 ? (
+            <EmptyState title={t('reports.noData')} />
+          ) : (
+            <Section title={`${t('reports.detailed')} · ${t('reports.records', { count: rows.length })}`}>
+              {rows.slice(0, shown).map((r, i) => {
+                const c = stockCells(r);
+                const head = r.type !== 'detail';
+                const name = r.name || (r.type === 'total' ? 'GRAND TOTAL' : '-');
+                return (
+                  <Row
+                    key={i}
+                    label={`${r.product_code ? `${r.product_code} · ` : ''}${name}`}
+                    value={`${c.qty.toLocaleString()} · ${money(c.totalCost)}`}
+                    bold={head}
+                    note={c.cost === null ? `${t('reports.col_total')} ${money(c.totalPrice)}` : `${t('reports.cost')} ${money(c.cost)} · ${t('reports.price')} ${money(c.price ?? 0)} · ${t('reports.col_total')} ${money(c.totalPrice)}`}
+                  />
+                );
+              })}
+              {rows.length > shown ? <Button title={t('reports.showMore', { shown, total: rows.length })} variant="outline" size="sm" onPress={() => setShown((x) => x + 200)} /> : null}
+            </Section>
+          )}
+        </>
+      )}
     </Boundary>
   );
 }
@@ -418,25 +482,64 @@ const expiryTone = { expired: 'destructive', urgent: 'destructive', critical: 'w
 function Expiry() {
   const { t } = useTranslation();
   const money = useMoney();
-  const [status, setStatus] = useState<ExpiryStatus | 'all'>('all');
+  const [f, setF] = useState<ExpiryFilter>({ search: '', status: 'all', slotId: '', categoryId: '' });
+  const [shown, setShown] = useState(100);
   const load = useReport<ExpiryReport>('expiry', '/api/reports/expiry');
   return (
     <Boundary load={load}>
       {(r) => {
-        const list = expiryList(r.productList ?? [], status);
+        const list = filterExpiry(r.productList ?? [], f);
+        const plain = !f.search && f.status === 'all' && !f.slotId && !f.categoryId;
+        const dash = plain && (r.dashboard ?? []).length > 0 ? (r.dashboard ?? []) : expiryDashboard(list);
+        const totals = expiryTotals(dash);
         return (
           <>
+            <View style={styles.bigRow}>
+              <Big label={t('reports.totalItems')} value={String(totals.items)} />
+              <Big label={t('reports.totalValue')} value={money(totals.value)} />
+            </View>
             <View style={styles.chips}>
-              <Chip label={t('reports.all')} selected={status === 'all'} onPress={() => setStatus('all')} />
               {EXPIRY_ORDER.filter((s) => s !== 'ok').map((s) => {
-                const d = (r.dashboard ?? []).find((x) => x.status === s);
-                return <Chip key={s} label={`${t(`reports.expiry_${s}`)} ${d?.uniqueProductCount ?? 0}`} selected={status === s} onPress={() => setStatus(s)} />;
+                const d = dash.find((x) => x.status === s);
+                return <Badge key={s} tone={expiryTone[s]} text={`${t(`reports.expiry_${s}`)} ${d?.uniqueProductCount ?? 0} · ${money(d?.value ?? 0)}`} />;
               })}
             </View>
+            <Input
+              value={f.search}
+              onChangeText={(v) => {
+                setF({ ...f, search: v });
+                setShown(100);
+              }}
+              placeholder={t('reports.expirySearch')}
+              autoCorrect={false}
+              accessibilityLabel={t('reports.expirySearch')}
+            />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+              <Chip label={t('reports.allProducts')} selected={f.status === 'all'} onPress={() => setF({ ...f, status: 'all' })} />
+              {EXPIRY_ORDER.map((s) => (
+                <Chip key={s} label={t(`reports.expiry_${s}`)} selected={f.status === s} onPress={() => setF({ ...f, status: s })} />
+              ))}
+            </ScrollView>
+            {(r.slots ?? []).length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                <Chip label={t('reports.allSlots')} selected={f.slotId === ''} onPress={() => setF({ ...f, slotId: '' })} />
+                {(r.slots ?? []).map((s) => (
+                  <Chip key={s.id} label={s.name} selected={f.slotId === s.id} onPress={() => setF({ ...f, slotId: s.id })} />
+                ))}
+              </ScrollView>
+            ) : null}
+            {(r.categories ?? []).length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                <Chip label={t('reports.allCategories')} selected={f.categoryId === ''} onPress={() => setF({ ...f, categoryId: '' })} />
+                {(r.categories ?? []).map((c) => (
+                  <Chip key={c.id} label={c.title ?? c.name ?? c.id} selected={f.categoryId === c.id} onPress={() => setF({ ...f, categoryId: c.id })} />
+                ))}
+              </ScrollView>
+            ) : null}
             {list.length === 0 ? (
               <EmptyState title={t('reports.noExpiry')} />
             ) : (
-              list.map((i, k) => (
+              list.slice(0, shown).map((i, k) => (
                 <Card key={k} style={styles.card}>
                   <View style={styles.row}>
                     <Text style={[styles.heading, styles.flex]} numberOfLines={2}>
@@ -455,6 +558,7 @@ function Expiry() {
                 </Card>
               ))
             )}
+            {list.length > shown ? <Button title={t('reports.showMore', { shown, total: list.length })} variant="outline" size="sm" onPress={() => setShown((x) => x + 100)} /> : null}
           </>
         );
       }}
@@ -463,6 +567,9 @@ function Expiry() {
 }
 
 const styles = StyleSheet.create({
+  chipRow: { gap: 6 },
+  group: { gap: 2, paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  sub: { gap: 2, paddingLeft: space.md, paddingVertical: 6 },
   safe: { flex: 1, backgroundColor: colors.page },
   flex: { flex: 1 },
   content: { padding: space.md, gap: space.sm },

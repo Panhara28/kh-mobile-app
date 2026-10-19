@@ -104,3 +104,25 @@ describe('void and expiry', () => {
     expect(barShare(5, 0)).toBe(0);
   });
 });
+
+import { expiryDashboard, expiryTotals, filterExpiry } from './reports';
+
+describe('expiry filters like the web', () => {
+  const mk = (over: Partial<ExpiryItem>): ExpiryItem => ({ variant: { id: 'v1', name: '1kg', sku: 77, barcode: 'BC1', basicProduct: { title: 'Rice' } }, slot: { id: 's1', name: 'Shelf' }, categories: [{ categoryId: 'c1' }], expiryDate: '2026-11-01', quantity: 2, value: 10, status: 'warning', daysLeft: 12, ...over });
+  const items = [mk({}), mk({ status: 'expired', slot: { id: 's2' }, variant: { id: 'v2', name: 'x', sku: 5, basicProduct: { title: 'Oil' } }, categories: [] }), mk({ status: 'ok' })];
+  it('searches name, sku and barcode, and filters status, slot and category', () => {
+    const all = { search: '', status: 'all' as const, slotId: '', categoryId: '' };
+    expect(filterExpiry(items, all)).toHaveLength(3);
+    expect(filterExpiry(items, { ...all, search: 'oil' })).toHaveLength(1);
+    expect(filterExpiry(items, { ...all, search: '77' })).toHaveLength(2);
+    expect(filterExpiry(items, { ...all, search: 'bc1' })).toHaveLength(2);
+    expect(filterExpiry(items, { ...all, status: 'expired' })).toHaveLength(1);
+    expect(filterExpiry(items, { ...all, slotId: 's2' })).toHaveLength(1);
+    expect(filterExpiry(items, { ...all, categoryId: 'c1' })).toHaveLength(2);
+  });
+  it('rebuilds the four cards from a list', () => {
+    const d = expiryDashboard(items);
+    expect(d.map((x) => [x.status, x.qty, x.value])).toEqual([['expired', 2, 10], ['urgent', 0, 0], ['critical', 0, 0], ['warning', 2, 10]]);
+    expect(expiryTotals(d)).toEqual({ items: 2, value: 20 });
+  });
+});

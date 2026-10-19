@@ -30,7 +30,7 @@ export const REPORT_HAS_DATES: Record<ReportKind, boolean> = {
   'sale-item-report': true,
   'void-order': true,
   'guest-number': true,
-  'stock-report': false,
+  'stock-report': true,
   expiry: false,
 };
 
@@ -246,8 +246,9 @@ export function stockSections(rows: StockRow[]) {
 export type ExpiryStatus = 'expired' | 'urgent' | 'critical' | 'warning' | 'ok';
 
 export interface ExpiryItem {
-  variant?: { name?: string; basicProduct?: { title?: string } | null } | null;
-  slot?: { name?: string } | null;
+  variant?: { id?: string; name?: string; sku?: string | number | null; barcode?: string | null; basicProduct?: { title?: string } | null } | null;
+  slot?: { id?: string; name?: string } | null;
+  categories?: { categoryId: string }[] | null;
   expiryDate: string;
   quantity: number;
   value: number;
@@ -259,7 +260,44 @@ export interface ExpiryReport {
   productList: ExpiryItem[];
   dashboard: { status: ExpiryStatus; qty: number; value: number; uniqueProductCount: number }[];
   expiryTimeFrame?: { urgent: number; critical: number; warning: number };
+  slots?: { id: string; name: string }[];
+  categories?: { id: string; title?: string; name?: string }[];
 }
+
+export interface ExpiryFilter {
+  search: string;
+  /** "all" = all products, as the web's "all_products". */
+  status: ExpiryStatus | 'all';
+  slotId: string;
+  categoryId: string;
+}
+
+/** The web filters: search (name, SKU, barcode), status, slot and category; the server order is kept. */
+export function filterExpiry(items: ExpiryItem[], f: ExpiryFilter): ExpiryItem[] {
+  const q = f.search.trim().toLowerCase();
+  return items.filter((p) => {
+    if (q) {
+      const name = (p.variant?.basicProduct?.title || p.variant?.name || '').toLowerCase();
+      const sku = String(p.variant?.sku ?? '').toLowerCase();
+      const barcode = (p.variant?.barcode || '').toLowerCase();
+      if (!name.includes(q) && !sku.includes(q) && !barcode.includes(q)) return false;
+    }
+    if (f.status !== 'all' && p.status !== f.status) return false;
+    if (f.slotId && p.slot?.id !== f.slotId) return false;
+    if (f.categoryId && !p.categories?.some((c) => c.categoryId === f.categoryId)) return false;
+    return true;
+  });
+}
+
+/** The four status cards of a list: quantity, value and how many different products. */
+export function expiryDashboard(items: ExpiryItem[]) {
+  return (['expired', 'urgent', 'critical', 'warning'] as ExpiryStatus[]).map((status) => {
+    const list = items.filter((p) => p.status === status);
+    return { status, qty: list.reduce((a, p) => a + n(p.quantity), 0), value: list.reduce((a, p) => a + n(p.value), 0), uniqueProductCount: new Set(list.map((p) => p.variant?.id ?? p.variant?.name)).size };
+  });
+}
+
+export const expiryTotals = (d: { uniqueProductCount: number; value: number }[]) => ({ items: d.reduce((a, x) => a + n(x.uniqueProductCount), 0), value: cents(d.reduce((a, x) => a + n(x.value), 0)) });
 
 export const EXPIRY_ORDER: ExpiryStatus[] = ['expired', 'urgent', 'critical', 'warning', 'ok'];
 
