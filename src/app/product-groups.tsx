@@ -56,7 +56,7 @@ export default function ProductGroupsScreen() {
   }, [load, version]);
 
   useEffect(() => {
-    data.cachedRead('branches-ref', 'all', () => fetchAllPages<BranchRow>(async (o, l) => (await api.call<{ result: { data: BranchRow[]; total: number } }>('GET', `/api/warehouse-v2?limit=${l}&offset=${o}`)).result)).then((r) => setBranches(r.data), () => undefined);
+    data.cachedRead('branches-ref', 'all', () => fetchAllPages<BranchRow>(async (o, l) => (await api.call<{ result: { data: BranchRow[]; total: number } }>('GET', `/api/warehouse?limit=${l}&offset=${o}`)).result)).then((r) => setBranches(r.data), () => undefined);
   }, [data, api]);
 
   function open(row: GroupRow | null) {

@@ -65,7 +65,7 @@ export default function CategoriesScreen() {
 
   useEffect(() => {
     data.cachedRead('printers-ref', warehouseId, async () => (await api.call<{ result?: PrinterItem[] }>('GET', '/api/printer')).result ?? []).then((r) => setPrinters(r.data), () => undefined);
-    data.cachedRead('branches-ref', 'all', () => fetchAllPages<BranchRow>(async (o, l) => (await api.call<{ result: { data: BranchRow[]; total: number } }>('GET', `/api/warehouse-v2?limit=${Math.min(l, 100)}&offset=${o}`)).result)).then((r) => setBranch(r.data.find((b) => b.id === warehouseId) ?? null), () => undefined);
+    data.cachedRead('branches-ref', 'all', () => fetchAllPages<BranchRow>(async (o, l) => (await api.call<{ result: { data: BranchRow[]; total: number } }>('GET', `/api/warehouse?limit=${Math.min(l, 100)}&offset=${o}`)).result)).then((r) => setBranch(r.data.find((b) => b.id === warehouseId) ?? null), () => undefined);
   }, [data, api, warehouseId]);
 
   const isMain = branch ? !!branch.isMain : (user?.warehouse as { isMain?: boolean } | null | undefined)?.isMain !== false;

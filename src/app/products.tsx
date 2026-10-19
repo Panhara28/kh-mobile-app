@@ -85,7 +85,7 @@ export default function ProductsScreen() {
   useEffect(() => {
     data.cachedRead('categories-full', warehouseId, () => fetchAllPages<CategoryRow>(async (o, l) => (await api.call<{ result: { data: CategoryRow[]; total: number } }>('GET', `/api/category?limit=${Math.min(l, 100)}&offset=${o}`)).result)).then((r) => setCategories(r.data), () => undefined);
     data.cachedRead('suppliers-ref', '', () => fetchAllPages<SupplierRow>(async (o, l) => (await api.call<{ result: { data: SupplierRow[]; total: number } }>('GET', `/api/supplier?limit=${Math.min(l, 100)}&offset=${o}`)).result)).then((r) => setSuppliers(r.data), () => undefined);
-    data.cachedRead('branches-ref', 'all', () => fetchAllPages<BranchRow>(async (o, l) => (await api.call<{ result: { data: BranchRow[]; total: number } }>('GET', `/api/warehouse-v2?limit=${Math.min(l, 100)}&offset=${o}`)).result)).then((r) => setBranch(r.data.find((b) => b.id === warehouseId) ?? null), () => undefined);
+    data.cachedRead('branches-ref', 'all', () => fetchAllPages<BranchRow>(async (o, l) => (await api.call<{ result: { data: BranchRow[]; total: number } }>('GET', `/api/warehouse?limit=${Math.min(l, 100)}&offset=${o}`)).result)).then((r) => setBranch(r.data.find((b) => b.id === warehouseId) ?? null), () => undefined);
   }, [data, api, warehouseId, state.online]);
 
   const load = useCallback(

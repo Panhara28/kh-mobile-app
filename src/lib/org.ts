@@ -78,6 +78,10 @@ export interface BranchRow {
   phoneNumber?: string | null;
   address?: string | null;
   ownerName?: string | null;
+  image?: string | null;
+  lat?: string | null;
+  lng?: string | null;
+  createdAt?: string | null;
   useMainBranchVisibility?: boolean | null;
 }
 
@@ -88,39 +92,54 @@ export interface BranchForm {
   ownerName: string;
   phoneNumber: string;
   address: string;
+  image: string;
+  lat: string;
+  lng: string;
   userName: string;
   password: string;
   useMainBranchVisibility: boolean;
   [key: string]: unknown;
 }
 
-export const emptyBranch = (): BranchForm => ({ id: '', warehouseName: '', ownerName: '', phoneNumber: '', address: '', userName: '', password: '', useMainBranchVisibility: false });
+export const emptyBranch = (): BranchForm => ({ id: '', warehouseName: '', ownerName: '', phoneNumber: '', address: '', image: '', lat: '', lng: '', userName: '', password: '', useMainBranchVisibility: false });
 export const branchForm = (b: BranchRow): BranchForm => ({
   id: b.id ?? '',
   warehouseName: b.name,
   ownerName: text(b.ownerName),
   phoneNumber: text(b.phoneNumber),
   address: text(b.address),
+  image: text(b.image),
+  lat: text(b.lat),
+  lng: text(b.lng),
   userName: '',
   password: '',
   useMainBranchVisibility: !!b.useMainBranchVisibility,
 });
 
-/** The same minimum lengths as kh-pos' schema: names 3 characters, the owner's login 4. */
+/** The web list shows the main branch as "Name (Main)". */
+export const branchTitle = (b: Pick<BranchRow, 'name' | 'isMain'>) => (b.isMain ? `${b.name} (Main)` : b.name);
+
+/** The same minimum lengths as kh-pos' schema: names 3 characters, the owner's login 4; coordinates, when given, are numbers. */
 export function validateBranch(f: BranchForm, creating: boolean): string | null {
   if (f.warehouseName.trim().length < 3) return 'warehouseName';
   if (f.ownerName.trim().length < 3) return 'ownerName';
+  if (f.lat.trim() && !Number.isFinite(Number(f.lat))) return 'lat';
+  if (f.lng.trim() && !Number.isFinite(Number(f.lng))) return 'lng';
   if (creating && f.userName.trim().length < 4) return 'userName';
   if (creating && f.password.trim().length < 4) return 'password';
   return null;
 }
 
+/** The web sends every field; the owner's login only when creating. */
 export function branchBody(f: BranchForm, existing?: BranchRow) {
   const base = {
     warehouseName: f.warehouseName.trim(),
     ownerName: f.ownerName.trim(),
     phoneNumber: f.phoneNumber.trim(),
     address: f.address.trim(),
+    image: f.image,
+    lat: f.lat.trim(),
+    lng: f.lng.trim(),
     useMainBranchVisibility: f.useMainBranchVisibility,
   };
   return existing ? { id: existing.id!, ...base } : { ...base, userName: f.userName.trim(), password: f.password.trim() };

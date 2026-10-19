@@ -1,4 +1,4 @@
-import { branchBody, branchForm, emptyBranch, emptyUser, emptySlot, slotBody, slotForm, userBody, userForm, validateBranch, validateUser, validNewPassword } from './org';
+import { branchBody, branchForm, emptyBranch, emptyUser, emptySlot, slotBody, slotForm, userBody, userForm, validateBranch, branchTitle, validateUser, validNewPassword } from './org';
 
 describe('users', () => {
   it('needs a login, password, name, role and branch for a new account', () => {
@@ -46,6 +46,17 @@ describe('branches', () => {
     const edit = branchBody(branchForm({ id: 'w1', name: 'Main', isMain: true, ownerName: 'Owner' }), { id: 'w1', name: 'Main', isMain: true });
     expect(edit).toMatchObject({ id: 'w1', warehouseName: 'Main' });
     expect(edit).not.toHaveProperty('password');
+  });
+  it('carries the picture and the coordinates, and names the main branch', () => {
+    const row = { id: 'w1', name: 'Mood', isMain: true, ownerName: 'Owner', image: 'http://i/x.jpg', lat: '11.5', lng: '104.8' };
+    const f = branchForm(row);
+    expect(f).toMatchObject({ image: 'http://i/x.jpg', lat: '11.5', lng: '104.8' });
+    expect(branchBody(f, row)).toMatchObject({ image: 'http://i/x.jpg', lat: '11.5', lng: '104.8' });
+    expect(validateBranch({ ...f, lat: 'north' }, false)).toBe('lat');
+    expect(validateBranch({ ...f, lng: '12e' }, false)).toBe('lng');
+    expect(validateBranch({ ...f, lat: '', lng: '' }, false)).toBeNull();
+    expect(branchTitle(row)).toBe('Mood (Main)');
+    expect(branchTitle({ name: 'Floor', isMain: false })).toBe('Floor');
   });
 });
 

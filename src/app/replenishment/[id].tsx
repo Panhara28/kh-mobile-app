@@ -50,7 +50,7 @@ export default function ReplenishmentScreen() {
   const load = useCallback(async () => {
     try {
       if (creating) {
-        setBranches((await data.cachedRead('branches-ref', 'all', () => fetchAllPages<BranchRow>(async (o, l) => (await api.call<{ result: { data: BranchRow[]; total: number } }>('GET', `/api/warehouse-v2?limit=${l}&offset=${o}`)).result))).data);
+        setBranches((await data.cachedRead('branches-ref', 'all', () => fetchAllPages<BranchRow>(async (o, l) => (await api.call<{ result: { data: BranchRow[]; total: number } }>('GET', `/api/warehouse?limit=${l}&offset=${o}`)).result))).data);
       } else {
         const r = await data.cachedRead('replenishment', id, async () => (await api.call<{ result: RepDetail }>('GET', `/api/replenishment/${encodeURIComponent(id)}`)).result);
         setDetail(r.data);

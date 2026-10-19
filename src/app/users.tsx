@@ -30,7 +30,7 @@ export default function UsersScreen() {
 
   // roles come back as a plain array; branches as { data, total }
   const roles = useCachedLoad<RoleRow[]>('roles', 'all', useCallback(async () => (await api.call<RoleRow[]>('GET', '/api/user/role')) as unknown as RoleRow[], [api])).value;
-  const branches = useCachedLoad<BranchRef[]>('branches', 'all', useCallback(() => fetchAllPages<BranchRef>(async (o, l) => (await api.call<{ result: { data: BranchRef[]; total: number } }>('GET', `/api/warehouse-v2?limit=${l}&offset=${o}`)).result), [api])).value;
+  const branches = useCachedLoad<BranchRef[]>('branches', 'all', useCallback(() => fetchAllPages<BranchRef>(async (o, l) => (await api.call<{ result: { data: BranchRef[]; total: number } }>('GET', `/api/warehouse?limit=${l}&offset=${o}`)).result), [api])).value;
 
   const config = useMemo<EntityConfig<UserRow, UserForm>>(
     () => ({
