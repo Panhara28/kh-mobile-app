@@ -67,6 +67,7 @@ function Navigator() {
         <Stack.Screen name="pricing-templates" />
         <Stack.Screen name="ticket-sale" />
         <Stack.Screen name="digital-ticket" />
+        <Stack.Screen name="manual-tickets" />
         <Stack.Screen name="tickets" />
         <Stack.Screen name="halls" />
         <Stack.Screen name="showtimes" />

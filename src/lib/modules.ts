@@ -58,6 +58,7 @@ export const MODULES: AppModule[] = [
   { id: 'pricing-templates', route: '/pricing-templates', resource: 'pricing-template', icon: '💵', titleKey: 'more.pricingTemplates', group: 'setup' },
   { id: 'ticket-sale', route: '/ticket-sale', resource: 'pos', icon: '🍿', titleKey: 'more.ticketSale', group: 'daily' },
   { id: 'digital-ticket', route: '/digital-ticket', resource: 'digital', icon: '📱', titleKey: 'more.digitalTicket', group: 'daily' },
+  { id: 'manual-tickets', route: '/manual-tickets', resource: 'ticket', icon: '📥', titleKey: 'more.manualTickets', group: 'setup' },
   { id: 'tickets', route: '/tickets', resource: 'ticket', icon: '🎟', titleKey: 'more.tickets', group: 'daily' },
   { id: 'halls', route: '/halls', resource: 'hall-seat', icon: '💺', titleKey: 'more.halls', group: 'setup' },
   { id: 'showtimes', route: '/showtimes', resource: 'showtime', icon: '🎬', titleKey: 'more.showtimes', group: 'daily' },

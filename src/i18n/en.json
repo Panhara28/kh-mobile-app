@@ -330,7 +330,8 @@
     "tableLayout": "Table floor plan",
     "ticketSale": "Sell cinema tickets",
     "halls": "Cinema halls",
-    "digitalTicket": "Digital tickets"
+    "digitalTicket": "Digital tickets",
+    "manualTickets": "Manual ticket upload"
   },
   "range": {
     "today": "Today",
@@ -927,5 +928,21 @@
     "phoneHint": "Customer phone number",
     "search": "Search",
     "none": "No ticket found."
+  },
+  "manual": {
+    "confirm": "Record {{count}} tickets as sold? kh-pos makes paid orders for them and this cannot be undone here.",
+    "upload": "Upload",
+    "done": "Tickets recorded.",
+    "time": "Show time",
+    "tickets": "Tickets",
+    "addShow": "Add show time",
+    "addMovie": "Add another movie",
+    "error_rows": "Add a movie.",
+    "error_movie": "Choose the movie.",
+    "error_hall": "Choose the hall.",
+    "error_day": "The day looks like 2026-01-31.",
+    "error_price": "The price cannot be negative.",
+    "error_time": "Show times look like 19:30.",
+    "error_tickets": "Enter tickets for at least one show time."
   }
 }
