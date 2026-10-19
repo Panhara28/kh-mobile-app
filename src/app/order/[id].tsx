@@ -143,8 +143,8 @@ export default function OrderDetailScreen() {
             try {
               const r = await api.undoOrder(info.orderId);
               Alert.alert(t('orders.undone'));
-              if (r.tableNumber) router.replace({ pathname: '/table/[id]', params: { id: r.tableNumber } });
-              else await reload();
+              void r;
+              await reload();
             } catch (e) {
               Alert.alert(t(`errors.${errorKind(e)}`), e instanceof Error ? e.message : undefined);
             } finally {
@@ -199,7 +199,6 @@ export default function OrderDetailScreen() {
           ) : null}
           <View style={styles.buttons}>
             <Button title={t('orders.receipt')} variant="outline" size="sm" onPress={showReceipt} style={styles.flex} />
-            {draft && info.tableNumber ? <Button title={t('orders.openOrder')} size="sm" onPress={() => router.push({ pathname: '/table/[id]', params: { id: info.tableNumber! } })} style={styles.flex} /> : null}
           </View>
         </Card>
 

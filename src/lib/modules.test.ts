@@ -30,11 +30,10 @@ describe('which modules show', () => {
     expect(can(limited, 'sale-report', 'update')).toBe(false);
   });
 
-  it('hides accounting unless the branch turned it on', () => {
-    const owner = user('OWNER');
-    expect(visibleModules(owner, () => null).map((m) => m.id)).not.toContain('booking');
-    expect(visibleModules(owner, () => '0').map((m) => m.id)).not.toContain('chart-of-accounts');
-    expect(visibleModules(owner, (o) => (o === 'ACCOUNTING' ? '1' : null)).map((m) => m.id)).toEqual(expect.arrayContaining(['booking', 'chart-of-accounts']));
+  it('only offers the modules of the web sidebar and the profile menu', () => {
+    const ids = visibleModules(user('OWNER')).map((m) => m.id);
+    for (const gone of ['tables', 'retail', 'customers', 'users', 'roles', 'board', 'booking', 'chart-of-accounts', 'tickets', 'showtimes', 'halls', 'promotion-sets', 'table-setup']) expect(ids).not.toContain(gone);
+    expect(ids).toEqual(expect.arrayContaining(['orders', 'products', 'purchase-orders', 'replenishment', 'report-dashboard', 'suppliers', 'account']));
   });
 
   it('lets any signed-in staff use accounting, as the web does', () => {
@@ -45,12 +44,11 @@ describe('which modules show', () => {
 });
 
 describe('where the app opens', () => {
-  it('owner to the dashboard, board member to the board, others to the tables', () => {
+  it('the dashboard for the owner and anyone who may see it, otherwise the first module or More', () => {
     expect(homeRoute(user('OWNER'))).toBe('/report/dashboard');
-    expect(homeRoute(user('Board Member', { 'board-member-dashboard': 'read' }))).toBe('/board');
-    expect(homeRoute(user('Service', { restaurant: 'read,create' }))).toBe('/tables');
+    expect(homeRoute(user('Manager', { dashboard: 'read' }))).toBe('/report/dashboard');
     expect(homeRoute(user('Supervisor', { shift: 'read' }))).toBe('/shift');
     expect(homeRoute(user('Nobody', {}))).toBe('/more');
-    expect(homeRoute(null)).toBe('/tables');
+    expect(homeRoute(null)).toBe('/more');
   });
 });
