@@ -1,45 +1,72 @@
-import { useMemo } from 'react';
+import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { cleanSettingValue, currencyOptions, displayValue, effectiveSettings, optionLabel, previewValue, settingKind, type SettingRow } from '@/lib/settings-admin';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '@/lib/session';
-import { EntityScreen, type EntityConfig } from '@/ui/entity-screen';
+import { systemType } from '@/lib/settings-general';
+import { hubTiles, type HubKey } from '@/lib/settings-hub';
+import { useSettingRows } from '@/lib/use-setting-rows';
+import { Badge } from '@/ui/components';
+import { ScreenHeader } from '@/ui/screen-header';
+import { ErrorState, LoadingState } from '@/ui/states';
+import { StaleBanner } from '@/ui/sync-status';
+import { colors, font, radius, space } from '@/ui/theme';
 
-interface SettingForm {
-  id: string;
-  option: string;
-  value: string;
-  [key: string]: unknown;
-}
+const ROUTES: Partial<Record<HubKey, string>> = { general: '/settings-general' };
 
 /**
- * The kh-pos settings (currency, exchange rate, table sections, discount rules, receipt template, ...)
- * for this branch. Currency and exchange rate have their own editors; settings that hold JSON are
- * checked before saving so a typo can't break the app.
+ * The web Settings dialog (Profile → Settings): a tile for each section the role may open —
+ * General, Users, Delivery (restaurant POS) and Payment Method (main branch).
  */
-export default function SettingsScreen() {
+export default function SettingsHub() {
   const { t } = useTranslation();
-  const { api, user } = useSession();
-  const warehouseId = user?.currentWarehouseId ?? '';
-  const config = useMemo<EntityConfig<SettingRow, SettingForm>>(
-    () => ({
-      title: t('more.settings'),
-      resource: 'setting',
-      cacheKey: 'settings-admin',
-      load: async () => effectiveSettings((await api.call<{ result?: SettingRow[] }>('GET', `/api/setting?warehouseId=${encodeURIComponent(warehouseId)}`)).result ?? [], warehouseId),
-      rowKey: (r) => String(r.id),
-      rowTitle: (r) => optionLabel(r.option),
-      rowSubtitle: (r) => previewValue(r.value),
-      searchText: (r) => `${r.option} ${r.value ?? ''}`,
-      emptyForm: () => ({ id: '', option: '', value: '' }),
-      toForm: (r) => ({ id: String(r.id), option: r.option ?? '', value: displayValue(settingKind(r.option, r.value), r.value) }),
-      fields: [
-        { key: 'value', label: t('settings.value'), kind: 'select', options: currencyOptions(), visible: (f) => settingKind(f.option, f.value) === 'currency' },
-        { key: 'value', label: t('settings.value'), kind: 'multiline', visible: (f) => settingKind(f.option, f.value) !== 'currency' },
-      ],
-      validate: (f) => (cleanSettingValue(settingKind(f.option, f.value), f.value) === null ? 'value' : null),
-      update: (r, f) => api.call('PUT', '/api/setting', { id: r.id, option: r.option ?? undefined, value: cleanSettingValue(settingKind(f.option, f.value), f.value) ?? f.value }),
-    }),
-    [api, t, warehouseId],
+  const { user } = useSession();
+  const { rows, stale, error, reload } = useSettingRows();
+  const isMain = (user?.warehouse as { isMain?: boolean } | null | undefined)?.isMain !== false;
+  const tiles = rows ? hubTiles(user, systemType(rows), isMain) : [];
+
+  return (
+    <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
+      <ScreenHeader title={t('sg.settings')} />
+      {stale !== false ? <StaleBanner savedAt={stale} /> : null}
+      {rows === null ? (
+        error ? <ErrorState error={error} onRetry={() => void reload()} /> : <LoadingState />
+      ) : (
+        <ScrollView contentContainerStyle={styles.body}>
+          <Text style={styles.lead}>{t('sg.chooseSection')}</Text>
+          {tiles.length === 0 ? <Text style={styles.muted}>{t('sg.noAccess')}</Text> : null}
+          {tiles.map((tile) => {
+            const route = ROUTES[tile.key];
+            return (
+              <Pressable
+                key={tile.key}
+                accessibilityRole="button"
+                disabled={!route}
+                onPress={() => route && router.push(route as never)}
+                style={[styles.tile, !route && styles.tileOff]}
+              >
+                <View style={styles.tileText}>
+                  <Text style={styles.tileTitle}>{t(`sg.tile_${tile.key}`)}</Text>
+                  <Text style={styles.muted}>{t(`sg.tile_${tile.key}_desc`)}</Text>
+                </View>
+                {route ? <Text style={styles.chevron}>›</Text> : <Badge tone="default" text={t('sg.comingNext')} />}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+    </SafeAreaView>
   );
-  return <EntityScreen config={config} />;
 }
+
+const styles = StyleSheet.create({
+  fill: { flex: 1, backgroundColor: colors.page },
+  body: { padding: space.lg, gap: space.md },
+  lead: { fontSize: font.body, color: colors.mutedForeground },
+  muted: { fontSize: font.small, color: colors.mutedForeground },
+  tile: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg, backgroundColor: colors.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border },
+  tileOff: { opacity: 0.6 },
+  tileText: { flex: 1, gap: 2 },
+  tileTitle: { fontSize: font.body, fontWeight: '700', color: colors.foreground },
+  chevron: { fontSize: 24, color: colors.mutedForeground },
+});

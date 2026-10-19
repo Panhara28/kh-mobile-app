@@ -74,6 +74,7 @@ function Navigator() {
         <Stack.Screen name="more" />
         <Stack.Screen name="account" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="settings-general" />
         <Stack.Screen name="shift" />
         <Stack.Screen name="orders" />
         <Stack.Screen name="order/[id]" />
