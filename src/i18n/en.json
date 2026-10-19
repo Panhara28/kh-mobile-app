@@ -7,7 +7,8 @@
     "cancel": "Cancel",
     "logout": "Logout",
     "back": "Back",
-    "close": "Close"
+    "close": "Close",
+    "add": "Add"
   },
   "login": {
     "title": "Login",
@@ -296,7 +297,8 @@
     "group_reports": "Reports",
     "group_stock": "Stock",
     "group_setup": "Setup",
-    "orders": "Orders"
+    "orders": "Orders",
+    "tableSetup": "Table setup"
   },
   "range": {
     "today": "Today",
@@ -341,5 +343,40 @@
     "deleteTitle": "Delete order #{{no}}?",
     "subtotal": "Subtotal",
     "payments": "Payments"
+  },
+  "transfer": {
+    "button": "Transfer table",
+    "title": "Move from {{name}}",
+    "toTable": "Move to {{name}}",
+    "pick": "Choose the table to move to.",
+    "merges": "Has order #{{no}}: items are added to it.",
+    "chosen": "{{count}} portions chosen",
+    "all": "Everything",
+    "discount": "Discounts",
+    "discountYes": "Move with discounts",
+    "discountNo": "Full price",
+    "move": "Move {{count}} portions",
+    "done": "Moved to {{name}}.",
+    "syncFirst": "Some changes on this table have not reached KH POS yet. Wait until they are sent, then move it."
+  },
+  "tableSetup": {
+    "title": "Table setup",
+    "add": "Add table",
+    "edit": "Edit",
+    "delete": "Delete",
+    "generate": "Generate",
+    "name": "Table name",
+    "capacity": "Seats",
+    "section": "Section",
+    "shape": "Shape",
+    "location": "Location",
+    "features": "Features",
+    "notes": "Notes",
+    "required": "This is required.",
+    "deleteConfirm": "Delete table {{name}}?",
+    "hasOrder": "It has an open order.",
+    "generateHint": "Creates several tables at once with the same seats, section and shape.",
+    "count": "Number of tables",
+    "prefix": "Name prefix (T gives T-1, T-2…)"
   }
 }

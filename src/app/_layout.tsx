@@ -60,6 +60,7 @@ function Navigator() {
         <Stack.Screen name="more" />
         <Stack.Screen name="shift" />
         <Stack.Screen name="orders" />
+        <Stack.Screen name="table-setup" />
         <Stack.Screen name="order/[id]" />
       </Stack.Protected>
     </Stack>

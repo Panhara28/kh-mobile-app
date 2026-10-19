@@ -4,6 +4,7 @@
  */
 
 import { orderQuery, type OrderFilter, type OrderRow, type ReturnInput } from './orders';
+import type { TransferBody } from './transfer';
 
 export type ApiErrorKind =
   | 'notConfigured' // the app was started without EXPO_PUBLIC_KHPOS_URL
@@ -257,8 +258,24 @@ export interface RestaurantTable {
   section: string | null;
   status: TableStatus;
   order: TableOrder | null;
+  table_shape?: string | null;
+  location_description?: string | null;
+  /** Comma separated features ("window, quiet"). */
+  special_features?: string | null;
+  addional_notes?: string | null;
   /** App only: changes made on this phone that kh-pos hasn't received yet. */
   pendingSync?: number;
+}
+
+/** The table form of kh-pos (create and edit). */
+export interface TableInput {
+  tableNumber: string;
+  seatingCapacity: number;
+  section: string;
+  tableShape: string;
+  locationDescription?: string;
+  features: string[];
+  additionalNotes?: string;
 }
 
 export interface PosInfo {
@@ -559,6 +576,30 @@ export class KhPosApi {
     const json = await this.request<{ result?: OrderDetailResult }>('GET', `/api/pos/order/${encodeURIComponent(orderId)}`);
     if (!json.result) throw new ApiError('server', 404, 'Order not found');
     return json.result;
+  }
+
+  // ---- table management and transfer ----
+
+  async createTable(input: TableInput): Promise<void> {
+    await this.request('POST', '/api/table', input);
+  }
+
+  async updateTable(id: string, input: TableInput): Promise<void> {
+    await this.request('PUT', '/api/table', { id, ...input });
+  }
+
+  async deleteTable(id: string): Promise<void> {
+    await this.request('DELETE', '/api/table', { id });
+  }
+
+  /** Creates `count` tables named from a prefix, with the same capacity, section and shape. */
+  async generateTables(input: { count: number; default: { key: string; capacity: number; section: string; shape: string } }): Promise<void> {
+    await this.request('POST', '/api/table/layout', input);
+  }
+
+  /** Moves chosen portions of an order to another table (kh-pos merges into its order or opens one). */
+  async transferTable(input: TransferBody): Promise<void> {
+    await this.request('POST', '/api/transfer-table', input);
   }
 
   // ---- orders ----

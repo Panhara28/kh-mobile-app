@@ -13,11 +13,14 @@ import { orderTotal } from '@/lib/payment';
 import { methodNames, receiptFromCheckout, receiptFromDetail, type Receipt } from '@/lib/receipt';
 import { toKhPosTime } from '@/lib/time';
 import { useShift } from '@/lib/use-shift';
+import { can } from '@/lib/line';
+import type { TransferBody } from '@/lib/transfer';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button } from '@/ui/components';
 import { CartDrawer } from '@/ui/cart-drawer';
 import { CheckoutSheet } from '@/ui/checkout-sheet';
+import { TransferSheet } from '@/ui/transfer-sheet';
 import { ReceiptSheet } from '@/ui/receipt-sheet';
 import { CustomizeLine, type LineApi } from '@/ui/customize-line';
 import { MenuBrowser } from '@/ui/menu-browser';
@@ -56,6 +59,7 @@ export default function TableScreen() {
   const [busy, setBusy] = useState(false);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [transferTables, setTransferTables] = useState<RestaurantTable[] | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [products, setProducts] = useState<MenuProduct[]>([]);
   /** Taps queued but not yet saved, per variant: shown at once on the badges. */
@@ -274,6 +278,39 @@ export default function TableScreen() {
     }
   }
 
+  /** Moving an order needs both tables as kh-pos has them, so nothing may be waiting to be sent. */
+  async function startTransfer() {
+    if (!table?.order) return;
+    if (!engine.getState().online) {
+      Alert.alert(t('offline.needsConnection'));
+      return;
+    }
+    if (table.pendingSync || table.order.localOnly) {
+      Alert.alert(t('transfer.syncFirst'));
+      return;
+    }
+    try {
+      setTransferTables((await data.tables()).data);
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  async function doTransfer(body: TransferBody, destination: RestaurantTable) {
+    setBusy(true);
+    try {
+      await api.transferTable(body);
+      setTransferTables(null);
+      Alert.alert(t('transfer.done', { name: destination.table_name }));
+      await load();
+      if (!(await data.table(id).then((r) => r.data.order).catch(() => null))) router.back(); // the whole order moved
+    } catch (e) {
+      showError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function resend(line: OrderLine, qty: number) {
     const result = await submit(command('resend', { orderDetailId: line.orderDetailId, qty }), () => api.resendToKitchen(line.orderDetailId, qty));
     if (result === 'done') Alert.alert(t('cart.resent'));
@@ -389,6 +426,7 @@ export default function TableScreen() {
           </Text>
         </View>
         <SyncBadge />
+        {table.order && can(user, 'restaurant', 'update') ? <Button title="⇄" variant="outline" size="sm" onPress={() => void startTransfer()} accessibilityLabel={t('transfer.button')} /> : null}
         <Pressable
           onPress={() => setCartOpen(true)}
           accessibilityRole="button"
@@ -468,6 +506,7 @@ export default function TableScreen() {
           onComplete={(p) => void completeCheckout(p)}
         />
       ) : null}
+      {transferTables ? <TransferSheet table={table} tables={transferTables} busy={busy} onClose={() => setTransferTables(null)} onTransfer={(b, d) => void doTransfer(b, d)} /> : null}
       <ReceiptSheet
         receipt={receipt}
         onClose={() => {
