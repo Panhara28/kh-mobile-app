@@ -10,7 +10,7 @@ Staff mobile app for [kh-pos](https://github.com/sokphaladam/kh-pos), working li
    - **Quantity Management:** Prepare, Serve, and editing the pending, preparing and served counts. Editing preparing or served counts needs the role's order-preparation update and delete permissions, as on the web.
    - **Options**, **Special Instructions** (with an optional extra charge), **Manual Discount** and **Promotions**. kh-pos queues the kitchen tickets for the kitchen printer itself.
 
-Payment is taken at the POS.
+**More tab:** the rest of the web app, for the staff whose role allows it: shifts and checkout, orders and returns, reports, products and categories, stock (purchase orders, replenishment, counting, production, movements), retail POS with barcode scanning, promotion sets, discounts, users and roles, accounting, and the cinema (showtimes, tickets and door scan, ticket sale with the seat map, halls, pricing, settlement), plus the table floor plan. What was built, with commit ids, is in [docs/HISTORY.md](docs/HISTORY.md).
 
 Built with Expo SDK 57, Expo Router and TypeScript. It runs in **Expo Go** during development. See [docs/DECISIONS.md](docs/DECISIONS.md) for the choices behind it and [docs/HISTORY.md](docs/HISTORY.md) for what has been done so far.
 
@@ -21,7 +21,7 @@ The app keeps working when the KH POS server can't be reached (no internet, serv
 - **Opens offline** from the staff profile saved on the phone, and **logs in offline** for anyone who has logged in on that phone before with a connection (the password is checked against a salted hash kept on the phone; the first login on a phone needs the server). See "Offline login" in [docs/DECISIONS.md](docs/DECISIONS.md).
 - **Browsing:** tables, the menu, categories and settings come from a copy saved on the phone. A banner shows when the copy was taken.
 - **Ordering:** everything works: adding dishes, quantities, Prepare and Serve, options, notes, discounts, promotions, guests, Send to kitchen and resend, in the cart and in Customize Your Order. Changes are saved on the phone and shown on screen straight away (new items are marked "Not sent yet"), then sent to KH POS in order as soon as it can be reached. The kitchen gets its ticket only then, and the app says so.
-- **Not offline:** checkout and table transfers (done on the POS). Promotions can only be applied offline for dishes whose promotions were loaded while online.
+- **Not offline:** table transfers, and every module outside table ordering can be read offline but needs the server to save. Promotions can only be applied offline for dishes whose promotions were loaded while online.
 - **Status pill** (next to the logout button and in a table's header): Online / Offline, how many changes are waiting, how many failed. Tap it for the list, **Sync now**, and Retry / Discard for anything KH POS refused.
 - **Conflicts:** KH POS always wins. A change KH POS refuses (the item was removed, the table was closed) is kept as "failed" with KH POS's message, never lost silently.
 
@@ -57,6 +57,17 @@ It prints the staff username and password. If you don't set `STAFF_PASSWORD`, it
 4. Close the app completely and open it again offline: it still opens and the changes are still there. Then log out and log in again offline with the same password: it works (it takes a few seconds). Log in as a name this phone has never seen: it says to connect once.
 5. Switch the network back on. Within about 10 seconds the pill goes to **Online**, the changes are sent, and the table shows the real invoice number. Check the same table on the web POS.
 6. Try a conflict: offline, add a dish to a table; on the web POS close or change that table; go online. The change KH POS can't apply shows under **Needs attention** in the sync list.
+
+## Try the new modules
+
+None of these has been opened on a real phone yet. With kh-pos running, open **More** and try each one that your role shows; the points most likely to need a fix:
+
+1. **Retail POS:** an order with no table must be accepted by kh-pos; barcode search must find a product by its barcode.
+2. **Cinema tickets:** the ticket's QR must hold the reservation code exactly (the scan matches it).
+3. **Cinema ticket sale and halls:** seats and prices come from the hall and pricing template; selling then paying turns the reservations from pending to confirmed.
+4. **Production, replenishment, purchase orders, stock counting:** these write stock; try them on test data first.
+5. **Accounting:** staff other than the owner can only view until the permission question in HISTORY.md is settled.
+6. **Table floor plan:** dragging inside the scroll area; positions must match what the web shows.
 
 ## Checks
 

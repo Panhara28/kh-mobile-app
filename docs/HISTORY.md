@@ -62,6 +62,49 @@ Goal: take orders with no connection to the KH POS server and send everything wh
 
 **Checks at the end:** `tsc` clean; 116 tests in 14 suites pass (fake kh-pos server that can go offline or lose an answer, cache, outbox, overlay, offline login, all Customize actions); Android bundle builds. `expo lint` still reports the errors that were already in older code (`set-state-in-effect`, refs during render in `session.tsx`, `cart-drawer.tsx`, `customize-line.tsx` and others); nothing new in the new files.
 
+## 2026-10-19 to 20: the web app's modules, on the phone (branch `feat/full-parity`)
+
+Goal: every part of the kh-pos web app reachable from the phone. The **More** tab lists the modules the signed-in role may read (same permission names as the web menu; `lib/modules.ts`). Each module has its logic in `src/lib/<name>.ts` with tests, a screen in `src/app/`, and English and Khmer text.
+
+| Module | Commit | What it does |
+|---|---|---|
+| Shifts, checkout, receipts, More hub | `0b6025d` | Open and close a shift, pay with several methods and currencies (also queued offline), receipt share and print |
+| Orders | `a9d6ff3` | List, detail, returns, reverse to draft, delete |
+| Table transfer, table setup | `316b930` | Move an order, add, edit, delete and generate tables |
+| Reports | `06f3f5c` | Dashboard, end of day, sales, categories, items, voids, guests, stock, expiry |
+| Admin lists | `0e0ac9d` | Categories, modifiers, discounts, payment methods, suppliers |
+| Products | `f904df0` | Search, filter, add, edit with pictures and variants, delete |
+| Users, branches, slots, account | `708b947` | Includes password reset |
+| Settings, stock movements, returns, backlog | `b7cc24a` | |
+| Cart discount | `9bc3aca` | Also offline |
+| Order type | `58abd8f` | Dine in, take away, delivery with customers |
+| Purchase orders | `2e3a292` | Draft, approve, receive into slots, delete |
+| Replenishment | `29e5726` | Send stock to another branch, approve, receive |
+| Stock counting | `40886aa` | Count a slot, stock in, stock out, move between slots |
+| Promotion sets | `7a18346`, `e34f1dd` | Combos with dates, happy hours and items |
+| Roles and access | `16410cf` | Permission editor per area |
+| Retail POS | `3aae266` | Search or scan barcodes, cart, charge (adds `expo-camera`) |
+| Production | `b3501ff` | Check a recipe against stock, make the product |
+| Board-member dashboard | `da32b67` | Sales by branch and integrated brand |
+| Accounting | `ff48017` | Chart of accounts and bookings |
+| Cinema showtimes | `d9b22d5` | Day view, add, edit, delete |
+| Cinema tickets | `3558823` | Reservations by day and status, admit by button or by scanning the code |
+| Cinema pricing | `f1977f1` | Pricing templates |
+| Cinema settlement | `36d3097` | Generate, details, settle with a photo as proof |
+| Table floor plan | `c2fa4ef` | Drag tables into place and save positions |
+| Cinema ticket sale | `affdec7` | Pick a showtime, tap seats on the hall map, charge |
+| Cinema halls | `1f1453c` | Size the room and paint the seats |
+
+**Offline, per module.** Ordering at tables (including checkout, shifts, discounts, order type) works offline and is sent later, as above. Every other module **reads** from the saved copy offline and **needs the server to save**: it says so instead of failing. Retail POS and cinema ticket sale need the server to charge, because the stock, the seats taken and the invoice number come from kh-pos.
+
+**Not built, on purpose.**
+- *Product groups*: kh-pos has the permission name but no API for it.
+- *Printer settings*: `/api/printer` prints from the kh-pos server's own Windows printers; a phone has nothing to configure. The phone prints receipts through the system print dialog.
+- *Stock picking list and stock suggestion* for replenishment, *manual ticket upload*, *digital tickets* and the *board-member sale report*.
+- Accounting screens are gated on a permission named `accounting` that kh-pos does not define (it shows the pages whenever the branch's Accounting setting is on): other than the owner, staff can view but not add or delete. Showing them only when the setting is on, to match the web, is still to do.
+
+**Checks.** `tsc` clean, 312 tests in 44 suites pass, Android bundle builds, lint clean on every new file. **Nothing in this section has been opened on a real phone or run against a live kh-pos.** The assumptions most likely to be wrong are listed in the README under "Try the new modules".
+
 ## Known limits
 
 - **Not tried on a real phone.** Test with the checklist in the README ("Try offline mode on a phone"). Log in once **with the server running** (log out first if you were logged in before this version) so the phone saves the menu, tables and your login.
@@ -75,6 +118,7 @@ Goal: take orders with no connection to the KH POS server and send everything wh
 
 ## Possible next steps
 
+- Open every module on a phone against a real kh-pos and fix what it finds (checklist in the README).
 - Try offline mode on two real phones (airplane mode on both, then back on) and fix what it finds.
 - Run the app's ordering code against a real kh-pos with `pnpm e2e` (needs the staff password).
 - Save product photos for offline use.

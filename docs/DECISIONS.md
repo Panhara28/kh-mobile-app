@@ -56,3 +56,11 @@ Staff must be able to take orders when the KH POS server can't be reached, and e
   - It was moved from SDK 58 to 57 because the Play Store Expo Go (2026-10-17) still only supports SDK 57. Move to SDK 58 once Expo Go does.
 - Libraries: `expo-router`, `expo-secure-store` (login token), `expo-crypto` (order line ids, which kh-pos requires to be UUIDs), `i18next` + `react-i18next`.
 - pnpm with `node-linker=hoisted`, as Metro requires. Android and iOS only, with no web target.
+
+## Web modules on the phone (2026-10-20)
+
+- **One shape for every module:** logic and request bodies in `lib/<module>.ts` (pure, tested, mirrors the kh-pos zod schema), a thin screen in `app/`, and a registry entry in `lib/modules.ts` gated by the same permission resource the web menu uses. Plain list-and-form modules use the config-driven `EntityScreen`; the rest are custom screens.
+- **Offline by exception:** only table ordering is queued (outbox). Other modules read through `cachedRead` and say "needs the server" to save. Queuing stock, accounting or cinema writes would risk double-posting and wrong stock; kh-pos has no idempotency keys for them.
+- **Selling at the counter** (retail, cinema) creates the order only at Charge and deletes it again if payment is cancelled, so no draft is left behind and seats are freed.
+- **Data the phone does not edit is preserved** on save: pricing-template seat types, hall features and zones.
+- **Permissions that kh-pos does not name** (accounting) fall back to "view only, owner may edit"; revisit once kh-pos defines them.
