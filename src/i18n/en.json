@@ -319,7 +319,8 @@
     "promotionSets": "Promotion sets",
     "roles": "Roles and access",
     "retail": "Retail POS",
-    "production": "Production"
+    "production": "Production",
+    "board": "Sales by branch"
   },
   "range": {
     "today": "Today",
@@ -772,5 +773,11 @@
     "error_parts": "Check the recipe first.",
     "error_short": "Some components are short on stock.",
     "error_lots": "Some components have stock without a lot number, which this branch does not allow."
+  },
+  "board": {
+    "empty": "No data for this period.",
+    "local": "Branches",
+    "total": "Total",
+    "unreachable": "Could not be reached"
   }
 }
