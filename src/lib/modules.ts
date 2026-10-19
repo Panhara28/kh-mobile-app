@@ -90,6 +90,6 @@ export function homeRoute(user: StaffUser | null | undefined): string {
   if (user.role.role === 'OWNER') return '/report/dashboard';
   if (user.role.role.toUpperCase() === 'BOARD MEMBER' && can(user, 'board-member-dashboard', 'read')) return '/board';
   if (can(user, 'restaurant', 'read')) return '/tables';
-  const first = visibleModules(user).find((m) => m.resource !== null);
+  const first = visibleModules(user).find((m) => m.resource !== null && !m.setting);
   return first ? first.route : '/more';
 }
