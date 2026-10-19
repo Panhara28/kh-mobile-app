@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { Category, KhPosApi, MenuProduct } from '@/lib/api';
+import type { OfflineData } from '@/lib/offline/data';
+import { useOffline } from '@/lib/offline/provider';
 import { cardPrice, initials, menuCategories, splitTitle } from '@/lib/menu';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
 import { Card, Chip, Input } from './components';
@@ -16,6 +18,7 @@ const PAGE_SIZE = 20;
  */
 export function MenuBrowser({
   api,
+  data,
   warehouseId,
   currency,
   onSelect,
@@ -24,7 +27,10 @@ export function MenuBrowser({
   onProducts,
   bottomInset = 0,
 }: {
+  /** For product image addresses. */
   api: KhPosApi;
+  /** Menu and categories: live from kh-pos, or the saved copy when it can't be reached. */
+  data: OfflineData;
   warehouseId: string;
   currency: CurrencyCode;
   onSelect: (product: MenuProduct) => void;
@@ -48,6 +54,10 @@ export function MenuBrowser({
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const requestId = useRef(0);
+  /** The list on screen comes from the saved menu (kh-pos couldn't be reached). */
+  const fromSaved = useRef(false);
+  const { state: sync } = useOffline();
+  const online = sync.online;
 
   useEffect(() => {
     const h = setTimeout(() => setQuery(search), 300);
@@ -56,8 +66,11 @@ export function MenuBrowser({
 
   useEffect(() => {
     if (!warehouseId) return;
-    api.categories(warehouseId).then((c) => setCategories(menuCategories(c)), () => setCategories([]));
-  }, [api, warehouseId]);
+    data.categories(warehouseId).then(
+      (c) => setCategories(menuCategories(c.data)),
+      () => setCategories([]),
+    );
+  }, [data, warehouseId, online]);
 
   useEffect(() => {
     onProducts?.(items);
@@ -66,8 +79,9 @@ export function MenuBrowser({
   const loadPage = useCallback(
     async (offset: number) => {
       const id = ++requestId.current;
-      const page = await api.menu({ warehouse: warehouseId, search: query, categoryId, limit: PAGE_SIZE, offset });
+      const { data: page, stale } = await data.menu({ warehouse: warehouseId, search: query, categoryId, limit: PAGE_SIZE, offset });
       if (id !== requestId.current) return; // a newer search or category won
+      fromSaved.current = stale;
       setItems((prev) => {
         if (offset === 0) return page;
         const seen = new Set(prev.map((p) => p.variantId));
@@ -75,7 +89,7 @@ export function MenuBrowser({
       });
       setHasMore(page.length === PAGE_SIZE);
     },
-    [api, warehouseId, query, categoryId],
+    [data, warehouseId, query, categoryId],
   );
 
   const reload = useCallback(async () => {
@@ -93,6 +107,11 @@ export function MenuBrowser({
     setStatus('loading');
     void reload();
   }, [reload]);
+
+  // kh-pos is reachable again: swap the saved menu for the live one.
+  useEffect(() => {
+    if (online && fromSaved.current) void reload();
+  }, [online, reload]);
 
   async function loadMore() {
     if (!hasMore || loadingMore || status !== 'ready') return;

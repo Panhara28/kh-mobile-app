@@ -12,7 +12,20 @@ Staff mobile app for [kh-pos](https://github.com/sokphaladam/kh-pos), working li
 
 Payment is taken at the POS.
 
-Built with Expo SDK 57, Expo Router and TypeScript. It runs in **Expo Go** during development. See [docs/DECISIONS.md](docs/DECISIONS.md) for the choices behind it.
+Built with Expo SDK 57, Expo Router and TypeScript. It runs in **Expo Go** during development. See [docs/DECISIONS.md](docs/DECISIONS.md) for the choices behind it and [docs/HISTORY.md](docs/HISTORY.md) for what has been done so far.
+
+## Works without the server
+
+The app keeps working when the KH POS server can't be reached (no internet, server restarting). It checks the server itself, so a shop network with no internet but with the server on the same Wi-Fi counts as online.
+
+- **Opens offline** from the staff profile saved on the phone, and **logs in offline** for anyone who has logged in on that phone before with a connection (the password is checked against a salted hash kept on the phone; the first login on a phone needs the server). See "Offline login" in [docs/DECISIONS.md](docs/DECISIONS.md).
+- **Browsing:** tables, the menu, categories and settings come from a copy saved on the phone. A banner shows when the copy was taken.
+- **Ordering:** everything works: adding dishes, quantities, Prepare and Serve, options, notes, discounts, promotions, guests, Send to kitchen and resend, in the cart and in Customize Your Order. Changes are saved on the phone and shown on screen straight away (new items are marked "Not sent yet"), then sent to KH POS in order as soon as it can be reached. The kitchen gets its ticket only then, and the app says so.
+- **Not offline:** checkout and table transfers (done on the POS). Promotions can only be applied offline for dishes whose promotions were loaded while online.
+- **Status pill** (next to the logout button and in a table's header): Online / Offline, how many changes are waiting, how many failed. Tap it for the list, **Sync now**, and Retry / Discard for anything KH POS refused.
+- **Conflicts:** KH POS always wins. A change KH POS refuses (the item was removed, the table was closed) is kept as "failed" with KH POS's message, never lost silently.
+
+How it works is in [docs/DECISIONS.md](docs/DECISIONS.md#offline-2026-10-19).
 
 ## Run it
 
@@ -36,10 +49,19 @@ KHPOS_URL=http://localhost:3001 ADMIN_USERNAME=admin ADMIN_PASSWORD=... STAFF_US
 
 It prints the staff username and password. If you don't set `STAFF_PASSWORD`, it generates one. It also creates two modifier groups ("Sugar level", "Add-ons") and tables "Table 1" to "Table 6".
 
+## Try offline mode on a phone
+
+1. Log in **with the server running** (log out first if you were already logged in, so the phone remembers your login), and open the tables (this saves the menu and tables).
+2. Switch the phone to airplane mode, or stop the kh-pos server. The pill turns to **Offline** within a few seconds.
+3. Open a table, add a few dishes (one with an option and a note), change a quantity, remove one, set guests and **Send to kitchen**. Tap an item in the cart to open **Customize Your Order** and try Prepare, Serve, options, a note, a discount. Everything shows on screen, and the pill counts the waiting changes.
+4. Close the app completely and open it again offline: it still opens and the changes are still there. Then log out and log in again offline with the same password: it works (it takes a few seconds). Log in as a name this phone has never seen: it says to connect once.
+5. Switch the network back on. Within about 10 seconds the pill goes to **Online**, the changes are sent, and the table shows the real invoice number. Check the same table on the web POS.
+6. Try a conflict: offline, add a dish to a table; on the web POS close or change that table; go online. The change KH POS can't apply shows under **Needs attention** in the sync list.
+
 ## Checks
 
 ```bash
-pnpm test          # API client, order logic, menu and money helpers, translations
+pnpm test          # API client, order logic, offline sync (outbox, replay, cache), menu and money helpers, translations
 KHPOS_URL=http://localhost:3001 STAFF_PASSWORD=... pnpm e2e   # the app's ordering code against a real kh-pos (dev only; cleans up after itself)
 pnpm typecheck
 npx expo-doctor

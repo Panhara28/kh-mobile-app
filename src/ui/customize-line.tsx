@@ -2,8 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { CountableStatus, KhPosApi, MenuProduct, OrderLine, PromotionOption, StaffUser } from '@/lib/api';
-import { appliedPromotionIds, canEditStatus, checkStatusChange, lineNote, lineOptionIds, manualDiscount } from '@/lib/line';
+import type { CountableStatus, KhPosApi, MenuProduct, OrderLine, PromotionOption, StaffUser, StatusMove } from '@/lib/api';
+import { appliedPromotionIds, canEditStatus, checkStatusChange, lineNote, lineOptionIds, manualDiscount, resendSummary } from '@/lib/line';
 import { initials, splitTitle } from '@/lib/menu';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
 import { modifierPrice, statusQty } from '@/lib/order';
@@ -12,9 +12,24 @@ import { colors, font, radius, space } from './theme';
 import { addedLabel, byAtLabel } from './time-label';
 
 /**
+ * What Customize Your Order changes on an order line. The table screen provides these: each is
+ * done at once when kh-pos can be reached, and otherwise kept on the phone and sent later.
+ */
+export interface LineApi {
+  setStatusQty(orderId: string, orderDetailId: string, status: CountableStatus, qty: number): Promise<void>;
+  moveStatus(orderId: string, moves: StatusMove[]): Promise<void>;
+  updateNote(orderId: string, input: { orderDetailId: string; notes: string; price: number }): Promise<void>;
+  addModifier(orderId: string, input: { orderDetailId: string; modifierItemId: string; price: number; notes?: string }): Promise<void>;
+  removeModifier(orderId: string, input: { orderDetailId: string; modifierItemId: string }): Promise<void>;
+  setManualDiscount(orderId: string, input: { itemId: string; amount: number; discountType: 'PERCENTAGE' | 'AMOUNT' }): Promise<void>;
+  addPromotion(orderId: string, input: { itemId: string; discountId: string; name: string }): Promise<void>;
+  removePromotion(orderId: string, input: { itemId: string; discountId: string; name: string }): Promise<void>;
+}
+
+/**
  * "Customize Your Order" for one cart line, like the kh-pos web restaurant POS: info,
  * quantity management (Prepare / Serve / edit counts), options, special instructions,
- * manual discount and promotions. Every change goes straight to kh-pos.
+ * manual discount and promotions. Every change goes to kh-pos at once, or is kept and sent when it can be reached.
  */
 export function CustomizeLine({
   line,
@@ -22,6 +37,8 @@ export function CustomizeLine({
   product,
   user,
   api,
+  lineApi,
+  loadPromotions,
   currency,
   busy,
   run,
@@ -32,10 +49,14 @@ export function CustomizeLine({
   /** Menu data for the line's dish (photo and option groups), if loaded. */
   product: MenuProduct | undefined;
   user: StaffUser | null;
-  api: KhPosApi;
+  /** For the dish photo address. */
+  api: Pick<KhPosApi, 'imageUrl'>;
+  lineApi: LineApi;
+  /** Discounts that can be applied to a dish (saved copy when offline). */
+  loadPromotions: (productId: string) => Promise<PromotionOption[]>;
   currency: CurrencyCode;
   busy: boolean;
-  /** Runs a change against kh-pos and reloads the table; resolves false on error. */
+  /** Runs a change (done now, or kept for later when offline) and reloads the table; resolves false on error. */
   run: (action: () => Promise<void>) => Promise<boolean>;
   onClose: () => void;
 }) {
@@ -43,6 +64,8 @@ export function CustomizeLine({
   const insets = useSafeAreaInsets();
 
   const [editing, setEditing] = useState<{ status: CountableStatus; qty: number } | null>(null);
+  /** Open "Mark as Served" dialog: how many of the preparing portions to serve. */
+  const [serving, setServing] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [notePrice, setNotePrice] = useState('0');
   const [discountType, setDiscountType] = useState<'AMOUNT' | 'PERCENTAGE'>('AMOUNT');
@@ -61,6 +84,7 @@ export function CustomizeLine({
     setDiscountType(d?.discountType ?? 'AMOUNT');
     setDiscountValue(String(d?.value ?? 0));
     setEditing(null);
+    setServing(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lineId]);
 
@@ -68,8 +92,8 @@ export function CustomizeLine({
   useEffect(() => {
     setPromotions([]);
     if (!productId) return;
-    api.promotionsFor(productId).then(setPromotions, () => setPromotions([]));
-  }, [api, productId]);
+    loadPromotions(productId).then(setPromotions, () => setPromotions([]));
+  }, [loadPromotions, productId]);
 
   if (!line || !orderId) return null;
   const { name, variant } = splitTitle(line.title);
@@ -83,26 +107,38 @@ export function CustomizeLine({
   const groups = (product?.modifiers ?? []).filter((g) => (g.items ?? []).length > 0);
   const id = line.orderDetailId;
 
-  /** "ban · 23:20": who last changed this status count, and when (as on the web). */
+  /** "ban · 2026-10-17 23:20": who last changed this status count, and when (as on the web). */
   const changedBy = (s: CountableStatus) => {
     // When portions last entered this status, and who moved them (kept by kh-pos).
     const entry = (line.status ?? []).find((x) => x.status === s);
     return entry ? byAtLabel(t, entry.createdBy, entry.createdAt) : null;
   };
   const added = addedLabel(t, line.createdAt);
+  const resent = resendSummary(line);
 
   const statusLabel = (s: CountableStatus) =>
     t(s === 'pending' ? 'customize.pending' : s === 'cooking' ? 'customize.preparing' : 'customize.served');
 
+  /**
+   * Preparing and Served can be edited but never above what was ordered (the line's total,
+   * which kh-pos keeps as the sum of all statuses): the kitchen can't prepare, and the floor
+   * can't serve, more than was sent. Pending stays free so more can be added.
+   */
+  const maxFor = (s: CountableStatus) => (s === 'pending' ? 999 : Math.max(1, Number(line.qty) || 0));
+
   function saveCount(status: CountableStatus, qty: number) {
     if (!line || !orderId) return;
+    if (qty > maxFor(status)) {
+      Alert.alert(t('customize.exceedsOrdered', { max: maxFor(status), status: statusLabel(status) }));
+      return;
+    }
     const check = checkStatusChange(line, status, qty);
     if (check === 'atLeastOne') {
       Alert.alert(t('customize.atLeastOne'));
       return;
     }
     const doIt = async () => {
-      if (await run(() => api.setStatusQty(orderId, id, status, qty))) setEditing(null);
+      if (await run(() => lineApi.setStatusQty(orderId, id, status, qty))) setEditing(null);
     };
     if (check === 'confirmZero') {
       Alert.alert(t('customize.confirmZeroTitle'), t('customize.confirmZero', { status: statusLabel(status) }), [
@@ -134,7 +170,7 @@ export function CustomizeLine({
           variant="outline"
           size="sm"
           disabled={busy || pending < 1}
-          onPress={() => void run(() => api.moveStatus(orderId, [{ orderDetailId: id, fromStatus: 'pending', toStatus: 'cooking', qty: pending }]))}
+          onPress={() => void run(() => lineApi.moveStatus(orderId, [{ orderDetailId: id, fromStatus: 'pending', toStatus: 'cooking', qty: pending }]))}
         />
       ),
     },
@@ -149,14 +185,21 @@ export function CustomizeLine({
           variant="outline"
           size="sm"
           disabled={busy || cooking < 1}
-          onPress={() => void run(() => api.moveStatus(orderId, [{ orderDetailId: id, fromStatus: 'cooking', toStatus: 'served', qty: cooking }]))}
+          onPress={() => setServing(cooking)}
         />
       ),
     },
     { status: 'served', icon: '✓', qty: served, tone: styles.countServed },
   ];
 
-  const parsedNotePrice = Math.max(0, Number(notePrice) || 0);
+  async function confirmServe() {
+    if (!orderId || serving === null) return;
+    const qty = Math.min(Math.max(1, serving), cooking);
+    const ok = await run(() => lineApi.moveStatus(orderId, [{ orderDetailId: id, fromStatus: 'cooking', toStatus: 'served', qty }]));
+    if (ok) setServing(null);
+  }
+
+  const parsedNotePrice =Math.max(0, Number(notePrice) || 0);
   const current = lineNote(line);
   const noteChanged = note.trim() !== current.notes.trim() || parsedNotePrice !== current.price;
 
@@ -165,8 +208,8 @@ export function CustomizeLine({
     const notes = note.trim();
     const ok = await run(() =>
       current.exists
-        ? api.updateNote(orderId, { orderDetailId: id, notes, price: parsedNotePrice })
-        : api.addModifier(orderId, { orderDetailId: id, modifierItemId: 'notes', notes, price: parsedNotePrice }),
+        ? lineApi.updateNote(orderId, { orderDetailId: id, notes, price: parsedNotePrice })
+        : lineApi.addModifier(orderId, { orderDetailId: id, modifierItemId: 'notes', notes, price: parsedNotePrice }),
     );
     if (ok) Alert.alert(t('customize.saved'));
   }
@@ -174,12 +217,26 @@ export function CustomizeLine({
   async function applyDiscount() {
     if (!orderId) return;
     const value = Math.max(0, Number(discountValue) || 0);
-    const ok = await run(() => api.setManualDiscount(orderId, { itemId: id, amount: value, discountType }));
+    const ok = await run(() => lineApi.setManualDiscount(orderId, { itemId: id, amount: value, discountType }));
     if (ok) Alert.alert(t('customize.saved'));
   }
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
+      <Modal visible={serving !== null} transparent animationType="fade" onRequestClose={() => setServing(null)}>
+        <View style={styles.dialogBackdrop}>
+          <View style={styles.dialog}>
+            <Text style={styles.dialogTitle}>{t('customize.serveTitle')}</Text>
+            <Text style={styles.dialogText}>{t('customize.serveAsk', { available: cooking })}</Text>
+            <View style={styles.dialogQty}>
+              <Text style={styles.statusLabel}>{t('customize.serveQty')}</Text>
+              <Stepper value={serving ?? 1} min={1} max={Math.max(1, cooking)} onChange={setServing} disabled={busy} editable valueLabel={t('customize.serveQty')} onSubmit={() => void confirmServe()} />
+            </View>
+            <Button title={t('customize.serveConfirm')} disabled={busy || cooking < 1} onPress={() => void confirmServe()} />
+            <Button title={t('customize.cancel')} variant="outline" onPress={() => setServing(null)} />
+          </View>
+        </View>
+      </Modal>
       <View style={[styles.screen, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <Text style={styles.title}>{t('customize.title')}</Text>
@@ -227,7 +284,8 @@ export function CustomizeLine({
               {statusRows.map((row) => {
                 const isEditing = editing?.status === row.status;
                 return (
-                  <View key={row.status} style={styles.statusRow}>
+                  <View key={row.status} style={styles.statusBlock}>
+                  <View style={styles.statusRow}>
                     <Text style={styles.statusIcon}>{row.icon}</Text>
                     <View>
                       <Text style={styles.statusLabel}>{statusLabel(row.status)}</Text>
@@ -235,7 +293,7 @@ export function CustomizeLine({
                     </View>
                     {isEditing ? (
                       <>
-                        <Stepper value={editing.qty} min={0} onChange={(q) => setEditing({ status: row.status, qty: q })} disabled={busy} editable autoFocus valueLabel={statusLabel(row.status)} onSubmit={() => saveCount(row.status, editing.qty)} />
+                        <Stepper value={editing.qty} min={0} max={maxFor(row.status)} onChange={(q) => setEditing({ status: row.status, qty: q })} disabled={busy} editable autoFocus valueLabel={statusLabel(row.status)} onSubmit={() => saveCount(row.status, editing.qty)} />
                         <View style={styles.flex} />
                         <Button title={t('customize.save')} size="sm" disabled={busy} onPress={() => saveCount(row.status, editing.qty)} />
                         <Button title="✕" variant="ghost" size="sm" onPress={() => setEditing(null)} accessibilityLabel={t('customize.cancel')} />
@@ -258,6 +316,12 @@ export function CustomizeLine({
                         {row.action}
                       </>
                     )}
+                  </View>
+                  {row.status === 'cooking' && resent.length > 0 ? (
+                    <Text style={styles.resentNote}>
+                      {t('cart.resentBy', { count: resent.length })} {resent.map((r) => (r.qty ? `${r.who} ×${r.qty}` : r.who)).join(', ')}
+                    </Text>
+                  ) : null}
                   </View>
                 );
               })}
@@ -283,8 +347,8 @@ export function CustomizeLine({
                             onPress={() =>
                               void run(() =>
                                 on
-                                  ? api.removeModifier(orderId, { orderDetailId: id, modifierItemId: item.id })
-                                  : api.addModifier(orderId, { orderDetailId: id, modifierItemId: item.id, price: extra }),
+                                  ? lineApi.removeModifier(orderId, { orderDetailId: id, modifierItemId: item.id })
+                                  : lineApi.addModifier(orderId, { orderDetailId: id, modifierItemId: item.id, price: extra }),
                               )
                             }
                             style={[styles.option, on && styles.optionOn]}
@@ -376,8 +440,8 @@ export function CustomizeLine({
                       onPress={() =>
                         void run(() =>
                           on
-                            ? api.removePromotion(orderId, { itemId: id, discountId: p.discountId })
-                            : api.addPromotion(orderId, { itemId: id, discountId: p.discountId }),
+                            ? lineApi.removePromotion(orderId, { itemId: id, discountId: p.discountId, name: d?.title ?? p.discountId })
+                            : lineApi.addPromotion(orderId, { itemId: id, discountId: p.discountId, name: d?.title ?? p.discountId }),
                         )
                       }
                       style={[styles.promotion, on && styles.optionOn]}
@@ -411,6 +475,11 @@ const styles = StyleSheet.create({
   thumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   thumbText: { fontSize: font.title, fontWeight: '700', color: colors.mutedForeground },
   name: { fontSize: font.title, fontWeight: '700', color: colors.foreground, lineHeight: 26 },
+  dialogBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: space.lg },
+  dialog: { backgroundColor: colors.background, borderRadius: radius.lg, padding: space.lg, gap: space.md },
+  dialogTitle: { fontSize: font.title, fontWeight: '700', color: colors.foreground, textAlign: 'center' },
+  dialogText: { fontSize: font.small, color: colors.mutedForeground, textAlign: 'center' },
+  dialogQty: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   muted: { fontSize: font.small, color: colors.mutedForeground, lineHeight: 20 },
   center: { textAlign: 'center', paddingVertical: space.md },
   infoRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: space.sm },
@@ -419,15 +488,14 @@ const styles = StyleSheet.create({
   total: { fontSize: font.title, fontWeight: '700', color: colors.foreground },
   discountNote: { fontSize: font.small, color: colors.success, textAlign: 'right' },
   sectionTitle: { fontSize: font.body, fontWeight: '600', color: colors.foreground },
+  statusBlock: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
+  resentNote: { fontSize: font.small, color: colors.warning, paddingHorizontal: space.md, paddingBottom: space.sm },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm,
     minHeight: 50,
     paddingHorizontal: space.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
   },
   statusIcon: { fontSize: 16, width: 22, textAlign: 'center' },
   statusLabel: { fontSize: font.body, color: colors.foreground },

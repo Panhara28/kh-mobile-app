@@ -37,6 +37,16 @@ export function checkStatusChange(line: OrderLine, status: CountableStatus, qty:
   return 'ok';
 }
 
+/** Every resend of the line's kitchen ticket, in order: who sent it and how many portions. */
+export function resendSummary(line: OrderLine): { who: string; qty: number | null }[] {
+  return (line.kitchenResends ?? []).map((r) => ({ who: r.by, qty: r.qty }));
+}
+
+/** Portions already sent to the kitchen (not pending): what a resend prints. */
+export function sentQty(line: OrderLine): number {
+  return statusQty(line, 'cooking') + statusQty(line, 'ready') + statusQty(line, 'served');
+}
+
 /** The line's special instructions (the "notes" option), if any. */
 export function lineNote(line: OrderLine): { exists: boolean; notes: string; price: number } {
   const m = (line.orderModifiers ?? []).find((x) => x.modifierItemId === 'notes');

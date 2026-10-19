@@ -5,15 +5,19 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { MenuProduct, OrderLine, PosInfo, RestaurantTable } from '@/lib/api';
-import { activeLines, addToTable, kitchenMoves, modifierNames, orderCounts, serveMoves } from '@/lib/order';
+import { applyOutbox } from '@/lib/offline/overlay';
+import { useOffline } from '@/lib/offline/provider';
+import type { CommandKind, CommandPayload, NewCommand } from '@/lib/offline/types';
+import { activeLines, addToTable, kitchenMoves, modifierNames, modifierPrice, orderCounts, serveMoves } from '@/lib/order';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button } from '@/ui/components';
 import { CartDrawer } from '@/ui/cart-drawer';
-import { CustomizeLine } from '@/ui/customize-line';
+import { CustomizeLine, type LineApi } from '@/ui/customize-line';
 import { MenuBrowser } from '@/ui/menu-browser';
 import { ProductSheet, type ProductChoice } from '@/ui/product-sheet';
 import { errorKind, ErrorState, LoadingState } from '@/ui/states';
+import { StaleBanner, SyncBadge } from '@/ui/sync-status';
 import { colors, font, space } from '@/ui/theme';
 
 const REFRESH_MS = 15_000;
@@ -21,14 +25,22 @@ const REFRESH_MS = 15_000;
 /**
  * One table. Tapping a dish adds it to the cart at once (like the kh-pos web POS); holding it
  * opens options and a note. The cart button opens a drawer with the order and Send to kitchen.
+ *
+ * Works without kh-pos: the table comes from the saved copy, and every change (adding dishes,
+ * quantities, Prepare and Serve, options, notes, discounts, promotions, guests, Send to kitchen,
+ * resend) is done at once when kh-pos can be reached, and otherwise kept on the phone, shown on
+ * screen right away, and sent later (see lib/offline).
  */
 export default function TableScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api, user } = useSession();
+  const { data, engine, state } = useOffline();
   const { warehouseId, currency, capEnabled } = useBranch();
 
-  const [table, setTable] = useState<RestaurantTable | null>(null);
+  /** The table as kh-pos (or the saved copy) has it; changes waiting to be sent are added on top. */
+  const [saved, setSaved] = useState<RestaurantTable | null>(null);
+  const [staleAt, setStaleAt] = useState<number | null | false>(false);
   const [loadError, setLoadError] = useState<unknown>(null);
   const [product, setProduct] = useState<MenuProduct | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
@@ -41,21 +53,29 @@ export default function TableScreen() {
   const posInfoCache = useRef<{ posInfo?: PosInfo }>({});
   const addQueue = useRef<Promise<void>>(Promise.resolve());
 
+  const table = useMemo(() => (saved ? applyOutbox(saved, state.commands) : null), [saved, state.commands]);
+
   const load = useCallback(async () => {
     try {
-      setTable(await api.table(id));
+      const r = await data.table(id);
+      setSaved(r.data);
+      setStaleAt(r.stale ? r.savedAt : false);
       setLoadError(null);
     } catch (e) {
       setLoadError(e);
     }
-  }, [api, id]);
+  }, [data, id]);
 
+  // Reload when the screen is shown, when changes were sent to kh-pos, or when kh-pos is back.
+  const { syncVersion, online } = state;
   useFocusEffect(
     useCallback(() => {
       void load();
       const h = setInterval(() => void load(), REFRESH_MS);
       return () => clearInterval(h);
-    }, [load]),
+    // syncVersion and online are triggers: reload when changes were sent or kh-pos came back
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [load, syncVersion, online]),
   );
 
   const names = useMemo(() => modifierNames(products), [products]);
@@ -83,18 +103,43 @@ export default function TableScreen() {
       return next;
     });
 
-  /** Adds one portion. Taps are saved one after another so none is lost or doubled. */
+  const command = <K extends CommandKind>(kind: K, payload: CommandPayload[K]): NewCommand<K> => ({
+    id: Crypto.randomUUID(),
+    userId: user?.id ?? '',
+    kind,
+    tableId: id,
+    payload,
+    createdAt: Date.now(),
+  });
+
+  /**
+   * Adds one portion. Taps are saved one after another so none is lost or doubled. If kh-pos
+   * can't be reached the tap is kept on the phone and sent later; its order line id is made here
+   * so every attempt uses the same one.
+   */
   function quickAdd(p: MenuProduct, choice: ProductChoice = { qty: 1, options: [], note: '' }) {
     bump(p.variantId, choice.qty);
+    const lineId = Crypto.randomUUID();
+    const cmd = command('addLine', {
+      lineId,
+      product: { productId: p.productId, variantId: p.variantId, productTitle: p.productTitle, price: p.price, discountedPrice: p.discountedPrice },
+      qty: choice.qty,
+      options: choice.options,
+      note: choice.note,
+      warehouseId,
+      capEnabled,
+    });
     const job = addQueue.current.then(async () => {
       try {
-        const fresh = await api.table(id); // latest order: another phone may have changed it
-        await addToTable(
-          api,
-          { table: fresh, warehouseId, product: p, qty: choice.qty, options: choice.options, note: choice.note, capEnabled },
-          () => Crypto.randomUUID(),
-          posInfoCache.current,
-        );
+        await engine.run(cmd, async () => {
+          const fresh = await api.table(id); // latest order: another phone may have changed it
+          await addToTable(
+            api,
+            { table: fresh, warehouseId, product: p, qty: choice.qty, options: choice.options, note: choice.note, capEnabled },
+            () => lineId,
+            posInfoCache.current,
+          );
+        });
       } catch (e) {
         showError(e);
       } finally {
@@ -106,8 +151,22 @@ export default function TableScreen() {
     return job;
   }
 
-  /** Runs a cart change against kh-pos, then reloads the table from the server. */
-  async function run(action: () => Promise<void>): Promise<boolean> {
+  /** A change that can wait: done now when kh-pos is reachable, otherwise kept and sent later. */
+  async function submit(cmd: NewCommand, online: () => Promise<void>): Promise<'done' | 'queued' | null> {
+    setBusy(true);
+    try {
+      return await engine.run(cmd, online);
+    } catch (e) {
+      showError(e);
+      return null;
+    } finally {
+      await load();
+      setBusy(false);
+    }
+  }
+
+  /** Runs Customize's change (done now or kept for later); shows kh-pos's refusal, reloads afterwards. */
+  async function runLine(action: () => Promise<unknown>): Promise<boolean> {
     setBusy(true);
     try {
       await action();
@@ -123,37 +182,95 @@ export default function TableScreen() {
 
   function setPending(line: OrderLine, qty: number) {
     const orderId = table?.order?.orderId;
-    if (orderId) void run(() => api.setPendingQty(orderId, line.orderDetailId, qty));
+    if (!orderId) return;
+    void submit(command('setPending', { orderDetailId: line.orderDetailId, qty }), () => api.setPendingQty(orderId, line.orderDetailId, qty));
   }
 
   function remove(line: OrderLine) {
     const orderId = table?.order?.orderId;
-    if (orderId) void run(() => api.removeLine(orderId, line.orderDetailId));
+    if (!orderId) return;
+    void submit(command('removeLine', { orderDetailId: line.orderDetailId }), () => api.removeLine(orderId, line.orderDetailId));
+  }
+
+  async function resend(line: OrderLine, qty: number) {
+    const result = await submit(command('resend', { orderDetailId: line.orderDetailId, qty }), () => api.resendToKitchen(line.orderDetailId, qty));
+    if (result === 'done') Alert.alert(t('cart.resent'));
+    else if (result === 'queued') Alert.alert(t('offline.resendQueued'));
   }
 
   /** ✓ in the cart: every preparing portion → served. */
   async function serveAll() {
-    const fresh = await api.table(id).catch(() => table);
-    const order = fresh?.order;
-    const moves = serveMoves(order);
-    if (!order || moves.length === 0) return;
-    const ok = await run(() => api.moveStatus(order.orderId, moves));
-    if (ok) Alert.alert(t('cart.servedAll'));
+    let served = false;
+    const result = await submit(command('serveAll', {}), async () => {
+      const order = (await api.table(id)).order;
+      const moves = serveMoves(order);
+      if (!order || moves.length === 0) return;
+      await api.moveStatus(order.orderId, moves);
+      served = true;
+    });
+    if (result === 'queued') Alert.alert(t('offline.savedOffline'));
+    else if (result === 'done' && served) Alert.alert(t('cart.servedAll'));
   }
+
+  /** Customize Your Order's changes: each is done now, or kept on the phone and sent later. */
+  const toOutbox = (cmd: NewCommand, online: () => Promise<void>) => engine.run(cmd, online).then(() => undefined);
+  const lineApi: LineApi = {
+    setStatusQty: (orderId, orderDetailId, status, qty) =>
+      toOutbox(command('setStatus', { orderDetailId, status, qty }), () => api.setStatusQty(orderId, orderDetailId, status, qty)),
+    moveStatus: async (orderId, moves) => {
+      for (const m of moves) {
+        await toOutbox(command('moveStatus', { orderDetailId: m.orderDetailId, from: m.fromStatus, to: m.toStatus, qty: m.qty }), () => api.moveStatus(orderId, [m]));
+      }
+    },
+    updateNote: (orderId, input) => toOutbox(command('setNote', input), () => api.updateNote(orderId, input)),
+    addModifier: (orderId, input) =>
+      input.modifierItemId === 'notes'
+        ? toOutbox(command('setNote', { orderDetailId: input.orderDetailId, notes: input.notes ?? '', price: input.price }), () => api.addModifier(orderId, input))
+        : toOutbox(
+            command('setOption', { orderDetailId: input.orderDetailId, modifierItemId: input.modifierItemId, name: names.get(input.modifierItemId)?.name ?? '?', price: input.price, on: true }),
+            () => api.addModifier(orderId, input),
+          ),
+    removeModifier: (orderId, input) =>
+      toOutbox(
+        command('setOption', {
+          orderDetailId: input.orderDetailId,
+          modifierItemId: input.modifierItemId,
+          name: names.get(input.modifierItemId)?.name ?? '?',
+          price: modifierPrice(names.get(input.modifierItemId) ?? {}),
+          on: false,
+        }),
+        () => api.removeModifier(orderId, input),
+      ),
+    setManualDiscount: (orderId, input) =>
+      toOutbox(command('setDiscount', { orderDetailId: input.itemId, amount: input.amount, discountType: input.discountType }), () => api.setManualDiscount(orderId, input)),
+    addPromotion: (orderId, input) =>
+      toOutbox(command('setPromotion', { orderDetailId: input.itemId, discountId: input.discountId, name: input.name, on: true }), () => api.addPromotion(orderId, input)),
+    removePromotion: (orderId, input) =>
+      toOutbox(command('setPromotion', { orderDetailId: input.itemId, discountId: input.discountId, name: input.name, on: false }), () => api.removePromotion(orderId, input)),
+  };
+
+  /** Discounts for a dish: live, or the copy saved the last time it was loaded online. */
+  const loadPromotions = useCallback((productId: string) => data.promotions(productId).then((r) => r.data), [data]);
 
   function setGuests(count: number) {
     const orderId = table?.order?.orderId;
-    if (orderId) void run(() => api.setGuests(orderId, count));
+    if (!orderId) return;
+    void submit(command('setGuests', { count }), () => api.setGuests(orderId, count));
   }
 
   async function send() {
     await addQueue.current; // include taps still being saved
-    const fresh = await api.table(id).catch(() => table);
-    const order = fresh?.order;
-    const moves = kitchenMoves(order);
-    if (!order || moves.length === 0) return;
-    const ok = await run(() => api.sendToKitchen(order.orderId, moves));
-    if (ok) Alert.alert(t('order.sent'));
+    if (counts.pending < 1 && !engine.getState().online) return;
+    let sent = false;
+    const result = await submit(command('sendToKitchen', {}), async () => {
+      const order = (await api.table(id)).order;
+      const moves = kitchenMoves(order);
+      if (!order || moves.length === 0) return;
+      await api.sendToKitchen(order.orderId, moves);
+      sent = true;
+    });
+    if (result === 'queued') Alert.alert(t('offline.sendQueued'));
+    else if (result === 'done' && sent) Alert.alert(t('order.sent'));
   }
 
   if (!table) {
@@ -186,9 +303,10 @@ export default function TableScreen() {
             {table.table_name}
           </Text>
           <Text style={styles.sub} numberOfLines={1}>
-            {table.order ? t('order.invoice', { no: table.order.invoiceNo }) : t(`tableStatus.${table.status}`)}
+            {table.order ? (table.order.localOnly ? t('offline.notOpened') : t('order.invoice', { no: table.order.invoiceNo })) : t(`tableStatus.${table.status}`)}
           </Text>
         </View>
+        <SyncBadge />
         <Pressable
           onPress={() => setCartOpen(true)}
           accessibilityRole="button"
@@ -203,6 +321,7 @@ export default function TableScreen() {
           ) : null}
         </Pressable>
       </View>
+      {staleAt !== false ? <StaleBanner savedAt={staleAt} /> : null}
 
       {counts.pending > 0 ? (
         <Pressable onPress={() => setCartOpen(true)} style={styles.pendingBar} accessibilityRole="button">
@@ -215,6 +334,7 @@ export default function TableScreen() {
 
       <MenuBrowser
         api={api}
+        data={data}
         warehouseId={warehouseId}
         currency={currency}
         onSelect={(p) => void quickAdd(p)}
@@ -245,6 +365,7 @@ export default function TableScreen() {
         onClose={() => setCartOpen(false)}
         onSetPending={setPending}
         onDelete={remove}
+        onResend={(line, qty) => void resend(line, qty)}
         onSend={() => void send()}
         onServeAll={() => void serveAll()}
         onSetGuests={setGuests}
@@ -257,9 +378,11 @@ export default function TableScreen() {
           product={products.find((p) => p.variantId === openLine.variantId)}
           user={user}
           api={api}
+          lineApi={lineApi}
+          loadPromotions={loadPromotions}
           currency={currency}
           busy={busy}
-          run={run}
+          run={runLine}
           onClose={closeCustomize}
         />
       ) : null}

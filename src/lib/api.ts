@@ -7,6 +7,8 @@ export type ApiErrorKind =
   | 'notConfigured' // the app was started without EXPO_PUBLIC_KHPOS_URL
   | 'network' // no connection, wrong server address, timeout
   | 'invalidCredentials' // wrong username or password
+  | 'offlineNoAccount' // server unreachable and this phone has no saved login for that name
+  | 'locked' // too many wrong passwords typed offline; wait a minute
   | 'unauthorized' // token no longer valid
   | 'forbidden'
   | 'server'; // anything else
@@ -105,6 +107,10 @@ export interface OrderLine {
    * real "sent to kitchen" time; kh-pos never overwrites it.
    */
   kitchenLogs?: { printedAt: string | null }[];
+  /** One entry per "Resend to Kitchen" (who, how many portions), oldest first. */
+  kitchenResends?: { by: string; qty: number; resentAt: string }[];
+  /** App only: made offline and not in kh-pos yet (see lib/offline/overlay.ts). */
+  localOnly?: boolean;
 }
 
 export interface LineDiscount {
@@ -141,6 +147,8 @@ export interface TableOrder {
   /** Number of guests at the table (web: 👤 button). */
   customer?: number | null;
   items?: OrderLine[];
+  /** App only: the order was started offline and has no kh-pos order or invoice number yet. */
+  localOnly?: boolean;
 }
 
 export interface RestaurantTable {
@@ -150,6 +158,8 @@ export interface RestaurantTable {
   section: string | null;
   status: TableStatus;
   order: TableOrder | null;
+  /** App only: changes made on this phone that kh-pos hasn't received yet. */
+  pendingSync?: number;
 }
 
 export interface PosInfo {
@@ -226,6 +236,24 @@ export class KhPosApi {
     if (res.status === 403) throw new ApiError('forbidden', 403, message);
     if (!res.ok || json.success === false) throw new ApiError('server', res.status, message);
     return json as T;
+  }
+
+  /**
+   * Whether kh-pos answers at all: any HTTP response counts (even 401 or a redirect), only a
+   * failed connection or a timeout doesn't. Needs no login, and works on a LAN with no internet.
+   */
+  async ping(timeoutMs = 5_000): Promise<boolean> {
+    if (!this.baseUrl) return false;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      await this.fetchFn(`${this.baseUrl}/api/user/me`, { method: 'GET', signal: controller.signal });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /** Staff login. kh-pos answers a wrong password with HTTP 200 and `{ error }`. */
@@ -378,6 +406,11 @@ export class KhPosApi {
 
   async removeLine(orderId: string, orderDetailId: string): Promise<void> {
     await this.request('DELETE', `/api/pos/order/${encodeURIComponent(orderId)}/remove-item`, { item_id: orderDetailId });
+  }
+
+  /** Prints the line's kitchen ticket again ("Resend to Kitchen" on the web). */
+  async resendToKitchen(orderDetailId: string, qty: number): Promise<void> {
+    await this.request('POST', '/api/print-queue', { orderDetailId, qty, reprint: true });
   }
 
   /** Pending portions → cooking. kh-pos queues the kitchen tickets for the printer itself. */

@@ -3,13 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Animated, Image, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ModifierItem, OrderLine, StaffUser, TableOrder } from '@/lib/api';
-import { can, canDeleteLine } from '@/lib/line';
+import { can, canDeleteLine, sentQty } from '@/lib/line';
 import { initials, splitTitle } from '@/lib/menu';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
 import { activeLines, lineTimes, orderCounts, pendingQty, statusQty } from '@/lib/order';
 import { clock, parseKhPosTime } from '@/lib/time';
 import { Badge, Button, Stepper } from './components';
-import { addedLabel } from './time-label';
+import { addedLabel, agoLabel } from './time-label';
 import { colors, font, radius, space } from './theme';
 
 /**
@@ -29,6 +29,7 @@ export function CartDrawer({
   onClose,
   onSetPending,
   onDelete,
+  onResend,
   onSend,
   onServeAll,
   onSetGuests,
@@ -46,6 +47,8 @@ export function CartDrawer({
   onClose: () => void;
   onSetPending: (line: OrderLine, qty: number) => void;
   onDelete: (line: OrderLine) => void;
+  /** Prints the line's kitchen ticket again (qty = portions already sent). */
+  onResend: (line: OrderLine, qty: number) => void;
   onSend: () => void;
   onServeAll: () => void;
   onSetGuests: (count: number) => void;
@@ -65,6 +68,8 @@ export function CartDrawer({
   const [menu, setMenu] = useState<{ line: OrderLine; x: number; y: number } | null>(null);
   const { height: windowHeight } = useWindowDimensions();
   const [guestDraft, setGuestDraft] = useState<number | null>(null);
+  /** Open "Resend to Kitchen" dialog: the line and how many portions to print again. */
+  const [resendDraft, setResendDraft] = useState<{ line: OrderLine; qty: number } | null>(null);
 
   // Keep the "12 min" waiting times current while the cart is open.
   const [now, setNow] = useState(() => new Date());
@@ -72,6 +77,7 @@ export function CartDrawer({
     if (!visible) {
       setMenu(null);
       setGuestDraft(null);
+      setResendDraft(null);
       return;
     }
     setNow(new Date());
@@ -101,6 +107,13 @@ export function CartDrawer({
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('cart.delete'), style: 'destructive', onPress: () => onDelete(line) },
     ]);
+  }
+
+  function confirmResend(line: OrderLine) {
+    setMenu(null);
+    const qty = sentQty(line);
+    if (qty < 1) return;
+    setResendDraft({ line, qty });
   }
 
   function saveGuests(count: number) {
@@ -150,9 +163,9 @@ export function CartDrawer({
             const image = imageFor(line.variantId);
             const times = lineTimes(line);
             const ordered = addedLabel(t, times.ordered, now);
-            const sent = time(times.sent);
-            const servedAt = time(times.served);
-            const mods = line.orderModifiers ?? [];
+            const sentDate = parseKhPosTime(times.sent);
+            const sentAgo = sentDate ? agoLabel(t, sentDate, now) : null;
+            const servedAt = time(times.served);            const mods = line.orderModifiers ?? [];
             const options = mods.filter((m) => m.modifierItemId !== 'notes');
             const note = mods.find((m) => m.modifierItemId === 'notes');
             return (
@@ -203,11 +216,12 @@ export function CartDrawer({
                   {pending > 0 ? <Badge tone="outline" text={`◌ ${t('customize.pending')} ${pending}`} /> : null}
                   {cooking > 0 ? <Badge tone="warning" text={`◔ ${t('customize.preparing')} ${cooking}`} /> : null}
                   {served > 0 ? <Badge tone="success" text={`✓ ${t('customize.served')} ${served}`} /> : null}
+                  {line.localOnly ? <Badge tone="info" text={t('offline.notSent')} /> : null}
                 </View>
 
                 <View style={styles.times}>
                   {ordered ? <Text style={styles.time}>🕒 {ordered}</Text> : null}
-                  {sent ? <Text style={styles.time}>🍳 {t('cart.sentAt', { time: sent })}</Text> : null}
+                  {sentAgo ? <Text style={styles.timeSent}>🍳 {t('cart.sentAgo', { ago: sentAgo })}</Text> : null}
                   {servedAt ? <Text style={styles.time}>✓ {t('cart.servedAt', { time: servedAt })}</Text> : null}
                 </View>
 
@@ -306,6 +320,39 @@ export function CartDrawer({
         </View>
       </Animated.View>
 
+      {resendDraft ? (
+        <View style={[StyleSheet.absoluteFill, styles.dialogBackdrop]}>
+          <View style={styles.dialog}>
+            <Text style={styles.dialogTitle}>{t('cart.resend')}</Text>
+            <Text style={styles.dialogText}>
+              {t('cart.resendAsk', { name: splitTitle(resendDraft.line.title).name, max: sentQty(resendDraft.line) })}
+            </Text>
+            <View style={styles.dialogQty}>
+              <Text style={styles.lineName}>{t('customize.serveQty')}</Text>
+              <Stepper
+                value={resendDraft.qty}
+                min={1}
+                max={sentQty(resendDraft.line)}
+                onChange={(q) => setResendDraft({ line: resendDraft.line, qty: q })}
+                disabled={busy}
+                editable
+                valueLabel={t('customize.serveQty')}
+              />
+            </View>
+            <Button
+              title={t('cart.resend')}
+              disabled={busy}
+              onPress={() => {
+                const { line, qty } = resendDraft;
+                setResendDraft(null);
+                onResend(line, Math.min(Math.max(1, qty), sentQty(line)));
+              }}
+            />
+            <Button title={t('common.cancel')} variant="outline" onPress={() => setResendDraft(null)} />
+          </View>
+        </View>
+      ) : null}
+
       {menu ? (
         <View style={StyleSheet.absoluteFill}>
           <Pressable style={styles.fill} onPress={() => setMenu(null)} accessibilityLabel={t('common.close')} />
@@ -320,6 +367,18 @@ export function CartDrawer({
           >
             <Text style={styles.menuTitle}>{t('cart.actions')}</Text>
             <View style={styles.menuDivider} />
+            {canSend && sentQty(menu.line) > 0 ? (
+              <>
+                <Pressable
+                  onPress={() => confirmResend(menu.line)}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+                >
+                  <Text style={styles.menuItemText}>🖨  {t('cart.resend')}</Text>
+                </Pressable>
+                <View style={styles.menuDivider} />
+              </>
+            ) : null}
             <Pressable
               onPress={() => confirmDelete(menu.line)}
               accessibilityRole="button"
@@ -337,7 +396,7 @@ export function CartDrawer({
 }
 
 const MENU_WIDTH = 190;
-const MENU_HEIGHT = 92;
+const MENU_HEIGHT = 140;
 
 function ActionButton({
   label,
@@ -459,7 +518,13 @@ const styles = StyleSheet.create({
   menuItemDisabled: { color: colors.mutedForeground },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   times: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.md, rowGap: 2 },
+  dialogBackdrop: { backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: space.lg },
+  dialog: { backgroundColor: colors.background, borderRadius: radius.lg, padding: space.lg, gap: space.md },
+  dialogTitle: { fontSize: font.title, fontWeight: '700', color: colors.foreground, textAlign: 'center' },
+  dialogText: { fontSize: font.small, color: colors.mutedForeground, textAlign: 'center' },
+  dialogQty: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   time: { fontSize: 12, color: colors.mutedForeground },
+  timeSent: { fontSize: 12, color: colors.warning },
   addons: { backgroundColor: colors.muted, borderRadius: radius.md, padding: space.sm, gap: 6 },
   addonsTitle: { fontSize: 11, fontWeight: '600', color: colors.mutedForeground, letterSpacing: 0.5 },
   addon: {

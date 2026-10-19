@@ -1,0 +1,438 @@
+import { ApiError, type KhPosApi, type MenuProduct, type OrderLine } from '../api';
+import { addExtras, addToTable, kitchenMoves, mergeTarget, pendingQty, serveMoves, statusQty } from '../order';
+import type {
+  AddLinePayload,
+  CommandKind,
+  LocalStore,
+  MoveStatusPayload,
+  NewCommand,
+  OutboxCommand,
+  RemoveLinePayload,
+  ResendPayload,
+  SetDiscountPayload,
+  SetGuestsPayload,
+  SetNotePayload,
+  SetOptionPayload,
+  SetPendingPayload,
+  SetPromotionPayload,
+  SetStatusPayload,
+} from './types';
+
+export type EngineApi = Pick<
+  KhPosApi,
+  | 'table'
+  | 'setTableStatus'
+  | 'posInfo'
+  | 'nextInvoiceNumber'
+  | 'createOrder'
+  | 'addLine'
+  | 'addModifier'
+  | 'removeModifier'
+  | 'updateNote'
+  | 'setPendingQty'
+  | 'setStatusQty'
+  | 'moveStatus'
+  | 'setManualDiscount'
+  | 'addPromotion'
+  | 'removePromotion'
+  | 'resendToKitchen'
+  | 'removeLine'
+  | 'setGuests'
+  | 'sendToKitchen'
+  | 'ping'
+>;
+
+type CommandPayloadOf<K extends CommandKind> = OutboxCommand<K>['payload'];
+
+export interface EngineState {
+  /** kh-pos answered the last time it was asked. Starts true: the first failed call flips it. */
+  online: boolean;
+  syncing: boolean;
+  /** Commands of the signed-in staff member, oldest first (pending and failed). */
+  commands: OutboxCommand[];
+  pending: number;
+  failed: number;
+  /** ms since epoch of the last time the outbox was fully replayed (or found empty while online). */
+  lastSyncedAt: number | null;
+  /** Goes up whenever a replay changed kh-pos, so screens know to reload. */
+  syncVersion: number;
+}
+
+const ID_MAP_KEY = 'idmap';
+const PROBE_MS = 8_000;
+
+const isNetwork = (e: unknown) => e instanceof ApiError && e.kind === 'network';
+const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+/**
+ * Keeps the changes made while kh-pos can't be reached and replays them, in order, when it can.
+ *
+ *  - `run` does a change online when kh-pos is reachable and nothing is waiting, and otherwise
+ *    (or when the call fails because of the network) puts it in the outbox.
+ *  - `flush` replays the outbox. A network failure stops it and keeps everything for next time;
+ *    a rejection by kh-pos marks that one command "failed" (kept for the staff to retry or
+ *    discard) and carries on; an expired login stops it without losing anything.
+ *  - Every replay first looks at the table as it is on kh-pos now, so a command that already
+ *    got through (the answer was lost) is not applied twice, and other people's changes made in
+ *    the meantime are kept. kh-pos wins whenever the two disagree.
+ */
+export class SyncEngine {
+  private state: EngineState = { online: true, syncing: false, commands: [], pending: 0, failed: 0, lastSyncedAt: null, syncVersion: 0 };
+  private listeners = new Set<() => void>();
+  private flushing: Promise<void> | null = null;
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private posCache: { posInfo?: Awaited<ReturnType<KhPosApi['posInfo']>> } = {};
+
+  constructor(
+    private readonly api: EngineApi,
+    private readonly store: LocalStore,
+    private readonly now: () => number = Date.now,
+  ) {}
+
+  private uid: string | null = null;
+
+  /** The signed-in staff member (null when signed out): only their changes are shown and replayed. */
+  setUser(userId: string | null): void {
+    this.uid = userId;
+  }
+
+  // ---- state ----
+
+  subscribe = (fn: () => void): (() => void) => {
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
+  };
+
+  getState = (): EngineState => this.state;
+
+  private update(patch: Partial<EngineState>) {
+    this.state = { ...this.state, ...patch };
+    for (const fn of this.listeners) fn();
+  }
+
+  /** Re-reads the outbox from the phone's database. */
+  async refresh(): Promise<void> {
+    const uid = this.uid;
+    const all = await this.store.outboxList();
+    const commands = uid ? all.filter((c) => c.userId === uid) : [];
+    this.update({
+      commands,
+      pending: commands.filter((c) => c.status === 'pending').length,
+      failed: commands.filter((c) => c.status === 'failed').length,
+    });
+  }
+
+  /** Called with the result of every call to kh-pos (see OfflineData) and of the probe. */
+  setOnline(online: boolean): void {
+    if (online === this.state.online) return;
+    this.update({ online });
+    if (online && this.state.pending > 0) void this.flush();
+  }
+
+  // ---- changes ----
+
+  /**
+   * Makes a change. `tryOnline` is the normal call to kh-pos; it is used only when kh-pos is
+   * reachable and no earlier change is waiting (so order is kept). Resolves 'done' or 'queued'.
+   * Errors that aren't network errors (kh-pos said no) are thrown to the caller as before.
+   */
+  async run(cmd: NewCommand, tryOnline: () => Promise<void>): Promise<'done' | 'queued'> {
+    if (this.state.online && this.state.pending === 0 && !this.flushing) {
+      try {
+        await tryOnline();
+        this.setOnline(true);
+        return 'done';
+      } catch (e) {
+        if (!isNetwork(e)) throw e;
+        this.setOnline(false);
+      }
+    }
+    await this.enqueue(cmd);
+    return 'queued';
+  }
+
+  async enqueue(cmd: NewCommand): Promise<void> {
+    await this.store.outboxAdd(cmd);
+    await this.refresh();
+    if (this.state.online) void this.flush();
+  }
+
+  async retry(id: string): Promise<void> {
+    await this.store.outboxUpdate(id, { status: 'pending', error: null });
+    await this.refresh();
+    void this.flush();
+  }
+
+  async retryAll(): Promise<void> {
+    for (const c of this.state.commands.filter((x) => x.status === 'failed')) await this.store.outboxUpdate(c.id, { status: 'pending', error: null });
+    await this.refresh();
+    void this.flush();
+  }
+
+  async discard(id: string): Promise<void> {
+    await this.store.outboxRemove(id);
+    await this.refresh();
+  }
+
+  // ---- replay ----
+
+  flush(): Promise<void> {
+    if (!this.flushing) {
+      this.flushing = this.doFlush().finally(() => {
+        this.flushing = null;
+      });
+    }
+    return this.flushing;
+  }
+
+  private async doFlush(): Promise<void> {
+    const uid = this.uid;
+    if (!uid) return;
+    this.update({ syncing: true });
+    let changed = false;
+    try {
+      for (;;) {
+        const waiting = (await this.store.outboxList()).filter((c) => c.userId === uid && c.status === 'pending');
+        if (waiting.length === 0) break;
+        let stop = false;
+        for (const cmd of waiting) {
+          try {
+            await this.replay(cmd);
+            await this.store.outboxRemove(cmd.id);
+            changed = true;
+            if (!this.state.online) this.update({ online: true });
+          } catch (e) {
+            if (isNetwork(e)) {
+              this.update({ online: false });
+              await this.store.outboxUpdate(cmd.id, { attempts: cmd.attempts + 1 });
+              stop = true;
+              break;
+            }
+            if (e instanceof ApiError && e.kind === 'unauthorized') {
+              stop = true; // login expired: keep everything for after the next login
+              break;
+            }
+            await this.store.outboxUpdate(cmd.id, { status: 'failed', error: messageOf(e), attempts: cmd.attempts + 1 });
+            changed = true;
+          }
+        }
+        if (stop) break;
+      }
+    } finally {
+      await this.refresh();
+      const done = this.state.pending === 0 && this.state.online;
+      this.update({
+        syncing: false,
+        lastSyncedAt: done ? this.now() : this.state.lastSyncedAt,
+        syncVersion: changed ? this.state.syncVersion + 1 : this.state.syncVersion,
+      });
+    }
+  }
+
+  private async replay(cmd: OutboxCommand): Promise<void> {
+    switch (cmd.kind as CommandKind) {
+      case 'addLine':
+        return this.replayAddLine(cmd as OutboxCommand<'addLine'>);
+      case 'setPending':
+        return this.replaySetPending(cmd as OutboxCommand<'setPending'>);
+      case 'removeLine':
+        return this.replayRemoveLine(cmd as OutboxCommand<'removeLine'>);
+      case 'setGuests':
+        return this.replaySetGuests(cmd as OutboxCommand<'setGuests'>);
+      case 'sendToKitchen':
+        return this.replaySend(cmd as OutboxCommand<'sendToKitchen'>);
+      case 'setStatus':
+        return this.replayOnLine(cmd as OutboxCommand<'setStatus'>, (order, id, p: SetStatusPayload) => this.api.setStatusQty(order, id, p.status, p.qty));
+      case 'moveStatus':
+        return this.replayMove(cmd as OutboxCommand<'moveStatus'>);
+      case 'serveAll':
+        return this.replayServeAll(cmd as OutboxCommand<'serveAll'>);
+      case 'setNote':
+        return this.replayNote(cmd as OutboxCommand<'setNote'>);
+      case 'setOption':
+        return this.replayOption(cmd as OutboxCommand<'setOption'>);
+      case 'setDiscount':
+        return this.replayOnLine(cmd as OutboxCommand<'setDiscount'>, (order, id, p: SetDiscountPayload) =>
+          this.api.setManualDiscount(order, { itemId: id, amount: p.amount, discountType: p.discountType }),
+        );
+      case 'setPromotion':
+        return this.replayPromotion(cmd as OutboxCommand<'setPromotion'>);
+      case 'resend':
+        return this.replayOnLine(cmd as OutboxCommand<'resend'>, (_order, id, p: ResendPayload) => this.api.resendToKitchen(id, p.qty));
+    }
+  }
+
+  /**
+   * Finds the order line a command is about on kh-pos now (following the local-id map) and runs
+   * `action` on it. Fails, to be shown as "needs attention", if the order or line is gone.
+   */
+  private async onLine<P extends { orderDetailId: string }, T>(
+    cmd: OutboxCommand,
+    p: P,
+    action: (orderId: string, id: string, line: OrderLine) => Promise<T>,
+  ): Promise<T> {
+    const id = (await this.idMap())[p.orderDetailId] ?? p.orderDetailId;
+    const order = (await this.api.table(cmd.tableId)).order;
+    if (!order) throw new Error('The table has no open order any more.');
+    const line = (order.items ?? []).find((l) => l.orderDetailId === id);
+    if (!line) throw new Error('The item is not on the order any more.');
+    return action(order.orderId, id, line);
+  }
+
+  private replayOnLine<K extends CommandKind>(cmd: OutboxCommand<K>, action: (orderId: string, id: string, payload: CommandPayloadOf<K>) => Promise<void>): Promise<void> {
+    const p = cmd.payload as unknown as { orderDetailId: string };
+    return this.onLine(cmd, p, (orderId, id) => action(orderId, id, cmd.payload as CommandPayloadOf<K>));
+  }
+
+  private async replayMove(cmd: OutboxCommand<'moveStatus'>): Promise<void> {
+    const p: MoveStatusPayload = cmd.payload;
+    await this.onLine(cmd, p, async (orderId, id, line) => {
+      const now = statusQty(line, p.from);
+      const b = p.baseline;
+      if (b && now <= b.fromBefore - p.qty) return; // an earlier attempt already moved them
+      if (!b) {
+        cmd.payload = { ...p, baseline: { fromBefore: now } };
+        await this.store.outboxUpdate(cmd.id, { payload: cmd.payload });
+      }
+      if (now < p.qty) throw new Error('There are not enough portions to move any more.');
+      await this.api.moveStatus(orderId, [{ orderDetailId: id, fromStatus: p.from, toStatus: p.to, qty: p.qty }]);
+    });
+  }
+
+  private async replayServeAll(cmd: OutboxCommand<'serveAll'>): Promise<void> {
+    const order = (await this.api.table(cmd.tableId)).order;
+    const moves = serveMoves(order);
+    if (!order || moves.length === 0) return; // nothing preparing (already served)
+    await this.api.moveStatus(order.orderId, moves);
+  }
+
+  private async replayNote(cmd: OutboxCommand<'setNote'>): Promise<void> {
+    const p: SetNotePayload = cmd.payload;
+    await this.onLine(cmd, p, async (orderId, id, line) => {
+      const has = (line.orderModifiers ?? []).some((m) => m.modifierItemId === 'notes');
+      if (has) await this.api.updateNote(orderId, { orderDetailId: id, notes: p.notes, price: p.price });
+      else await this.api.addModifier(orderId, { orderDetailId: id, modifierItemId: 'notes', price: p.price, notes: p.notes });
+    });
+  }
+
+  private async replayOption(cmd: OutboxCommand<'setOption'>): Promise<void> {
+    const p: SetOptionPayload = cmd.payload;
+    await this.onLine(cmd, p, async (orderId, id, line) => {
+      const has = (line.orderModifiers ?? []).some((m) => m.modifierItemId === p.modifierItemId);
+      if (p.on && !has) await this.api.addModifier(orderId, { orderDetailId: id, modifierItemId: p.modifierItemId, price: p.price });
+      else if (!p.on && has) await this.api.removeModifier(orderId, { orderDetailId: id, modifierItemId: p.modifierItemId });
+    });
+  }
+
+  private async replayPromotion(cmd: OutboxCommand<'setPromotion'>): Promise<void> {
+    const p: SetPromotionPayload = cmd.payload;
+    await this.onLine(cmd, p, async (orderId, id, line) => {
+      const has = (line.discounts ?? []).some((d) => d.discountId === p.discountId);
+      if (p.on && !has) await this.api.addPromotion(orderId, { itemId: id, discountId: p.discountId });
+      else if (!p.on && has) await this.api.removePromotion(orderId, { itemId: id, discountId: p.discountId });
+    });
+  }
+
+  /** Local line id → the line it really is on kh-pos (they differ when a dish was merged). */
+  private async idMap(): Promise<Record<string, string>> {
+    return (await this.store.getCache<Record<string, string>>(ID_MAP_KEY))?.value ?? {};
+  }
+
+  private async mapId(local: string, real: string): Promise<void> {
+    if (local === real) return;
+    await this.store.setCache(ID_MAP_KEY, { ...(await this.idMap()), [local]: real });
+  }
+
+  private async replayAddLine(cmd: OutboxCommand<'addLine'>): Promise<void> {
+    const p: AddLinePayload = cmd.payload;
+    const fresh = await this.api.table(cmd.tableId);
+    const note = p.note.trim();
+
+    // Already there: an earlier attempt got through but its answer was lost. Only make sure the
+    // options and note made it too.
+    const existing = (fresh.order?.items ?? []).find((l) => l.orderDetailId === p.lineId);
+    if (existing && fresh.order) {
+      const have = new Set((existing.orderModifiers ?? []).map((m) => m.modifierItemId));
+      const missing = p.options.filter((o) => !have.has(o.id));
+      await addExtras(this.api, fresh.order.orderId, p.lineId, missing, have.has('notes') ? '' : note);
+      return;
+    }
+
+    const plain = p.options.length === 0 && !note;
+    const target = plain ? mergeTarget(fresh.order, p.product, p.capEnabled) : null;
+    if (target) {
+      const b = p.baseline;
+      if (b && b.targetId === target.orderDetailId && pendingQty(target) >= b.pendingBefore + p.qty) {
+        await this.mapId(p.lineId, target.orderDetailId); // an earlier attempt already raised it
+        return;
+      }
+      if (!b || b.targetId !== target.orderDetailId) {
+        cmd.payload = { ...p, baseline: { targetId: target.orderDetailId, pendingBefore: pendingQty(target) } };
+        await this.store.outboxUpdate(cmd.id, { payload: cmd.payload });
+      }
+    }
+
+    const id = await addToTable(
+      this.api,
+      { table: fresh, warehouseId: p.warehouseId, product: p.product as MenuProduct, qty: p.qty, options: p.options, note, capEnabled: p.capEnabled },
+      () => p.lineId,
+      this.posCache,
+    );
+    await this.mapId(p.lineId, id);
+  }
+
+  private async replaySetPending(cmd: OutboxCommand<'setPending'>): Promise<void> {
+    const p: SetPendingPayload = cmd.payload;
+    const id = (await this.idMap())[p.orderDetailId] ?? p.orderDetailId;
+    const order = (await this.api.table(cmd.tableId)).order;
+    if (!order) throw new Error('The table has no open order any more.');
+    if (!(order.items ?? []).some((l) => l.orderDetailId === id)) throw new Error('The item is not on the order any more.');
+    await this.api.setPendingQty(order.orderId, id, p.qty);
+  }
+
+  private async replayRemoveLine(cmd: OutboxCommand<'removeLine'>): Promise<void> {
+    const p: RemoveLinePayload = cmd.payload;
+    const id = (await this.idMap())[p.orderDetailId] ?? p.orderDetailId;
+    const order = (await this.api.table(cmd.tableId)).order;
+    if (!order || !(order.items ?? []).some((l) => l.orderDetailId === id)) return; // already gone
+    await this.api.removeLine(order.orderId, id);
+  }
+
+  private async replaySetGuests(cmd: OutboxCommand<'setGuests'>): Promise<void> {
+    const p: SetGuestsPayload = cmd.payload;
+    const order = (await this.api.table(cmd.tableId)).order;
+    if (!order) throw new Error('The table has no open order any more.');
+    await this.api.setGuests(order.orderId, p.count);
+  }
+
+  private async replaySend(cmd: OutboxCommand<'sendToKitchen'>): Promise<void> {
+    const order = (await this.api.table(cmd.tableId)).order;
+    const moves = kitchenMoves(order);
+    if (!order || moves.length === 0) return; // nothing pending (already sent)
+    await this.api.sendToKitchen(order.orderId, moves);
+  }
+
+  // ---- background ----
+
+  /** Starts checking for kh-pos every few seconds while something is waiting or it's offline. */
+  start(): void {
+    if (this.timer) return;
+    void this.tick();
+    this.timer = setInterval(() => void this.tick(), PROBE_MS);
+  }
+
+  stop(): void {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+  }
+
+  /** One check: is kh-pos there, and if so send what is waiting. Also what "Sync now" does. */
+  async tick(): Promise<void> {
+    if (!this.uid) return;
+    await this.refresh();
+    if (this.state.online && this.state.pending === 0) return;
+    const ok = await this.api.ping();
+    this.setOnline(ok);
+    if (ok && this.state.pending > 0) await this.flush();
+  }
+}

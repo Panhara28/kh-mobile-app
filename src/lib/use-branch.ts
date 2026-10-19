@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toCurrencyCode, type CurrencyCode } from './money';
+import { useOffline } from './offline/provider';
 import { useSession } from './session';
 import { discountCapEnabled, pickSetting } from './settings';
 
@@ -8,7 +9,8 @@ import { discountCapEnabled, pickSetting } from './settings';
  * "max quantity per line" discount cap is on (affects adding the same dish again).
  */
 export function useBranch(): { warehouseId: string; currency: CurrencyCode; capEnabled: boolean } {
-  const { api, user } = useSession();
+  const { user } = useSession();
+  const { data, state } = useOffline();
   const warehouseId = user?.currentWarehouseId ?? '';
   const [currency, setCurrency] = useState<CurrencyCode>('USD');
   const [capEnabled, setCapEnabled] = useState(true);
@@ -16,9 +18,10 @@ export function useBranch(): { warehouseId: string; currency: CurrencyCode; capE
   useEffect(() => {
     if (!warehouseId) return;
     let cancelled = false;
-    api
+    // Saved settings are used when kh-pos can't be reached, so the currency stays right offline.
+    data
       .settings(warehouseId)
-      .then((s) => {
+      .then(({ data: s }) => {
         if (cancelled) return;
         setCurrency(toCurrencyCode(pickSetting(s, 'CURRENCY', warehouseId)));
         setCapEnabled(discountCapEnabled(pickSetting(s, 'ORDER_DISCOUNT_RULES', warehouseId)));
@@ -27,7 +30,7 @@ export function useBranch(): { warehouseId: string; currency: CurrencyCode; capE
     return () => {
       cancelled = true;
     };
-  }, [api, warehouseId]);
+  }, [data, warehouseId, state.online]);
 
   return { warehouseId, currency, capEnabled };
 }
