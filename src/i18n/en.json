@@ -316,7 +316,8 @@
     "purchaseOrders": "Purchase orders",
     "replenishment": "Replenishment",
     "stockCounting": "Stock counting",
-    "promotionSets": "Promotion sets"
+    "promotionSets": "Promotion sets",
+    "roles": "Roles and access"
   },
   "range": {
     "today": "Today",
@@ -727,5 +728,19 @@
     "error_dates": "The end date is before the start date.",
     "error_dateFormat": "Dates look like 2026-01-31.",
     "error_timeFormat": "Hours look like 17:00."
+  },
+  "roles": {
+    "new": "New role",
+    "empty": "No roles.",
+    "count": "{{count}} areas",
+    "name": "Role name",
+    "all": "All",
+    "action_read": "View",
+    "action_create": "Add",
+    "action_update": "Edit",
+    "action_delete": "Delete",
+    "error_name": "Enter a role name.",
+    "error_long": "The role name can be 50 characters at most.",
+    "error_none": "Give the role access to at least one area."
   }
 }

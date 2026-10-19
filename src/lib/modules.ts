@@ -36,6 +36,7 @@ export const MODULES: AppModule[] = [
   { id: 'report-expiry', route: '/report/expiry', resource: 'expiry', icon: '⏳', titleKey: 'reports.expiry', group: 'reports' },
   { id: 'products', route: '/products', resource: 'product', icon: '🍜', titleKey: 'more.products', group: 'setup' },
   { id: 'account', route: '/account', resource: null, icon: '👤', titleKey: 'more.account', group: 'daily' },
+  { id: 'roles', route: '/roles', resource: 'accessibility', icon: '🔐', titleKey: 'more.roles', group: 'setup' },
   { id: 'users', route: '/users', resource: 'users', icon: '👥', titleKey: 'more.users', group: 'setup' },
   { id: 'branches', route: '/branches', resource: 'warehouse', icon: '🏪', titleKey: 'more.branches', group: 'setup' },
   { id: 'settings', route: '/settings', resource: 'setting', icon: '⚙️', titleKey: 'more.settings', group: 'setup' },
