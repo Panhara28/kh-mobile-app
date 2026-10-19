@@ -1,4 +1,4 @@
-import { createRepBody, itemName, receiveBody, remaining, repQuery, repTone, repTotals, validateRep, type RepItem } from './replenishment';
+import { suggestedLines, createRepBody, itemName, receiveBody, remaining, repQuery, repTone, repTotals, validateRep, type RepItem } from './replenishment';
 
 const item = (over: Partial<RepItem> = {}): RepItem => ({ id: 'd1', sentQty: 10, cost: 2, receivedQty: 4, ...over });
 const lines = [{ variantId: 'v1', name: 'Rice', sentQty: 3, cost: 1.5 }, { variantId: 'v2', name: 'Oil', sentQty: 2, cost: 4 }];
@@ -53,5 +53,17 @@ describe('display helpers', () => {
   it('builds the list query', () => {
     expect(repQuery({ limit: 30, offset: 0 })).toBe('limit=30&offset=0');
     expect(repQuery({ status: 'draft', limit: 10, offset: 20 })).toBe('limit=10&offset=20&status=draft');
+  });
+});
+
+describe('suggestions', () => {
+  const s = (over = {}) => ({ id: 'v1', name: 'Bag', basicProduct: { title: 'Flour' }, stock: 2, sourceStock: 50, lowStockQty: 5, idealStockQty: 20, purchasedCost: 1.5, ...over });
+  it('tops up to the ideal level, limited by what this branch has', () => {
+    expect(suggestedLines([s()])).toEqual([{ variantId: 'v1', name: 'Flour (Bag)', sentQty: 18, cost: 1.5 }]);
+    expect(suggestedLines([s({ sourceStock: 4 })])[0]!.sentQty).toBe(4);
+  });
+  it('uses the low level when no ideal is set and skips what cannot be sent', () => {
+    expect(suggestedLines([s({ idealStockQty: null })])[0]!.sentQty).toBe(3);
+    expect(suggestedLines([s({ sourceStock: 0 }), s({ stock: 30 })])).toEqual([]);
   });
 });

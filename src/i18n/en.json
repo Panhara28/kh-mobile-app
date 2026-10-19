@@ -685,7 +685,9 @@
     "status_deleted": "Deleted",
     "error_to": "Choose another branch to send to.",
     "error_lines": "Add at least one item.",
-    "error_qty": "Every item needs a quantity."
+    "error_qty": "Every item needs a quantity.",
+    "suggest": "Suggest what the branch needs",
+    "noSuggestion": "Nothing to suggest for this branch."
   },
   "stockops": {
     "mode_count": "Count",

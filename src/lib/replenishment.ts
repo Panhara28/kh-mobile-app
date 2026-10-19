@@ -101,3 +101,37 @@ export function repQuery(f: { status?: RepStatus; limit: number; offset: number 
   if (f.status) q.set('status', f.status);
   return q.toString();
 }
+
+// ---- suggestions (GET /api/replenishment/suggest?fromWarehouseId=) ----
+
+export interface SuggestItem {
+  id: string;
+  name?: string | null;
+  basicProduct?: { title?: string | null } | null;
+  stock: number;
+  sourceStock: number;
+  lowStockQty: number | null;
+  idealStockQty: number | null;
+  purchasedCost: number | null;
+}
+
+export interface SuggestGroup {
+  name: string;
+  warehouseId: string;
+  items: SuggestItem[];
+}
+
+/**
+ * Lines to send to a branch that is low on stock: up to its ideal level (or its low level when no
+ * ideal is set), never more than this branch has, items that would be 0 left out.
+ */
+export function suggestedLines(items: SuggestItem[]): RepLine[] {
+  return items.flatMap((i) => {
+    const target = n(i.idealStockQty) > 0 ? n(i.idealStockQty) : n(i.lowStockQty);
+    const qty = Math.floor(Math.min(target - n(i.stock), n(i.sourceStock)));
+    if (!(qty > 0)) return [];
+    const title = i.basicProduct?.title ?? '';
+    const variant = i.name && i.name !== 'ns' ? i.name : '';
+    return [{ variantId: i.id, name: [title, variant && title ? `(${variant})` : variant].filter(Boolean).join(' ') || '?', sentQty: qty, cost: n(i.purchasedCost) }];
+  });
+}

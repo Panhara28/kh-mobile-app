@@ -9,7 +9,7 @@ import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import type { BranchRow, SlotRow } from '@/lib/org';
-import { createRepBody, itemName, receiveBody, remaining, repTone, repTotals, validateRep, type RepDetail, type RepLine, type RepPick } from '@/lib/replenishment';
+import { suggestedLines, type SuggestGroup, createRepBody, itemName, receiveBody, remaining, repTone, repTotals, validateRep, type RepDetail, type RepLine, type RepPick } from '@/lib/replenishment';
 import { useSession } from '@/lib/session';
 import { Badge, Button, Card, Chip, Input } from '@/ui/components';
 import { NumberField } from '@/ui/form-fields';
@@ -84,6 +84,25 @@ export default function ReplenishmentScreen() {
     });
   }
 
+  /** Fills the lines with what the chosen branch is low on (from kh-pos's suggestion). */
+  function suggest() {
+    if (!toId) {
+      setProblem('to');
+      return;
+    }
+    guard(async () => {
+      try {
+        const r = await api.call<{ result?: SuggestGroup[] }>('GET', `/api/replenishment/suggest?fromWarehouseId=${encodeURIComponent(warehouseId)}`);
+        const group = (r.result ?? []).find((g) => g.warehouseId === toId);
+        const lines2 = suggestedLines(group?.items ?? []);
+        if (lines2.length === 0) Alert.alert(t('rep.noSuggestion'));
+        else setLines(lines2);
+      } catch (e) {
+        Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
+      }
+    });
+  }
+
   function create(status: 'draft' | 'approved') {
     const bad = validateRep({ fromWarehouseId: warehouseId, toWarehouseId: toId, lines });
     if (bad) {
@@ -137,6 +156,7 @@ export default function ReplenishmentScreen() {
               </Card>
             ))}
             {problem === 'lines' || problem === 'qty' ? <Text style={styles.error}>{t(`rep.error_${problem}`)}</Text> : null}
+            <Button title={t('rep.suggest')} variant="outline" onPress={suggest} />
             <Button title={`+ ${t('po.addItem')}`} variant="outline" onPress={() => setPicking(true)} />
 
             <Card style={styles.card}>
