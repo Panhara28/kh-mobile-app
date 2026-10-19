@@ -104,7 +104,7 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 | Product groups | `ecd4232` | Name, branches and products of a group; add, edit, delete |
 | Products, 100% of the web module | `029e7a4` | The full Add/Edit form and the full Product page; see [PRODUCTS.md](PRODUCTS.md) |
 | Categories, 100% of the web module | `5ec5930` | Picture upload, products for sale count, printer, sort, delivery fee, For Sale enable/disable, branch rules; see [CATEGORIES.md](CATEGORIES.md) |
-| Modifiers, 100% of the web module | (this commit) | Option rows with prices, totals, Applies to Products; works around a kh-pos update bug; see [MODIFIERS.md](MODIFIERS.md) |
+| Modifiers, 100% of the web module | `5a1b6f8` | Option rows with prices, totals, Applies to Products; works around a kh-pos update bug; see [MODIFIERS.md](MODIFIERS.md) |
 
 **Offline, per module.** Ordering at tables (including checkout, shifts, discounts, order type) works offline and is sent later, as above. Every other module **reads** from the saved copy offline and **needs the server to save**: it says so instead of failing. Retail POS and cinema ticket sale need the server to charge, because the stock, the seats taken and the invoice number come from kh-pos.
 
