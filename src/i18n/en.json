@@ -314,7 +314,8 @@
     "backlog": "Backlog",
     "customers": "Customers",
     "purchaseOrders": "Purchase orders",
-    "replenishment": "Replenishment"
+    "replenishment": "Replenishment",
+    "stockCounting": "Stock counting"
   },
   "range": {
     "today": "Today",
@@ -671,5 +672,28 @@
     "error_to": "Choose another branch to send to.",
     "error_lines": "Add at least one item.",
     "error_qty": "Every item needs a quantity."
+  },
+  "stockops": {
+    "mode_count": "Count",
+    "mode_in": "Stock in",
+    "mode_out": "Stock out",
+    "mode_move": "Move",
+    "pickProduct": "Choose a product",
+    "slot": "Slot",
+    "fromSlot": "From slot",
+    "toSlot": "To slot",
+    "inSlot": "In this slot: {{count}}",
+    "noStock": "No stock in this slot.",
+    "noLot": "No lot",
+    "counted": "Counted",
+    "difference": "Difference {{diff}}",
+    "useLot": "Take from this lot",
+    "available": "Available: {{count}}",
+    "check": "Check the quantities and slots first.",
+    "done": "Done.",
+    "do_count": "Save count",
+    "do_in": "Add stock",
+    "do_out": "Remove stock",
+    "do_move": "Move stock"
   }
 }
