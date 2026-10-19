@@ -63,3 +63,10 @@ export function countByStatus(rows: Pick<ReservationRow, 'status'>[]): Record<Re
   for (const r of rows) out[r.status] += 1;
   return out;
 }
+
+/** Looking a ticket up by its code or by the customer's phone number (GET /api/cinema/reservation/code). */
+export function lookupQuery(kind: 'code' | 'phone', text: string): string | null {
+  const v = text.trim();
+  if (!v) return null;
+  return new URLSearchParams(kind === 'code' ? { code: v } : { customerPhone: v }).toString();
+}

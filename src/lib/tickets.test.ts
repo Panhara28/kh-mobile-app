@@ -1,4 +1,4 @@
-import { admitBody, canAdmit, countByStatus, filmName, matchCode, reservationQuery, seatLabel, statusTone, type ReservationRow } from './tickets';
+import { lookupQuery, admitBody, canAdmit, countByStatus, filmName, matchCode, reservationQuery, seatLabel, statusTone, type ReservationRow } from './tickets';
 
 const r = (over: Partial<ReservationRow> = {}): ReservationRow => ({ id: 'r1', showtimeId: 's1', status: 'confirmed', price: 5, code: 'AB-12', seat: { row: 'C', column: 7 }, showtime: { variant: [{ name: 'ns', basicProduct: { title: 'Film' } }] }, ...over });
 
@@ -27,5 +27,13 @@ describe('tickets', () => {
     expect([statusTone('admitted'), statusTone('confirmed'), statusTone('pending'), statusTone('expired')]).toEqual(['success', 'info', 'warning', 'destructive']);
     expect(reservationQuery({ limit: 50, offset: 0 })).toBe('limit=50&offset=0');
     expect(reservationQuery({ date: '2026-10-19', status: 'confirmed', limit: 50, offset: 50 })).toBe('limit=50&offset=50&date=2026-10-19&status=confirmed');
+  });
+});
+
+describe('looking a ticket up', () => {
+  it('searches by code or by phone, and not by nothing', () => {
+    expect(lookupQuery('code', ' AB-12 ')).toBe('code=AB-12');
+    expect(lookupQuery('phone', '012 345')).toBe('customerPhone=012+345');
+    expect(lookupQuery('code', '  ')).toBeNull();
   });
 });

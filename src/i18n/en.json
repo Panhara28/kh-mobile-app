@@ -329,7 +329,8 @@
     "settlement": "Producer settlement",
     "tableLayout": "Table floor plan",
     "ticketSale": "Sell cinema tickets",
-    "halls": "Cinema halls"
+    "halls": "Cinema halls",
+    "digitalTicket": "Digital tickets"
   },
   "range": {
     "today": "Today",
@@ -918,5 +919,13 @@
     "error_rows": "Rows must be from 1 to 26.",
     "error_columns": "Columns must be from 1 to 40.",
     "error_seats": "Add at least one seat."
+  },
+  "digital": {
+    "byCode": "By code",
+    "byPhone": "By phone",
+    "codeHint": "Ticket code",
+    "phoneHint": "Customer phone number",
+    "search": "Search",
+    "none": "No ticket found."
   }
 }
