@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,6 +27,9 @@ import { orderTypeBody, servedTypeOf, type CustomerRow, type ServedType } from '
 import { ReceiptSheet } from '@/ui/receipt-sheet';
 import { CustomizeLine, type LineApi } from '@/ui/customize-line';
 import { MenuBrowser } from '@/ui/menu-browser';
+import { PromotionPicker } from '@/ui/promotion-picker';
+import { buildLines, defaultChoices, type PromotionSet, needsChoice, unavailable, visibleSets, type PromotionLine, type PromotionSlot, type SummaryLabels, type VisibleSet } from '@/lib/promotion-set';
+import { ApiError } from '@/lib/api';
 import { ProductSheet, type ProductChoice } from '@/ui/product-sheet';
 import { errorKind, ErrorState, LoadingState } from '@/ui/states';
 import { StaleBanner, SyncBadge } from '@/ui/sync-status';
@@ -67,6 +70,9 @@ export default function TableScreen() {
   const [transferTables, setTransferTables] = useState<RestaurantTable[] | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [products, setProducts] = useState<MenuProduct[]>([]);
+  const [promoSets, setPromoSets] = useState<VisibleSet[]>([]);
+  const [promoBusy, setPromoBusy] = useState<string | null>(null);
+  const [promoPick, setPromoPick] = useState<{ title: string; slots: PromotionSlot[] } | null>(null);
   /** Taps queued but not yet saved, per variant: shown at once on the badges. */
   const [queued, setQueued] = useState<Map<string, number>>(new Map());
   const posInfoCache = useRef<{ posInfo?: PosInfo }>({});
@@ -100,6 +106,29 @@ export default function TableScreen() {
     }, [load, syncVersion, online]),
   );
 
+  // the sets running at this branch (the saved copy offline); re-checked every minute for happy hours
+  useEffect(() => {
+    let live = true;
+    let all: PromotionSet[] = [];
+    const refresh = () => live && setPromoSets(visibleSets(all, toKhPosTime(new Date())));
+    data.promotionSets(warehouseId).then(
+      (r) => {
+        all = r.data;
+        refresh();
+      },
+      () => undefined,
+    );
+    const timer = setInterval(refresh, 60_000);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [data, warehouseId, online]);
+
+  const promoLabels: SummaryLabels = useMemo(
+    () => ({ free: t('promo.free'), percentOff: (v) => `-${v}%`, amountOff: (v) => t('promo.amountOff', { value: `${currency === 'KHR' ? '៛' : '$'}${v}` }) }),
+    [t, currency],
+  );
   const names = useMemo(() => modifierNames(products), [products]);
   const counts = orderCounts(table?.order);
   const queuedTotal = [...queued.values()].reduce((a, b) => a + b, 0);
@@ -171,6 +200,46 @@ export default function TableScreen() {
     });
     addQueue.current = job;
     return job;
+  }
+
+  /** Adds the lines of a promotion set one after another; kh-pos works out the promotion price. */
+  async function addPromotionLines(lines: PromotionLine[]) {
+    for (const l of lines) await quickAdd(l.product as MenuProduct, { qty: l.quantity, options: [], note: '' });
+  }
+
+  /** Tap on a promotion card: the products for each slot come from kh-pos, then the set is added (after a pick when a slot has options). */
+  function addPromotion(entry: VisibleSet) {
+    const { promotion } = entry;
+    if (entry.availability === 'waiting') {
+      Alert.alert(entry.startsAt ? t('promo.notStarted', { title: promotion.title, time: entry.startsAt }) : t('promo.notStartedNoTime', { title: promotion.title }));
+      return;
+    }
+    if (!online) {
+      Alert.alert(t('offline.needsConnection'));
+      return;
+    }
+    void (async () => {
+      setPromoBusy(promotion.id);
+      try {
+        const slots = await api.promotionChoices(promotion.id);
+        if (unavailable(slots)) {
+          Alert.alert(t('promo.unavailable', { title: promotion.title }));
+        } else if (needsChoice(slots)) {
+          setPromoPick({ title: promotion.title, slots });
+        } else {
+          const lines = buildLines(slots, defaultChoices(slots));
+          if (lines) {
+            await addPromotionLines(lines);
+            Alert.alert(t('promo.added', { title: promotion.title }));
+          }
+        }
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 409) Alert.alert(t('promo.notStartedNoTime', { title: promotion.title }));
+        else Alert.alert(t('promo.loadFailed'));
+      } finally {
+        setPromoBusy(null);
+      }
+    })();
   }
 
   /** A change that can wait: done now when kh-pos is reachable, otherwise kept and sent later. */
@@ -518,7 +587,25 @@ export default function TableScreen() {
         onLongSelect={setProduct}
         inCart={inCart}
         onProducts={setProducts}
+        promotions={promoSets}
+        onPromotion={addPromotion}
+        promotionBusyId={promoBusy}
       />
+      {promoPick ? (
+        <PromotionPicker
+          title={promoPick.title}
+          slots={promoPick.slots}
+          labels={promoLabels}
+          currency={currency}
+          imageFor={(c) => api.imageUrl(c.images?.[0]?.url)}
+          onCancel={() => setPromoPick(null)}
+          onAdd={(lines) => {
+            const title = promoPick.title;
+            setPromoPick(null);
+            void addPromotionLines(lines).then(() => Alert.alert(t('promo.added', { title })));
+          }}
+        />
+      ) : null}
 
       <ProductSheet
         product={product}

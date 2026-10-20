@@ -1,4 +1,5 @@
 import { ApiError, type Category, type KhPosApi, type MenuProduct, type MenuQuery, type PaymentMethod, type PosInfo, type PromotionOption, type RestaurantTable, type Setting, type Shift } from '../api';
+import type { PromotionSet } from '../promotion-set';
 import { filterMenu } from './menu-local';
 import type { LocalStore } from './types';
 
@@ -163,6 +164,11 @@ export class OfflineData {
   /** Discounts that can be applied to a dish. Offline only for dishes whose list was loaded before. */
   promotions(productId: string): Promise<Loaded<PromotionOption[]>> {
     return this.read(this.key('promotions', productId), () => this.api.promotionsFor(productId));
+  }
+
+  /** Promotion sets for the menu. The saved copy shows them offline, but adding one needs the server. */
+  promotionSets(warehouseId: string): Promise<Loaded<PromotionSet[]>> {
+    return this.read(this.key('promotionsets', warehouseId), () => this.api.promotionSets(warehouseId));
   }
 
   posInfo(warehouseId: string): Promise<Loaded<PosInfo>> {

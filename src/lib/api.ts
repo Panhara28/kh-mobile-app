@@ -4,6 +4,7 @@
  */
 
 import { getDeviceHeaders } from './device-headers';
+import type { PromotionSet, PromotionSlot } from './promotion-set';
 import { stripSecrets } from './redact';
 import { orderQuery, type OrderFilter, type OrderRow, type ReturnInput } from './orders';
 import type { TransferBody } from './transfer';
@@ -517,6 +518,18 @@ export class KhPosApi {
 
   async setManualDiscount(orderId: string, input: { itemId: string; amount: number; discountType: 'PERCENTAGE' | 'AMOUNT' }): Promise<void> {
     await this.request('PUT', `/api/pos/order/${encodeURIComponent(orderId)}/promotion`, [input]);
+  }
+
+  /** Promotion sets running (or waiting for their happy hour) at this branch. */
+  async promotionSets(warehouseId: string): Promise<PromotionSet[]> {
+    const json = await this.request<{ result?: PromotionSet[] }>('GET', `/api/promotion-set/active?warehouseId=${encodeURIComponent(warehouseId)}`);
+    return json.result ?? [];
+  }
+
+  /** The menu products that can fill each slot of a set. Refused with 409 "notActive" outside its hours. */
+  async promotionChoices(id: string): Promise<PromotionSlot[]> {
+    const json = await this.request<{ result?: PromotionSlot[] }>('GET', `/api/promotion-set/${encodeURIComponent(id)}/choices`);
+    return json.result ?? [];
   }
 
   async promotionsFor(productId: string): Promise<PromotionOption[]> {

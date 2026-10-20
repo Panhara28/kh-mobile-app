@@ -14,7 +14,9 @@ Phone: `app/tables.tsx` (the table list), `app/table/[id].tsx` (a table's order)
 | Table setup: add / edit / delete / generate tables; floor plan | `Table setup` and `Table layout` under More > Setup (need `table`) |
 | Orders list: New Order, Open (a draft at its table), Undo returns to the table | Back in Orders for roles that have `restaurant` |
 
+**Promotion sets (added after the restore).** The menu has a "Promotions" chip, and the cards come first under "All" (not while searching), like the web. A card shows the set's title, its items with rewards ("2 x Beer (free)"), the daily hours, and "Starts hh:mm" while it waits for its happy hour (it can't be tapped then). Tapping a running set asks kh-pos for the products of each slot (`/api/promotion-set/:id/choices`); with one option per slot it adds the lines at once, otherwise a picker asks for the slots with several options. Slots that land on the same product are merged (6 + 2 beer = 8). The lines are added one after another like normal taps and kh-pos works out the promotion price. Needs the server to add (the sets list is kept for offline viewing). Checked live (read only): 3 sets running at The Mood, slots resolve to one product each, lines come out as `8 x Beer + 1 x meat`. Nothing was added to an order.
+
 **Not on the phone (known gaps):**
-- **Promotion sets** (the "Promotions" cards on the web menu: a combo is added in one tap, with a picker when a slot has several choices). The phone adds normal items only, so combos can't be sold from the phone. Discounts and the order-level rules the server applies still show in totals.
 - Table QR codes and the invoice QR, "Open second window", the animated add-to-cart.
 - Retail POS (`pos`) is still removed.
+- The "See what's included" details dialog of the customer menu (that is the customer-facing menu, not the cashier POS).
