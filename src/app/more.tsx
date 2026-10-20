@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GROUP_ORDER, visibleModules } from '@/lib/modules';
+import { GROUP_ORDER, sortByLabel, visibleModules } from '@/lib/modules';
 import { useOffline } from '@/lib/offline/provider';
 import { pickSetting } from '@/lib/settings';
 import type { Setting } from '@/lib/api';
@@ -14,7 +14,7 @@ import { colors, font, radius, shadow, space } from '@/ui/theme';
 
 /** Everything the staff member's role can open, grouped, like the kh-pos web menu. */
 export default function MoreScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useSession();
   const { data } = useOffline();
   const warehouseId = user?.currentWarehouseId ?? '';
@@ -33,8 +33,12 @@ export default function MoreScreen() {
         <SyncBadge />
       </View>
       <ScrollView contentContainerStyle={styles.content}>
-        {GROUP_ORDER.map((group) => {
-          const items = modules.filter((m) => m.group === group);
+        {sortByLabel([...GROUP_ORDER], (g) => t(`more.group_${g}`), i18n.language).map((group) => {
+          const items = sortByLabel(
+            modules.filter((m) => m.group === group),
+            (m) => t(m.titleKey),
+            i18n.language,
+          );
           if (items.length === 0) return null;
           return (
             <View key={group} style={styles.group}>

@@ -1,6 +1,6 @@
 import type { StaffUser } from './api';
 import { can } from './line';
-import { homeRoute, MODULES, visibleModules } from './modules';
+import { homeRoute, MODULES, sortByLabel, visibleModules } from './modules';
 
 const user = (role: string, permissions: Record<string, string> = {}) => ({ id: 'u', role: { role, permissions } }) as unknown as StaffUser;
 
@@ -50,5 +50,13 @@ describe('where the app opens', () => {
     expect(homeRoute(user('Supervisor', { shift: 'read' }))).toBe('/shift');
     expect(homeRoute(user('Nobody', {}))).toBe('/more');
     expect(homeRoute(null)).toBe('/more');
+  });
+});
+
+describe('sortByLabel', () => {
+  it('sorts A to Z by label without changing the list it was given', () => {
+    const items = [{ n: 'Suppliers' }, { n: 'Orders' }, { n: 'Products' }];
+    expect(sortByLabel(items, (i) => i.n).map((i) => i.n)).toEqual(['Orders', 'Products', 'Suppliers']);
+    expect(items[0]!.n).toBe('Suppliers');
   });
 });

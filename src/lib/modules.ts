@@ -74,3 +74,8 @@ export function homeRoute(user: StaffUser | null | undefined): string {
   const first = visibleModules(user).find((m) => m.resource !== null && !m.setting);
   return first ? first.route : '/more';
 }
+
+/** Sorts items A to Z by their (already translated) label, in the app's language. */
+export function sortByLabel<T>(items: T[], label: (item: T) => string, locale?: string): T[] {
+  return [...items].sort((a, b) => label(a).localeCompare(label(b), locale));
+}
