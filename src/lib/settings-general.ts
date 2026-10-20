@@ -123,7 +123,8 @@ export function generateCategories(rows: SettingRow[], isDevOrMain: boolean): Se
   if (type !== 'CINEMA') items = items.filter((r) => !CINEMA_ONLY.includes(r.option ?? ''));
   const options = Array.from(new Set(items.map((r) => r.option).filter((o): o is string => !!o)));
   const shown = isDevOrMain ? options : options.filter((o) => !MAIN_OR_DEV_ONLY.includes(o));
-  return shown.map((option) => ({ id: option.toLowerCase().replace(/_/g, '-'), label: getSettingConfig(option).label, option }));
+  // the web sidebar lists them A to Z by label
+  return shown.map((option) => ({ id: option.toLowerCase().replace(/_/g, '-'), label: getSettingConfig(option).label, option })).sort((a, b) => a.label.localeCompare(b.label));
 }
 
 export function settingsForCategory(rows: SettingRow[], category: SettingCategory | undefined): SettingRow[] {

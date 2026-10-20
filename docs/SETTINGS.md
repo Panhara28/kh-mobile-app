@@ -14,7 +14,7 @@ Same as the web: every setting option is a category; the saved text of each sett
 
 | Web | Phone |
 |---|---|
-| Category list from the options in `GET /api/setting` (this branch's rows plus the shared ones) | Same list, a tap opens the editor |
+| Category list from the options in `GET /api/setting` (this branch's rows plus the shared ones), sorted A to Z by label | Same list and order, a tap opens the editor |
 | Restaurant sections (Print Server, Table Shape, Table Selection) only when TYPE_POS is Restaurant; Print Socket only for Cinema | Same |
 | Currency and Exchange Rate only on the main branch (or a developer) | Same |
 | A branch row can be edited anywhere, the shared (all branches) row only on the main branch | Same; each row is labelled "This branch" or "All branches" and says why it is read only |

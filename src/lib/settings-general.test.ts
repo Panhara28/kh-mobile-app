@@ -39,8 +39,8 @@ describe('categories', () => {
   const base = [row(1, 'CURRENCY', 'USD'), row(2, 'EXCHANGE_RATE', '4100'), row(3, 'PRINT_SERVER', '{}'), row(4, 'PRINT_SOCKET', '{}'), row(5, 'TABLE_SHAPE', '[]'), row(6, 'TYPE_POS', '{"system_type":"MART"}'), row(7, 'BRAND', '{}')];
 
   it('hides the restaurant and cinema sections for a mart, and currency off the main branch', () => {
-    expect(generateCategories(base, true).map((c) => c.option)).toEqual(['CURRENCY', 'EXCHANGE_RATE', 'TYPE_POS', 'BRAND']);
-    expect(generateCategories(base, false).map((c) => c.option)).toEqual(['TYPE_POS', 'BRAND']);
+    expect(generateCategories(base, true).map((c) => c.option)).toEqual(['BRAND', 'CURRENCY', 'EXCHANGE_RATE', 'TYPE_POS']);
+    expect(generateCategories(base, false).map((c) => c.option)).toEqual(['BRAND', 'TYPE_POS']);
   });
 
   it('shows the restaurant sections for a restaurant and the socket for a cinema', () => {
@@ -57,6 +57,8 @@ describe('categories', () => {
       { id: 'brand', label: 'Brand', option: 'BRAND' },
       { id: 'order-discount-rules', label: 'Order Discount Rules', option: 'ORDER_DISCOUNT_RULES' },
     ]);
+    // listed A to Z by label, like the web sidebar, whatever order the server sends
+    expect(generateCategories([row(1, 'TYPE_POS'), row(2, 'BRAND'), row(3, 'ACCESSIBILITY')], true).map((c) => c.label)).toEqual(['Accessibility', 'Brand', 'Type POS']);
     expect(settingsForCategory([row(1, 'BRAND'), row(2, 'BRAND', '', 'w1'), row(3, 'X')], cats[0])).toHaveLength(2);
   });
 
