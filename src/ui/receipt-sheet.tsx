@@ -1,5 +1,5 @@
-import * as Print from 'expo-print';
 import { useTranslation } from 'react-i18next';
+import { printReceipt } from '@/lib/print';
 import { Alert, Modal, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { splitTitle } from '@/lib/menu';
@@ -42,7 +42,8 @@ export function ReceiptSheet({ receipt, onClose }: { receipt: Receipt | null; on
 
   async function print() {
     try {
-      await Print.printAsync({ html: receiptHtml(receipt!, labels) });
+      const r = await printReceipt(receiptHtml(receipt!, labels));
+      if (r.noPrinter) Alert.alert(t('receipt.noPrinter'));
     } catch (e) {
       Alert.alert(t('receipt.printFailed'), e instanceof Error ? e.message : undefined);
     }

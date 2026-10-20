@@ -1,4 +1,4 @@
-import * as Print from 'expo-print';
+import { printReceipt } from '@/lib/print';
 import { useTranslation } from 'react-i18next';
 import { Alert, Modal, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,7 +34,8 @@ export function useShiftLabels(): ShiftLabels {
 export async function printShift(shift: Shift, labels: ShiftLabels, failed: string) {
   const lines = shiftLines(shift, (v) => formatMoney(v, 'USD'), (v) => formatMoney(v, 'KHR'), labels);
   try {
-    await Print.printAsync({ html: shiftReceiptHtml(labels.title, lines) });
+    const r = await printReceipt(shiftReceiptHtml(labels.title, lines));
+    if (r.noPrinter) Alert.alert(failed);
   } catch (e) {
     Alert.alert(failed, e instanceof Error ? e.message : undefined);
   }

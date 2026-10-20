@@ -5,6 +5,8 @@ import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import i18n, { isLanguage, type Language } from '@/i18n';
 import { DEFAULT_PRINT_URL, isValidPrintUrl, passwordChecks, passwordFormValid, passwordStrength, type PrintMethod } from '@/lib/account';
+import { testConnection } from '@/lib/print-server';
+import { ScanPrintUrl } from '@/ui/scan-print-url';
 import { loadDevice, saveDeviceLabel, savePrinterName, savePrintMethod, savePrintUrl, type DeviceSettings } from '@/lib/device';
 import { can } from '@/lib/line';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
@@ -13,36 +15,6 @@ import { useShift } from '@/lib/use-shift';
 import { Button, Card, Field, Segmented } from '@/ui/components';
 import { ScreenHeader } from '@/ui/screen-header';
 import { colors, font, radius, space } from '@/ui/theme';
-
-/** Tries the print server address: the connection opens, or it does not within 4 seconds. */
-function testPrintServer(url: string): Promise<{ ok: boolean; message: string }> {
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = (ok: boolean, message: string) => {
-      if (done) return;
-      done = true;
-      resolve({ ok, message });
-    };
-    try {
-      const ws = new WebSocket(url);
-      const timer = setTimeout(() => {
-        ws.close();
-        finish(false, 'timeout');
-      }, 4000);
-      ws.onopen = () => {
-        clearTimeout(timer);
-        ws.close();
-        finish(true, 'connected');
-      };
-      ws.onerror = () => {
-        clearTimeout(timer);
-        finish(false, 'error');
-      };
-    } catch {
-      finish(false, 'error');
-    }
-  });
-}
 
 /**
  * The profile menu of the web app on the phone: who you are, Open / Close Shift, Change Password
@@ -64,6 +36,7 @@ export default function AccountScreen() {
   const [printer, setPrinter] = useState('');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [scanning, setScanning] = useState(false);
   const language: Language = isLanguage(i18n.language) ? i18n.language : 'km';
 
   useEffect(() => {
@@ -133,7 +106,7 @@ export default function AccountScreen() {
     }
     setTesting(true);
     setTestResult(null);
-    setTestResult(await testPrintServer(url.trim()));
+    setTestResult(await testConnection(url.trim()));
     setTesting(false);
   }
 
@@ -205,11 +178,13 @@ export default function AccountScreen() {
           <Field label="ws://" value={url} onChangeText={(v) => { setUrl(v); setTestResult(null); }} autoCapitalize="none" autoCorrect={false} placeholder={DEFAULT_PRINT_URL} />
           {!isValidPrintUrl(url) && url.trim() ? <Text style={styles.error}>{t('account.urlInvalid')}</Text> : null}
           <View style={styles.row}>
+            <Button title={`▦ ${t('account.scan')}`} variant="outline" size="sm" onPress={() => setScanning(true)} />
             <Button title={testing ? t('account.testing') : t('account.test')} variant="outline" size="sm" disabled={testing || !isValidPrintUrl(url)} onPress={() => void test()} />
             <Button title={t('customize.save')} size="sm" disabled={!isValidPrintUrl(url)} onPress={() => void saveUrl()} />
             <Button title={t('account.reset')} variant="outline" size="sm" onPress={() => void resetUrl()} />
           </View>
-          {testResult ? <Text style={{ color: testResult.ok ? colors.success : colors.destructive, fontSize: font.small, fontWeight: '600' }}>{testResult.ok ? '✓ ' : '✕ '}{t(`account.test_${testResult.message}`)}</Text> : null}
+          {testResult ? <Text style={{ color: testResult.ok ? colors.success : colors.destructive, fontSize: font.small, fontWeight: '600' }}>{testResult.ok ? '✓ ' : '✕ '}{testResult.message}</Text> : null}
+          {scanning ? <ScanPrintUrl onCancel={() => setScanning(false)} onDone={(u) => { setUrl(u); setTestResult(null); setScanning(false); Alert.alert(t('account.scanned')); }} /> : null}
 
           <Text style={styles.heading2}>{t('account.receiptPrinting')}</Text>
           <Text style={styles.muted}>{t('account.receiptHint')}</Text>

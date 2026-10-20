@@ -261,7 +261,8 @@
     "share": "Share",
     "print": "Print",
     "done": "Done",
-    "printFailed": "Couldn't print"
+    "printFailed": "Couldn't print",
+    "noPrinter": "No printer is chosen for the print server, so the phone print dialog was used."
   },
   "shift": {
     "title": "Shift",
@@ -990,7 +991,16 @@
     "method_browser": "Phone print",
     "method_server": "Print server",
     "printerName": "Printer name",
-    "pickPrinter": "Enter the printer name, or receipts will use the phone print dialog."
+    "pickPrinter": "Enter the printer name, or receipts will use the phone print dialog.",
+    "scan": "Scan",
+    "scanTitle": "Scan print server QR",
+    "scanHint": "Open the print app on the printer PC and point the camera at the QR code on its Device Connection card.",
+    "scanNoCamera": "The camera is not allowed. Allow it, or paste the address below.",
+    "scanAllow": "Allow camera",
+    "scanPaste": "No camera? Paste the URL shown on the print app instead:",
+    "scanUse": "Use",
+    "scanNotUrl": "That is not a ws:// or wss:// print-server address",
+    "scanned": "Scanned - review the address, then Save"
   },
   "settings": {
     "value": "Value"
@@ -1953,7 +1963,10 @@
     "token": "Token",
     "tokenHidden": "Token hidden",
     "entryCount": "Entries: {{count}}",
-    "addIntegration": "Add integration"
+    "addIntegration": "Add integration",
+    "testPrint": "Print",
+    "testSent": "Test sent",
+    "testFailed": "Test failed"
   },
   "delivery": {
     "name": "Delivery Name",

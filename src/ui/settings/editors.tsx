@@ -42,7 +42,9 @@ import {
   type ServerPrinter,
   type SettingType,
 } from '@/lib/settings-general';
+import { loadDevice } from '@/lib/device';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { productLotTestJob, sendJob, ticketTestJob } from '@/lib/print-server';
 import { useSession } from '@/lib/session';
 import { Button, Chip, Field } from '@/ui/components';
 import { uploadBase64 } from '@/ui/product-form/images-section';
@@ -78,6 +80,23 @@ function SwitchRow({ label, value, onChange, disabled }: { label: string; value:
       <Switch value={value} onValueChange={onChange} disabled={disabled} />
     </Row>
   );
+}
+
+/** The "Print" test buttons of the web: send a sample job to this phone's print server (Profile > Print & Device Settings). */
+function TestPrint({ makeJob, disabled }: { makeJob: () => string; disabled?: boolean }) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  async function run() {
+    setBusy(true);
+    try {
+      const device = await loadDevice();
+      const r = await sendJob(device.printUrl, makeJob());
+      Alert.alert(r.ok ? t('sg.testSent') : t('sg.testFailed'), r.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return <Button title={t('sg.testPrint')} variant="outline" size="sm" loading={busy} disabled={disabled} onPress={() => void run()} />;
 }
 
 function Hint({ text }: { text: string }) {
@@ -212,6 +231,7 @@ export function InventoryEditor({ value, onChange, disabled }: EditorProps) {
   return (
     <View style={styles.stack}>
       <Field label={t('sg.printerName')} value={v.print_name} onChangeText={(s) => onChange(JSON.stringify({ ...v, print_name: s }))} editable={!disabled} placeholder="Cashier Printer" />
+      <TestPrint makeJob={() => productLotTestJob(v.print_name)} disabled={!v.print_name.trim()} />
       <SwitchRow label={v.restrict_product_lot ? t('sg.restrictLotOn') : t('sg.restrictLotOff')} value={v.restrict_product_lot} onChange={(b) => onChange(JSON.stringify({ ...v, restrict_product_lot: b }))} disabled={disabled} />
     </View>
   );
@@ -438,6 +458,7 @@ export function PrintSocketEditor({ value, onChange, disabled }: EditorProps) {
     <View style={styles.stack}>
       <Field label={t('sg.socketUrl')} value={v.url} onChangeText={(s) => emit({ ...v, url: s })} editable={!disabled} autoCapitalize="none" placeholder="ws://localhost:8181" />
       <PrinterFields p={v.printers} onChange={(n) => emit({ ...v, printers: { ...v.printers, ...n } })} disabled={disabled} />
+      <TestPrint makeJob={() => ticketTestJob(v.printers, { date: new Date().toDateString(), time: new Date().toLocaleTimeString() })} />
       <Field label={t('sg.printServerIp')} value={v.print_server_ip} onChangeText={(s) => emit({ ...v, print_server_ip: s })} editable={!disabled} autoCapitalize="none" placeholder="192.168.1.100:8080" />
     </View>
   );
