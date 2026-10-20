@@ -4,6 +4,7 @@
  */
 
 import { getDeviceHeaders } from './device-headers';
+import { parseCleanEvents, type CleanEvent } from './clean-dummy';
 import type { PromotionSet, PromotionSlot } from './promotion-set';
 import { stripSecrets } from './redact';
 import { orderQuery, type OrderFilter, type OrderRow, type ReturnInput } from './orders';
@@ -325,6 +326,11 @@ export class KhPosApi {
     private readonly timeoutMs = 20_000,
   ) {}
 
+  /** The login token, for the one place that needs to hand it to a page of kh-pos itself (the invoice preview). */
+  get token(): string | null {
+    return this.getToken();
+  }
+
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     if (!this.baseUrl) throw new ApiError('notConfigured', undefined, 'No server address (EXPO_PUBLIC_KHPOS_URL)');
     const headers: Record<string, string> = { ...getDeviceHeaders() };
@@ -362,6 +368,43 @@ export class KhPosApi {
     if (!res.ok || json.success === false) throw new ApiError('server', res.status, message);
     // the login answer is the one place a token is wanted; everywhere else other people's tokens are dropped
     return (path === '/api/auth/login' ? json : stripSecrets(json)) as T;
+  }
+
+  /**
+   * Runs "Clean up dummy data" (`POST /api/setting/clean`) and hands over each progress event as it arrives (the
+   * answer is a stream, which the ordinary request cannot read piece by piece). Throws if kh-pos can't be reached
+   * or refuses; a stream that ends without a final event is for the caller to call a failure.
+   */
+  async cleanDummy(onEvent: (e: CleanEvent) => void): Promise<void> {
+    if (!this.baseUrl) throw new ApiError('notConfigured', undefined, 'No server address (EXPO_PUBLIC_KHPOS_URL)');
+    const { fetch: streamFetch } = await import('expo/fetch');
+    const headers: Record<string, string> = { ...getDeviceHeaders(), 'Content-Type': 'application/json' };
+    const token = this.getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    let res: Awaited<ReturnType<typeof streamFetch>>;
+    try {
+      res = await streamFetch(`${this.baseUrl}/api/setting/clean`, { method: 'POST', headers, body: '{}' });
+    } catch (e) {
+      throw new ApiError('network', undefined, e instanceof Error ? e.message : String(e));
+    }
+    if (res.status === 401) throw new ApiError('unauthorized', 401);
+    if (res.status === 403) throw new ApiError('forbidden', 403);
+    if (!res.ok || !res.body) throw new ApiError('server', res.status, 'Unexpected response from server');
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await reader.read();
+      } catch (e) {
+        throw new ApiError('network', undefined, e instanceof Error ? e.message : String(e));
+      }
+      if (chunk.done) break;
+      const parsed = parseCleanEvents(buffer + decoder.decode(chunk.value, { stream: true }));
+      buffer = parsed.rest;
+      for (const e of parsed.events) onEvent(e);
+    }
   }
 
   /**

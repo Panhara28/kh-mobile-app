@@ -49,6 +49,8 @@ import { productLotTestJob, sendJob, ticketTestJob } from '@/lib/print-server';
 import { useSession } from '@/lib/session';
 import { Button, Chip, Field } from '@/ui/components';
 import { QrSheet } from '@/ui/qr-sheet';
+import { CleanDummySheet } from './clean-dummy-sheet';
+import { InvoicePreview } from './invoice-preview';
 import { uploadBase64 } from '@/ui/product-form/images-section';
 import { colors, font, radius, space } from '@/ui/theme';
 
@@ -212,6 +214,25 @@ export function AccountingEditor({ value, onChange, disabled }: EditorProps) {
   return <SwitchRow label={value === '1' ? t('sg.enabled') : t('sg.disabled')} value={value === '1'} onChange={(v) => onChange(v ? '1' : '0')} disabled={disabled} />;
 }
 
+/** The web's "Clean up dummy data": asks first, then runs the purge and shows its progress. Not offline: it runs at kh-pos. */
+function CleanDummy() {
+  const { t } = useTranslation();
+  const guard = useOnlineOnly();
+  const [open, setOpen] = useState(false);
+  function ask() {
+    Alert.alert(t('sg.purgeAskTitle'), t('sg.purgeAsk'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('sg.purgeRun'), style: 'destructive', onPress: () => guard(() => setOpen(true)) },
+    ]);
+  }
+  return (
+    <>
+      <Button title={t('sg.purgeButton')} variant="outline" size="sm" onPress={ask} />
+      {open ? <CleanDummySheet onClose={() => setOpen(false)} /> : null}
+    </>
+  );
+}
+
 export function TypePosEditor({ value, onChange, disabled }: EditorProps) {
   const { t } = useTranslation();
   const v = parseTypePos(value);
@@ -223,6 +244,7 @@ export function TypePosEditor({ value, onChange, disabled }: EditorProps) {
       {v.system_type === 'MART' || v.system_type === 'CINEMA' ? (
         <SwitchRow label={v.shared_order_draft ? t('sg.sharedDraftOn') : t('sg.sharedDraftOff')} value={v.shared_order_draft} onChange={(b) => emit({ ...v, shared_order_draft: b })} disabled={disabled} />
       ) : null}
+      <CleanDummy />
     </View>
   );
 }
@@ -270,6 +292,9 @@ export function InvoiceEditor({ value, onChange, disabled }: EditorProps) {
   return (
     <View style={styles.stack}>
       <Choice label={t('sg.template')} options={INVOICE_TEMPLATES} value={v.template} onChange={(s) => emit({ template: s })} disabled={disabled} />
+      <Text style={styles.label}>{t('sg.preview')}</Text>
+      <InvoicePreview value={value} />
+      <Hint text={t('sg.previewHint')} />
       <ImageBox label={t('sg.logo')} url={v.logoUrl} onChange={(u) => emit({ logoUrl: stripCommas(u) })} disabled={disabled} />
       <Field label={t('sg.invoiceTitle')} value={v.title} onChangeText={(s) => emit({ title: stripCommas(s) })} editable={!disabled} placeholder={t('sg.invoiceTitle')} />
       <Hint text={t('sg.noComma')} />

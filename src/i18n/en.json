@@ -1977,7 +1977,20 @@
     "copyLink": "Copy Link",
     "linkCopied": "Menu link has been copied to clipboard",
     "showQr": "QR Code",
-    "savedOffline": "Saved on this phone. It will be sent when the connection is back."
+    "savedOffline": "Saved on this phone. It will be sent when the connection is back.",
+    "purgeButton": "Clean up dummy data",
+    "purgeTitle": "Database Purge Pipeline",
+    "purgeHint": "Running secure cascading drops on tables flagged with temporary testing metadata.",
+    "purgeAskTitle": "Clean up dummy data?",
+    "purgeAsk": "This permanently deletes the orders, order lines, payments, shifts and kitchen logs that were made in testing mode at this branch. It cannot be undone.",
+    "purgeRun": "Delete test data",
+    "purge_idle": "idle",
+    "purge_running": "running",
+    "purge_completed": "completed",
+    "purge_failed": "failed",
+    "preview": "Invoice preview",
+    "previewHint": "This is kh-pos' own receipt with a sample order, as the web shows it. It changes as you edit.",
+    "previewOffline": "The invoice preview needs the server."
   },
   "delivery": {
     "name": "Delivery Name",
