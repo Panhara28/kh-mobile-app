@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -10,7 +11,7 @@ import { canEditSetting, generateCategories, getSettingConfig, settingsForCatego
 import { useSettingRows } from '@/lib/use-setting-rows';
 import { Badge, Button, Card } from '@/ui/components';
 import { ScreenHeader } from '@/ui/screen-header';
-import { AccessibilityNotice, renderEditor } from '@/ui/settings/editors';
+import { renderEditor } from '@/ui/settings/editors';
 import { EmptyState, ErrorState, LoadingState } from '@/ui/states';
 import { StaleBanner } from '@/ui/sync-status';
 import { colors, font, radius, space } from '@/ui/theme';
@@ -61,7 +62,7 @@ function SettingEditor({ row, isMain, onSaved }: { row: SettingRow; isMain: bool
         <Badge tone={row.warehouse ? 'info' : 'default'} text={row.warehouse ? t('sg.thisBranch') : t('sg.allBranches')} />
         {!mayEdit ? <Text style={styles.muted}>{t(row.warehouse ? 'sg.noPermission' : 'sg.mainOnly')}</Text> : null}
       </View>
-      {editor ?? <AccessibilityNotice />}
+      {editor ?? <Button title={t('acc.open')} variant="outline" onPress={() => router.push('/accessibility' as never)} />}
       {editor && mayEdit ? <Button title={t('sg.save')} onPress={save} loading={busy} disabled={!changed} /> : null}
     </Card>
   );

@@ -607,11 +607,6 @@ export function IntegrationEditor({ value, onChange, disabled }: EditorProps) {
   );
 }
 
-export function AccessibilityNotice() {
-  const { t } = useTranslation();
-  return <Hint text={t('sg.accessibilityLater')} />;
-}
-
 /** The editor the web would show for this kind of setting (null when the phone has none). */
 export function renderEditor(type: SettingType, p: EditorProps): ReactNode {
   switch (type) {

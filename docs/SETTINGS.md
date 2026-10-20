@@ -28,7 +28,6 @@ Same as the web: every setting option is a category; the saved text of each sett
 
 ## Differences (not on the phone)
 
-- **Accessibility** (roles and permissions) is listed but opens a note: it is the roles editor and goes with the Users section later.
 - **Type POS: "Clean up dummy data"** (deletes test data on the server) is not on the phone on purpose.
 - **Type POS side effect:** on Save the web creates a "movies" category when the type becomes Cinema and tries to delete one with a placeholder id otherwise. The phone only saves the setting. (The web delete uses `"movies-category-id"`, which looks like an unfinished placeholder.)
 - **Test print buttons** (Inventory printer, Print Socket ticket, Invoice preview) are not on the phone: it has no print-server client yet. The invoice template picker has no live preview.
@@ -76,3 +75,19 @@ Checked against `payment-list.tsx`, `sheet-payment.tsx` and `/api/payment/method
 | List: #, method, created date; add, rename, delete (asked first) | Same |
 
 **Difference:** the phone refuses an empty method name (it would make a blank checkout button).
+
+## Accessibility (roles and permissions)
+
+Checked against the web source (`accessiblity/index.tsx`, `role-card.tsx`, `permission-components.tsx`, `add-role-sheet.tsx`, `resource-selector.tsx`, `use-accessibility-layout.ts`, `utils.tsx`) and `/api/user/role` (GET, POST, PUT). Phone: `app/accessibility.tsx` (General > Accessibility > Open), `ui/accessibility/permission-list.tsx`, `lib/accessibility.ts`. **Not checked against the live server this time (Docker was not running); the data format is the one the earlier live check of `/api/user/role` showed.**
+
+| Web | Phone |
+|---|---|
+| One card per role; opening one closes the others; "Modified" while there are unsaved changes | Same |
+| Per resource: Allow create / update / delete / read switches; Read is always on and can't be turned off | Same, in the web's order |
+| Switches need `update` on `accessibility`; the remove button needs `delete`; adding a resource or a role needs `create` | Same |
+| Remove a resource from a role (shows "Removed ... permissions") | Same |
+| Add a resource from the full list (A to Z, only ones the role lacks); it starts with every action on | Same, as tappable chips |
+| Save Changes / Cancel (only when modified); saves `{id, role, permissions}` with `PUT /api/user/role` | Same |
+| Add Role: name (1 to 50 letters) and permissions, `POST /api/user/role` | Same |
+
+**Differences:** the web has descriptions for 9 resources and a default line for the rest; the phone has the same (translated). The web's typed `resource:action` box (`handleAddPermission`) is not shown on the web screen, so it is not on the phone. Role names can't be renamed or deleted here, as on the web. Saving needs the server.
