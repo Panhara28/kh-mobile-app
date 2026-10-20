@@ -19,7 +19,7 @@ export default function PaymentMethodsScreen() {
       load: async () => numbered((await api.paymentMethods()) as MethodItem[]),
       rowKey: (r) => r.method_id,
       rowTitle: (r) => r.method ?? r.method_id,
-      rowSubtitle: (r) => [`#${r.no}`, createdText(r)].filter(Boolean).join(' · '),
+      rowSubtitle: (r) => [r.no ? `#${r.no}` : '', createdText(r)].filter(Boolean).join(' · '),
       searchText: (r) => r.method ?? '',
       emptyForm: emptyMethodForm,
       toForm: methodFormOf,
@@ -29,6 +29,14 @@ export default function PaymentMethodsScreen() {
       update: (r, f) => api.call('PUT', '/api/payment/method', methodBody(f, r)),
       remove: (r) => api.call('DELETE', '/api/payment/method', { id: r.method_id }),
       deleteMessage: (r) => t('paymentMethods.deleteAsk', { name: r.method ?? '' }),
+      // add, rename and delete are kept on the phone and sent when kh-pos can be reached (the server takes the id made here)
+      offline: {
+        entity: 'payment-method',
+        clientId: true,
+        create: (f, id) => ({ method: 'POST', path: '/api/payment/method', body: methodBody(f, { method_id: id, method: null }), label: f.method.trim(), row: { method_id: id, method: f.method.trim(), created_at: null, no: 0 } }),
+        update: (r, f) => ({ method: 'PUT', path: '/api/payment/method', body: methodBody(f, r), label: f.method.trim(), row: { method: f.method.trim() } }),
+        remove: (r) => ({ method: 'DELETE', path: '/api/payment/method', body: { id: r.method_id }, label: r.method ?? '' }),
+      },
     }),
     [api, t],
   );

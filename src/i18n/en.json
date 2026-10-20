@@ -220,7 +220,11 @@
     "cmdOpenShift": "Open the shift",
     "cmdCloseShift": "Close the shift",
     "cmdCheckout": "Pay and complete the order",
-    "needsConnection": "This needs a connection to the KH POS server. Try again when you are back online."
+    "needsConnection": "This needs a connection to the KH POS server. Try again when you are back online.",
+    "cmdRecord_create": "Add {{name}}",
+    "cmdRecord_update": "Save changes to {{name}}",
+    "cmdRecord_delete": "Delete {{name}}",
+    "syncFailed": "Not saved - see sync"
   },
   "checkout": {
     "title": "Payment",

@@ -3,6 +3,7 @@ import type {
   AddLinePayload,
   MoveStatusPayload,
   OutboxCommand,
+  RecordPayload,
   ResendPayload,
   SetGuestsPayload,
   SetOptionPayload,
@@ -56,6 +57,10 @@ export function describeCommand(c: OutboxCommand): { key: string; params: Record
       return { key: 'offline.cmdCloseShift', params: {} };
     case 'checkout':
       return { key: 'offline.cmdCheckout', params: {} };
+    case 'record': {
+      const p = c.payload as RecordPayload;
+      return { key: `offline.cmdRecord_${p.op}`, params: { name: p.label } };
+    }
     case 'resend':
       return { key: 'offline.cmdResend', params: { qty: (c.payload as ResendPayload).qty } };
   }

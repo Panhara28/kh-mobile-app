@@ -47,6 +47,7 @@ export type EngineApi = Pick<
   | 'setGuests'
   | 'sendToKitchen'
   | 'ping'
+  | 'call'
 >;
 
 type CommandPayloadOf<K extends CommandKind> = OutboxCommand<K>['payload'];
@@ -270,6 +271,8 @@ export class SyncEngine {
         return this.replayCloseShift(cmd as OutboxCommand<'closeShift'>);
       case 'checkout':
         return this.replayCheckout(cmd as OutboxCommand<'checkout'>);
+      case 'record':
+        return this.replayRecord(cmd as OutboxCommand<'record'>);
       case 'resend':
         return this.replayOnLine(cmd as OutboxCommand<'resend'>, (_order, id, p: ResendPayload) => this.api.resendToKitchen(id, p.qty));
     }
@@ -295,6 +298,20 @@ export class SyncEngine {
   private replayOnLine<K extends CommandKind>(cmd: OutboxCommand<K>, action: (orderId: string, id: string, payload: CommandPayloadOf<K>) => Promise<void>): Promise<void> {
     const p = cmd.payload as unknown as { orderDetailId: string };
     return this.onLine(cmd, p, (orderId, id) => action(orderId, id, cmd.payload as CommandPayloadOf<K>));
+  }
+
+  /**
+   * Sends a saved setup change as it is. kh-pos' answer decides: a rejection makes the command "failed" for the
+   * staff to see. An add that already got through (the answer was lost) is answered "already exists" and counts as done.
+   */
+  private async replayRecord(cmd: OutboxCommand<'record'>): Promise<void> {
+    const p = cmd.payload;
+    try {
+      await this.api.call(p.method, p.path, p.body);
+    } catch (e) {
+      if (p.op === 'create' && /duplicate|already exist/i.test(messageOf(e))) return;
+      throw e;
+    }
   }
 
   private async replayMove(cmd: OutboxCommand<'moveStatus'>): Promise<void> {

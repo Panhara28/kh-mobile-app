@@ -4,7 +4,11 @@ import { Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressabl
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { can } from '@/lib/line';
 import { useCachedLoad } from '@/lib/offline/use-cached-load';
+import { isUnsent, type RecordRequest } from '@/lib/offline/records';
+import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
+import * as Crypto from 'expo-crypto';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useOffline } from '@/lib/offline/provider';
 import { useSession } from '@/lib/session';
 import { Badge, Button, Card, Field, Input } from './components';
 import { NumberField, OptionField, TagsField } from './form-fields';
@@ -52,6 +56,19 @@ export interface EntityConfig<Row, F> {
   headerActions?: ReactNode;
   /** Text for the delete confirmation. */
   deleteMessage?: (r: Row) => string;
+  /**
+   * Saves that wait for kh-pos when it can't be reached (add, edit and delete are kept on the phone and sent later).
+   * Without this the screen needs kh-pos for every save.
+   */
+  offline?: {
+    entity: string;
+    /** The request of an add; `id` is made on the phone. `row` is the record as it should look on the list. */
+    create?: (form: F, id: string) => Omit<RecordRequest, 'entity' | 'op' | 'recordId'> & { row: Row };
+    update?: (row: Row, form: F) => Omit<RecordRequest, 'entity' | 'op' | 'recordId'> & { row: Partial<Row> };
+    remove?: (row: Row) => Omit<RecordRequest, 'entity' | 'op' | 'recordId' | 'row'>;
+    /** Whether the server accepts an id made on the phone for an add (then the new row can be edited at once). */
+    clientId?: boolean;
+  };
   /** A small picture on the left of each row. */
   rowImage?: (r: Row) => string | null | undefined;
   /** Extra content above / below the fields of the add and edit form (a picture, a list of branches ...). */
@@ -76,6 +93,10 @@ export function EntityScreen<Row, F extends Record<string, unknown>>({ config }:
   const guard = useOnlineOnly();
   const insets = useSafeAreaInsets();
   const load = useCachedLoad<Row[]>('entity', config.cacheKey, useCallback(() => config.load(), [config]));
+  const writer = useRecordWriter();
+  const { state: sync } = useOffline();
+  const entity = config.offline?.entity ?? '';
+  const listRows = useRecordRows<Row & object>(load.value as (Row & object)[] | null, entity, config.rowKey as (r: Row & object) => string);
 
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<{ row: Row | null; form: F } | null>(null);
@@ -88,11 +109,11 @@ export function EntityScreen<Row, F extends Record<string, unknown>>({ config }:
   const canDelete = !!config.remove && can(user, config.resource, 'delete');
 
   const rows = useMemo(() => {
-    const all = load.value ?? [];
+    const all = ((config.offline ? listRows : load.value) ?? []) as Row[];
     const needle = search.trim().toLowerCase();
     if (!needle) return all;
     return all.filter((r) => (config.searchText ? config.searchText(r) : config.rowTitle(r)).toLowerCase().includes(needle));
-  }, [load.value, search, config]);
+  }, [load.value, listRows, search, config]);
 
   async function run(action: () => Promise<unknown>) {
     setBusy(true);
@@ -116,6 +137,19 @@ export function EntityScreen<Row, F extends Record<string, unknown>>({ config }:
       return;
     }
     const { row, form } = editing;
+    const o = config.offline;
+    if (o && (row ? o.update : o.create)) {
+      // kept on the phone and sent later when kh-pos can't be reached
+      const ok = await run(async () => {
+        if (row) await writer({ entity: o.entity, op: 'update', recordId: config.rowKey(row), ...o.update!(row, form) });
+        else {
+          const id = Crypto.randomUUID();
+          await writer({ entity: o.entity, op: 'create', recordId: id, ...o.create!(form, id) });
+        }
+      });
+      if (ok) setEditing(null);
+      return;
+    }
     await guard(async () => {
       const ok = await run(() => (row ? config.update!(row, form) : config.create!(form)));
       if (ok) setEditing(null);
@@ -125,7 +159,15 @@ export function EntityScreen<Row, F extends Record<string, unknown>>({ config }:
   function confirmDelete(row: Row) {
     Alert.alert(t('admin.deleteConfirm', { name: config.rowTitle(row) }), config.deleteMessage?.(row), [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: t('admin.delete'), style: 'destructive', onPress: () => void guard(() => run(() => config.remove!(row))) },
+      {
+        text: t('admin.delete'),
+        style: 'destructive',
+        onPress: () => {
+          const o = config.offline;
+          if (o?.remove) void run(() => writer({ entity: o.entity, op: 'delete', recordId: config.rowKey(row), ...o.remove!(row) }).then(() => undefined));
+          else void guard(() => run(() => config.remove!(row)));
+        },
+      },
     ]);
   }
 
@@ -175,12 +217,14 @@ export function EntityScreen<Row, F extends Record<string, unknown>>({ config }:
           }
           ListEmptyComponent={<EmptyState title={t('admin.empty')} />}
           renderItem={({ item }) => {
-            const badge = config.rowBadge?.(item);
+            const flag = item as Row & { pendingSync?: boolean; syncFailed?: boolean };
+            const unsent = !!config.offline && !config.offline.clientId && isUnsent(flag, sync.commands, config.offline.entity, config.rowKey(item));
+            const badge = flag.syncFailed ? { text: t('offline.syncFailed'), tone: 'destructive' as const } : flag.pendingSync ? { text: t('offline.notSent'), tone: 'info' as const } : config.rowBadge?.(item);
             const sub = config.rowSubtitle?.(item);
             return (
               <Card style={styles.card}>
                 <Pressable
-                  disabled={!canUpdate}
+                  disabled={!canUpdate || unsent}
                   onPress={() => {
                     setProblem(null);
                     setEditing({ row: item, form: config.toForm(item) });

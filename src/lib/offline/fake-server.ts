@@ -17,6 +17,10 @@ export class FakeServer {
   shifts: Shift[] = [];
   checkouts: { orderId: string; slotId: string; payments: number }[] = [];
   tables: Record<string, RestaurantTable> = {};
+  /** Setup changes received (method, path, body), for the record commands. */
+  requests: { method: string; path: string; body?: unknown }[] = [];
+  /** A message the next record request is refused with (kh-pos says no), once. */
+  refuseRequestWith: string | null = null;
 
   constructor(tableIds: string[] = ['t1']) {
     for (const id of tableIds) this.tables[id] = { id, table_name: id.toUpperCase(), setting_capacity: 4, section: null, status: 'available', order: null };
@@ -55,6 +59,16 @@ export class FakeServer {
 
   api: EngineApi = {
     ping: async () => this.online,
+    call: (async (method: string, path: string, body?: unknown) =>
+      this.write(`${method} ${path}`, () => {
+        if (this.refuseRequestWith) {
+          const message = this.refuseRequestWith;
+          this.refuseRequestWith = null;
+          throw new ApiError('server', 400, message);
+        }
+        this.requests.push({ method, path, body });
+        return {};
+      })) as EngineApi['call'],
     table: async (id) => {
       this.gate(`table ${id}`);
       return JSON.parse(JSON.stringify(this.tables[id]));

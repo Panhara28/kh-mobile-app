@@ -34,6 +34,13 @@ export default function DeliveryScreen() {
       update: (r, f) => api.call('PUT', `/api/auth/customer/${encodeURIComponent(r.id)}`, deliveryBody(f)),
       remove: (r) => api.call('DELETE', `/api/auth/customer/${encodeURIComponent(r.id)}`),
       deleteMessage: (r) => t('delivery.deleteAsk', { name: r.customerName }),
+      // kept on the phone and sent when kh-pos can be reached; kh-pos makes the customer's id, so a new one can't be edited until it is sent
+      offline: {
+        entity: 'delivery',
+        create: (f, id) => ({ method: 'POST', path: '/api/auth/customer', body: deliveryBody(f), label: f.customerName.trim(), row: { id, customerName: f.customerName.trim(), phone: f.customerName.trim(), address: f.address.trim(), extraPrice: f.extraPrice, orders: [] } }),
+        update: (r, f) => ({ method: 'PUT', path: `/api/auth/customer/${encodeURIComponent(r.id)}`, body: deliveryBody(f), label: f.customerName.trim(), row: { customerName: f.customerName.trim(), address: f.address.trim(), extraPrice: f.extraPrice } }),
+        remove: (r) => ({ method: 'DELETE', path: `/api/auth/customer/${encodeURIComponent(r.id)}`, label: r.customerName }),
+      },
     }),
     [api, t],
   );

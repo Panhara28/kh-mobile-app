@@ -220,7 +220,11 @@
     "cmdOpenShift": "បើកវេន",
     "cmdCloseShift": "បិទវេន",
     "cmdCheckout": "ទូទាត់ និងបញ្ចប់ការកុម្ម៉ង់",
-    "needsConnection": "ត្រូវការការភ្ជាប់ទៅម៉ាស៊ីនមេ KH POS។ សូមព្យាយាមម្ដងទៀតពេលមានការភ្ជាប់។"
+    "needsConnection": "ត្រូវការការភ្ជាប់ទៅម៉ាស៊ីនមេ KH POS។ សូមព្យាយាមម្ដងទៀតពេលមានការភ្ជាប់។",
+    "cmdRecord_create": "បន្ថែម {{name}}",
+    "cmdRecord_update": "រក្សាទុកការកែ {{name}}",
+    "cmdRecord_delete": "លុប {{name}}",
+    "syncFailed": "មិនបានរក្សាទុក - មើលការធ្វើសមកាលកម្ម"
   },
   "checkout": {
     "title": "ការទូទាត់",

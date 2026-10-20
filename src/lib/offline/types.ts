@@ -31,7 +31,9 @@ export type CommandKind =
   // Shift and checkout
   | 'openShift'
   | 'closeShift'
-  | 'checkout';
+  | 'checkout'
+  // Setup records (category, supplier, ...): one saved change to a screen's list, sent as it is
+  | 'record';
 
 /** The dish fields a replay needs (trimmed copy of the menu row). */
 export type ProductSnapshot = Pick<MenuProduct, 'productId' | 'variantId' | 'productTitle' | 'price' | 'discountedPrice'>;
@@ -138,6 +140,25 @@ export interface CheckoutCommandPayload {
   receipt: Receipt;
 }
 
+/**
+ * A change to a record of a setup screen (add, edit or delete a category, a supplier, a setting ...). It holds the
+ * request to send as it is; `row` is the copy shown on screen until it has been sent.
+ */
+export interface RecordPayload {
+  /** Which list it belongs to, e.g. 'category'. */
+  entity: string;
+  op: 'create' | 'update' | 'delete';
+  /** Id of the record (made on the phone for an add). */
+  recordId: string;
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  path: string;
+  body?: unknown;
+  /** Name shown in the sync list. */
+  label: string;
+  /** The record as it should look on screen (add and edit). */
+  row?: Record<string, unknown>;
+}
+
 export type CommandPayload = {
   addLine: AddLinePayload;
   setPending: SetPendingPayload;
@@ -155,6 +176,7 @@ export type CommandPayload = {
   openShift: OpenShiftPayload;
   closeShift: CloseShiftPayload;
   checkout: CheckoutCommandPayload;
+  record: RecordPayload;
 };
 
 export interface OutboxCommand<K extends CommandKind = CommandKind> {
