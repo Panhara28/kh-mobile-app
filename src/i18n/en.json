@@ -2011,5 +2011,22 @@
     "link": "Menu Link",
     "share": "Share link",
     "open": "Open link"
+  },
+  "uimport": {
+    "button": "Upload Excel",
+    "title": "Upload Users",
+    "columns": "Excel columns",
+    "required": "Required columns: {{list}}",
+    "example": "Example row: John Doe, johndoe, 012-345-6789, Cashier, staff",
+    "password": "Every user made this way gets the password {{password}}. Ask them to change it.",
+    "choose": "Choose Excel file",
+    "unreadable": "Failed to read Excel file. Please ensure it's a valid Excel format.",
+    "uploaded": "Uploaded.",
+    "done": "Excel uploaded successfully! {{count}} users added.",
+    "failed": "Failed to upload Excel file. Please check the format and try again.",
+    "rows": "{{count}} rows read",
+    "more": "… and {{count}} more",
+    "moreWarnings": "… and {{count}} more warnings",
+    "upload": "Upload {{count}} users"
   }
 }

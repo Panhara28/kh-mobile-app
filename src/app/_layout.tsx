@@ -77,6 +77,7 @@ function Navigator() {
         <Stack.Screen name="settings-general" />
         <Stack.Screen name="accessibility" />
         <Stack.Screen name="users" />
+        <Stack.Screen name="user-import" />
         <Stack.Screen name="deliveries" />
         <Stack.Screen name="payment-methods" />
         <Stack.Screen name="shift" />

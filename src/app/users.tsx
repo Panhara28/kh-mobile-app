@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import { fetchAllPages } from '@/lib/catalog';
 import { can } from '@/lib/line';
@@ -70,6 +71,7 @@ export default function UsersScreen() {
       },
       remove: (r) => (canDeleteUser(r.id, user?.id) ? api.call('DELETE', '/api/user', { id: r.id }) : Promise.reject(new Error(t('users.cannotDeleteSelf')))),
       deleteMessage: (r) => t('users.deleteAsk', { name: r.fullname || r.username }),
+      headerActions: can(user, 'users', 'create') ? <Button title={t('uimport.button')} variant="outline" size="sm" onPress={() => router.push('/user-import' as never)} /> : undefined,
       rowActions: (r) =>
         can(user, 'users', 'update') && canResetPassword(user?.role?.role, r.id, user?.id) ? <Button title={t('users.resetPassword')} variant="outline" size="sm" onPress={() => setResetFor(r)} /> : null,
     }),
