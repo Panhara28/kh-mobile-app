@@ -1,6 +1,7 @@
+import * as Clipboard from 'expo-clipboard';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Linking, Modal, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Modal, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { qrMatrix, qrRuns } from '@/lib/qr';
 import { Button } from './components';
@@ -47,6 +48,7 @@ export function QrSheet({ title, subtitle, link, onClose }: { title: string; sub
             {link}
           </Text>
           <View style={styles.buttons}>
+            <Button title={t('qr.copy')} variant="outline" onPress={() => void Clipboard.setStringAsync(link).then(() => Alert.alert(t('qr.copied')))} />
             <Button title={t('qr.share')} variant="outline" onPress={() => void Share.share({ message: link })} />
             <Button title={t('qr.open')} variant="outline" onPress={() => void Linking.openURL(link)} />
           </View>

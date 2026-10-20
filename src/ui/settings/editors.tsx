@@ -1,3 +1,4 @@
+import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -47,6 +48,7 @@ import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import { productLotTestJob, sendJob, ticketTestJob } from '@/lib/print-server';
 import { useSession } from '@/lib/session';
 import { Button, Chip, Field } from '@/ui/components';
+import { QrSheet } from '@/ui/qr-sheet';
 import { uploadBase64 } from '@/ui/product-form/images-section';
 import { colors, font, radius, space } from '@/ui/theme';
 
@@ -350,13 +352,20 @@ export function ProductMenuEditor({ value, onChange, disabled }: EditorProps) {
   const { api, user } = useSession();
   const v = parseProductMenu(value);
   const emit = (patch: Partial<typeof v>) => onChange(JSON.stringify({ ...v, ...patch }));
+  const [qr, setQr] = useState(false);
+  const link = menuLink(api.baseUrl, user?.currentWarehouseId);
   return (
     <View style={styles.stack}>
       <SwitchRow label={t('sg.onlyForSale')} value={v.onlyForSale} onChange={(b) => emit({ onlyForSale: b })} disabled={disabled} />
       <SwitchRow label={t('sg.onlyInStock')} value={v.onlyInStock} onChange={(b) => emit({ onlyInStock: b })} disabled={disabled} />
       <ImageBox label={t('sg.banner')} url={v.bannerUrl} onChange={(u) => emit({ bannerUrl: u })} disabled={disabled} />
       <Text style={styles.label}>{t('sg.menuLink')}</Text>
-      <Text selectable style={styles.link}>{menuLink(api.baseUrl, user?.currentWarehouseId)}</Text>
+      <Text selectable style={styles.link}>{link}</Text>
+      <View style={styles.buttons}>
+        <Button title={t('sg.copyLink')} variant="outline" size="sm" onPress={() => void Clipboard.setStringAsync(link).then(() => Alert.alert(t('sg.linkCopied')))} />
+        <Button title={`▦ ${t('sg.showQr')}`} variant="outline" size="sm" onPress={() => setQr(true)} />
+      </View>
+      {qr ? <QrSheet title={t('sg.menuLink')} link={link} onClose={() => setQr(false)} /> : null}
     </View>
   );
 }

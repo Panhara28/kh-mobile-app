@@ -1966,7 +1966,10 @@
     "addIntegration": "Add integration",
     "testPrint": "Print",
     "testSent": "Test sent",
-    "testFailed": "Test failed"
+    "testFailed": "Test failed",
+    "copyLink": "Copy Link",
+    "linkCopied": "Menu link has been copied to clipboard",
+    "showQr": "QR Code"
   },
   "delivery": {
     "name": "Delivery Name",
@@ -2023,7 +2026,9 @@
     "tableName": "Table {{name}}",
     "link": "Menu Link",
     "share": "Share link",
-    "open": "Open link"
+    "open": "Open link",
+    "copy": "Copy link",
+    "copied": "Link copied"
   },
   "uimport": {
     "button": "Upload Excel",

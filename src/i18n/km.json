@@ -1966,7 +1966,10 @@
     "addIntegration": "បន្ថែមការតភ្ជាប់",
     "testPrint": "បោះពុម្ព",
     "testSent": "បានផ្ញើការសាកល្បង",
-    "testFailed": "ការសាកល្បងបរាជ័យ"
+    "testFailed": "ការសាកល្បងបរាជ័យ",
+    "copyLink": "ចម្លងតំណ",
+    "linkCopied": "តំណម៉ឺនុយត្រូវបានចម្លង",
+    "showQr": "QR កូដ"
   },
   "delivery": {
     "name": "ឈ្មោះដឹកជញ្ជូន",
@@ -2023,7 +2026,9 @@
     "tableName": "តុ {{name}}",
     "link": "តំណម៉ឺនុយ",
     "share": "ចែករំលែកតំណ",
-    "open": "បើកតំណ"
+    "open": "បើកតំណ",
+    "copy": "ចម្លងតំណ",
+    "copied": "បានចម្លងតំណ"
   },
   "uimport": {
     "button": "ផ្ទុកឡើង Excel",
