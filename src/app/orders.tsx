@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, FlatList, RefreshControl, ScrollView, StyleSh
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { DateRange } from '@/lib/dates';
 import { rangeFor } from '@/lib/dates';
+import { can } from '@/lib/line';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
@@ -40,7 +41,7 @@ function dateAndTime(value: string | null | undefined): { date: string; time: st
  */
 export default function OrdersScreen() {
   const { t } = useTranslation();
-  const { api } = useSession();
+  const { api, user } = useSession();
   const { data, state } = useOffline();
   const { currency, warehouseId } = useBranch();
   const { shift, reload: reloadShift } = useShift();
@@ -202,8 +203,8 @@ export default function OrdersScreen() {
             try {
               const r = await api.undoOrder(o.orderId);
               Alert.alert(t('orders.undone'));
-              void r;
-              await load(0);
+              if (r.tableNumber) router.push({ pathname: '/table/[id]', params: { id: r.tableNumber } });
+              else await load(0);
             } catch (e) {
               Alert.alert(t('orders.undoFailed'), e instanceof Error ? e.message : undefined);
             } finally {
@@ -214,13 +215,14 @@ export default function OrdersScreen() {
     ]);
   }
 
+  const mayOpenTables = can(user, 'restaurant', 'read');
   const sum = summarize(all ?? []);
   const active = hasActiveFilters(filter(0)) && (isSearching || !!status || !!shiftId);
   const placeholder = searchType === 'invoice' ? t('orders.searchInvoice') : searchType === 'phone' ? t('orders.searchPhone') : t('orders.searchTicket');
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScreenHeader title={t('orders.title')} />
+      <ScreenHeader title={t('orders.title')} right={mayOpenTables ? <Button title={`+ ${t('orders.newOrder')}`} size="sm" onPress={() => router.push('/tables')} /> : undefined} />
       <DateRangeBar key={rangeKey} initial="today" onChange={(r) => setRange(r)} />
       <View style={styles.filters}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
@@ -272,7 +274,7 @@ export default function OrdersScreen() {
               </View>
             </View>
           }
-          renderItem={({ item }) => <OrderCard order={item} busy={busyId === item.orderId} onPrint={() => print(item)} onView={() => view(item)} onReverse={() => reverse(item)} />}
+          renderItem={({ item }) => <OrderCard order={item} busy={busyId === item.orderId} onPrint={() => print(item)} onView={() => view(item)} onOpen={() => item.tableNumber && router.push({ pathname: '/table/[id]', params: { id: item.tableNumber } })} onReverse={() => reverse(item)} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />}
           onEndReached={() => void more()}
           onEndReachedThreshold={0.5}
@@ -280,6 +282,7 @@ export default function OrdersScreen() {
             <View style={styles.empty}>
               <EmptyState title={t('orders.noOrders')} />
               <Text style={styles.muted}>{t('orders.noOrdersHint')}</Text>
+              {mayOpenTables ? <Button title={t('orders.openPos')} variant="outline" onPress={() => router.push('/tables')} /> : null}
             </View>
           }
           ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
@@ -299,7 +302,7 @@ function SumCard({ label, value, hint, color, small }: { label: string; value: s
   );
 }
 
-function OrderCard({ order, busy, onPrint, onView, onReverse }: { order: OrderRow; busy: boolean; onPrint: () => void; onView: () => void; onReverse: () => void }) {
+function OrderCard({ order, busy, onPrint, onView, onOpen, onReverse }: { order: OrderRow; busy: boolean; onPrint: () => void; onView: () => void; onOpen: () => void; onReverse: () => void }) {
   const { t } = useTranslation();
   const { currency } = useBranch();
   const when = dateAndTime(orderWhen(order));
@@ -327,6 +330,7 @@ function OrderCard({ order, busy, onPrint, onView, onReverse }: { order: OrderRo
       <View style={styles.row}>
         {actions.includes('print') ? <Button title={t('orders.printReceipt', { count: order.printCount || 0 })} variant="outline" size="sm" disabled={busy} onPress={onPrint} /> : null}
         {actions.includes('view') ? <Button title={t('orders.viewDetails')} variant="outline" size="sm" onPress={onView} /> : null}
+        {actions.includes('open') ? <Button title={t('orders.openInRestaurant')} variant="outline" size="sm" onPress={onOpen} /> : null}
         {actions.includes('reverse') ? <Button title={t('orders.undo')} variant="ghost" size="sm" disabled={busy} onPress={onReverse} /> : null}
       </View>
     </Card>

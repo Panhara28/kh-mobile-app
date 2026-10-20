@@ -32,8 +32,8 @@ describe('which modules show', () => {
 
   it('only offers the modules of the web sidebar and the profile menu', () => {
     const ids = visibleModules(user('OWNER')).map((m) => m.id);
-    for (const gone of ['tables', 'retail', 'customers', 'users', 'roles', 'board', 'booking', 'chart-of-accounts', 'tickets', 'showtimes', 'halls', 'promotion-sets', 'table-setup']) expect(ids).not.toContain(gone);
-    expect(ids).toEqual(expect.arrayContaining(['orders', 'products', 'purchase-orders', 'replenishment', 'report-dashboard', 'suppliers', 'account']));
+    for (const gone of ['retail', 'customers', 'users', 'roles', 'board', 'booking', 'chart-of-accounts', 'tickets', 'showtimes', 'halls', 'promotion-sets', 'table-setup']) expect(ids).not.toContain(gone);
+    expect(ids).toEqual(expect.arrayContaining(['tables', 'orders', 'products', 'purchase-orders', 'replenishment', 'report-dashboard', 'suppliers', 'account']));
   });
 
   it('lets any signed-in staff use accounting, as the web does', () => {
@@ -47,6 +47,7 @@ describe('where the app opens', () => {
   it('the dashboard for the owner and anyone who may see it, otherwise the first module or More', () => {
     expect(homeRoute(user('OWNER'))).toBe('/report/dashboard');
     expect(homeRoute(user('Manager', { dashboard: 'read' }))).toBe('/report/dashboard');
+    expect(homeRoute(user('Service', { restaurant: 'read', order: 'read' }))).toBe('/tables');
     expect(homeRoute(user('Supervisor', { shift: 'read' }))).toBe('/shift');
     expect(homeRoute(user('Nobody', {}))).toBe('/more');
     expect(homeRoute(null)).toBe('/more');

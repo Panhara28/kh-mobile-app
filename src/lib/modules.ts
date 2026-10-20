@@ -24,6 +24,7 @@ export interface AppModule {
  * (src/lib/menu-routes.ts).
  */
 export const MODULES: AppModule[] = [
+  { id: 'tables', route: '/tables', resource: 'restaurant', icon: '🍽', titleKey: 'more.tables', group: 'daily' },
   { id: 'orders', route: '/orders', resource: 'order', icon: '🧾', titleKey: 'more.orders', group: 'daily' },
   { id: 'stock-finding', route: '/stock-finding', resource: 'transfer', icon: '🔎', titleKey: 'more.stockFinding', group: 'daily' },
   { id: 'shift', route: '/shift', resource: 'shift', icon: '🕒', titleKey: 'more.shift', group: 'daily' },
@@ -65,12 +66,13 @@ export function visibleModules(user: StaffUser | null | undefined, enabled: (opt
 export const GROUP_ORDER: ModuleGroup[] = ['daily', 'reports', 'stock', 'setup'];
 
 /**
- * Where the app opens after signing in, like the web: the dashboard for whoever may see it,
- * otherwise the first module they may open (More).
+ * Where the app opens after signing in, like the web: the dashboard for whoever may see it, the tables
+ * for a restaurant role, otherwise the first module they may open (More).
  */
 export function homeRoute(user: StaffUser | null | undefined): string {
   if (!user?.role) return '/more';
   if (user.role.role === 'OWNER' || can(user, 'dashboard', 'read')) return '/report/dashboard';
+  if (can(user, 'restaurant', 'read')) return '/tables';
   const first = visibleModules(user).find((m) => m.resource !== null && !m.setting);
   return first ? first.route : '/more';
 }
