@@ -54,7 +54,7 @@ Checked against `user-layout.tsx`, `user-list.tsx`, `sheet-user-create.tsx`, `us
 | Delete user (not yourself), asked first | Same |
 | Add / edit / delete follow the role's permission on `users` | Same |
 
-**Differences:** the web sends whatever is typed; the phone also needs a full name, and a username and password for a new user, so an empty account is not made. **Upload Excel** (bulk add) is not on the phone. Bind Users needs the server (it loads when you open Edit). The server returns the old login `token` of every user in the list; the phone drops it before using it (`lib/redact.ts`).
+**Differences:** the web sends whatever is typed; the phone also needs a full name, and a username and password for a new user, so an empty account is not made. **Upload Excel** (bulk add) is below (round 2). Bind Users needs the server (it loads when you open Edit). The server returns the old login `token` of every user in the list; the phone drops it before using it (`lib/redact.ts`).
 
 ## Delivery (restaurant POS only)
 
