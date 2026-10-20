@@ -21,7 +21,7 @@ Same as the web: every setting option is a category; the saved text of each sett
 | Brand, Currency, Exchange Rate, Editable Order Day, Expiry Setting, Inventory, Invoice Receipt, QR Code, Label Print, Print Server, Print Socket, Product Menu Rules, Order Discount Rules, Type POS, Table Selection, Table Shape, Accounting, Brand Integration, the unnamed RTB text, and unknown options (editor guessed from the value) | All of these have an editor on the phone |
 | Number settings accept any number | Same, but an empty or non-number box is refused (a blank rate would break prices) |
 | Invoice Receipt: template, logo upload, title, auto reset number (box ticked means "0", as the web), limit product name lines, discount format, total discount option, receipts per checkout, four paddings | Same fields, same comma separated text. Commas typed into the title or logo address are removed, because the text is split on commas |
-| Product Menu Rules: only for sale, only in stock, banner upload, QR and copy of the public menu link | Same rules and banner; the link is shown as text you can press and hold (no copy button, no QR code) |
+| Product Menu Rules: only for sale, only in stock, banner upload, QR and copy of the public menu link | Same rules and banner; the link is shown with Copy Link and QR Code buttons |
 | Print Server: group by, printers list (add, edit, remove, the last printer can't be removed), other keys kept | Same; other keys in the stored text are kept |
 | Order Discount Rules: amount rule, quantity rule, per line variant cap and what it counts by | Same, stored as `minAmount` / `minQty` like the web |
 | Type POS: system type, environment, shared order draft (turned on by Restaurant) | Same |
@@ -30,7 +30,7 @@ Same as the web: every setting option is a category; the saved text of each sett
 
 - **Type POS: "Clean up dummy data"** (deletes test data on the server) is not on the phone on purpose.
 - **Type POS side effect:** on Save the web creates a "movies" category when the type becomes Cinema and tries to delete one with a placeholder id otherwise. The phone only saves the setting. (The web delete uses `"movies-category-id"`, which looks like an unfinished placeholder.)
-- **Test print buttons** (Inventory printer, Print Socket ticket, Invoice preview) are not on the phone: it has no print-server client yet. The invoice template picker has no live preview.
+- **Test print buttons** (Inventory printer, Print Socket sample ticket) are on the phone and send the same sample jobs to this phone's print server (see PRINTING.md). The invoice template picker has no live preview (the three web templates are about 1,800 lines of web layout; the phone's own receipt does not use them).
 - **Brand Integration** tokens are hidden when listed and typed in a hidden box. The setting still holds them in plain text on the server, as the web does.
 - **Image uploads** (logo, QR code, banner, brand icon) go through the phone's photo library, 5 MB at most, using the same upload as product photos.
 - Saving needs the server (a warning appears offline). The list is cached for reading offline.
@@ -91,3 +91,8 @@ Checked against the web source (`accessiblity/index.tsx`, `role-card.tsx`, `perm
 | Add Role: name (1 to 50 letters) and permissions, `POST /api/user/role` | Same |
 
 **Differences:** the web has descriptions for 9 resources and a default line for the rest; the phone has the same (translated). The web's typed `resource:action` box (`handleAddPermission`) is not shown on the web screen, so it is not on the phone. Role names can't be renamed or deleted here, as on the web. Saving needs the server.
+
+## Added in round 2
+
+- **Users > Upload Excel** (web `upload-user-dialog.tsx`, `/api/upload-excel/user`): pick a .xlsx/.xls up to 10 MB with the headers Full Name, Username, Phone Number, Position, Profile; the phone shows the rows read and warnings (no username, repeated username, no position) and uploads. **kh-pos gives every user made this way the password `123456`** and looks the Position up as a role name, so tell them to change it. Not on the phone: the web's "download template" button (the columns are listed on the screen).
+- **Product Menu Rules** now has Copy Link and a QR Code of the menu link.

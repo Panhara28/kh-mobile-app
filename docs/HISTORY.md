@@ -129,6 +129,10 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 | Restaurant ordering restored | `18a0bb7`, `1ecfce4` | Tables, table order, kitchen status, checkout, transfer, Table setup and layout for restaurant roles; see [RESTAURANT.md](RESTAURANT.md) |
 | Promotion sets on the table menu | `43e384f` | Promotions chip and cards, picker for slots with several options, lines added in one go; see [RESTAURANT.md](RESTAURANT.md) |
 | Table QR code and invoice QR | `a3ffe02` | QR button on each table card; menu link and invoice link with share/open; see [RESTAURANT.md](RESTAURANT.md) |
+| Retail POS, Accounting, Promotion Sets management and Board Member restored | `0044f41` | Back from git before the scope cut; see [SCOPE.md](SCOPE.md) |
+| Users: Upload Excel | `354c37a` | Bulk add users from an .xlsx; see [SETTINGS.md](SETTINGS.md) |
+| Print server client, test prints, QR scan | `1a0862c` | Receipts and test jobs over the print bridge WebSocket; see [PRINTING.md](PRINTING.md) |
+| Product Menu copy link and QR; real-phone checklist | `a6b7d5e`, `47d6509` | See [SETTINGS.md](SETTINGS.md) and the README |
 
 **Offline, per module.** Ordering at tables (including checkout, shifts, discounts, order type) works offline and is sent later, as above. Every other module **reads** from the saved copy offline and **needs the server to save**: it says so instead of failing. Retail POS and cinema ticket sale need the server to charge, because the stock, the seats taken and the invoice number come from kh-pos.
 
