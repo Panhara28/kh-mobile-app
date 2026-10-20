@@ -125,7 +125,7 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 | Reports: Sale Product and Cinema Sales | `1a32a88` | Product chart and cinema showtime sales with filters, export and email; see [REPORTS.md](REPORTS.md) |
 | Settings hub and General | `81c2ddc` | Profile > Settings tiles (General now; Users, Delivery, Payment Method later) and every General setting editor; see [SETTINGS.md](SETTINGS.md) |
 | Settings: Users, Delivery, Payment Method | `6b0d2e9` | The other three Settings sections, with bind users, owner password reset and delivery customers; see [SETTINGS.md](SETTINGS.md) |
-| Settings: Accessibility (roles and permissions) | (this commit) | Roles list with per-resource switches, add/remove resources, new role; see [SETTINGS.md](SETTINGS.md) |
+| Settings: Accessibility (roles and permissions) | `8efd5ba` | Roles list with per-resource switches, add/remove resources, new role; see [SETTINGS.md](SETTINGS.md) |
 
 **Offline, per module.** Ordering at tables (including checkout, shifts, discounts, order type) works offline and is sent later, as above. Every other module **reads** from the saved copy offline and **needs the server to save**: it says so instead of failing. Retail POS and cinema ticket sale need the server to charge, because the stock, the seats taken and the invoice number come from kh-pos.
 
