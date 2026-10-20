@@ -32,7 +32,7 @@ describe('which modules show', () => {
 
   it('only offers the modules of the web sidebar and the profile menu', () => {
     const ids = visibleModules(user('OWNER')).map((m) => m.id);
-    for (const gone of ['retail', 'customers', 'users', 'roles', 'board', 'booking', 'chart-of-accounts', 'tickets', 'showtimes', 'halls', 'promotion-sets']) expect(ids).not.toContain(gone);
+    for (const gone of ['customers', 'users', 'roles', 'tickets', 'showtimes', 'halls']) expect(ids).not.toContain(gone);
     expect(ids).toEqual(expect.arrayContaining(['tables', 'orders', 'products', 'purchase-orders', 'replenishment', 'report-dashboard', 'suppliers', 'account']));
   });
 

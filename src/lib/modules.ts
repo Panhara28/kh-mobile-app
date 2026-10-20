@@ -25,9 +25,11 @@ export interface AppModule {
  */
 export const MODULES: AppModule[] = [
   { id: 'tables', route: '/tables', resource: 'restaurant', icon: '🍽', titleKey: 'more.tables', group: 'daily' },
+  { id: 'retail', route: '/retail', resource: 'pos', icon: '🛒', titleKey: 'more.retail', group: 'daily' },
   { id: 'orders', route: '/orders', resource: 'order', icon: '🧾', titleKey: 'more.orders', group: 'daily' },
   { id: 'stock-finding', route: '/stock-finding', resource: 'transfer', icon: '🔎', titleKey: 'more.stockFinding', group: 'daily' },
   { id: 'shift', route: '/shift', resource: 'shift', icon: '🕒', titleKey: 'more.shift', group: 'daily' },
+  { id: 'board', route: '/board', resource: 'board-member-dashboard', icon: '🏛', titleKey: 'more.board', group: 'reports' },
   { id: 'report-dashboard', route: '/report/dashboard', resource: 'dashboard', icon: '📊', titleKey: 'reports.dashboard', group: 'reports' },
   { id: 'report-end-of-day', route: '/report/end-of-day', resource: 'end-of-day', icon: '🌙', titleKey: 'reports.end-of-day', group: 'reports' },
   { id: 'report-sale-report', route: '/report/sale-report', resource: 'sale-report', icon: '📈', titleKey: 'reports.sale-report', group: 'reports' },
@@ -46,6 +48,9 @@ export const MODULES: AppModule[] = [
   { id: 'table-setup', route: '/table-setup', resource: 'table', icon: '🪑', titleKey: 'more.tableSetup', group: 'setup' },
   { id: 'table-layout', route: '/table-layout', resource: 'table', icon: '🗺', titleKey: 'more.tableLayout', group: 'setup' },
   { id: 'settings', route: '/settings', resource: 'setting', icon: '⚙️', titleKey: 'more.settings', group: 'setup' },
+  { id: 'promotion-sets', route: '/promotion-sets', resource: 'discount', icon: '🎁', titleKey: 'more.promotionSets', group: 'setup' },
+  { id: 'booking', route: '/booking', resource: 'accounting', icon: '💰', titleKey: 'more.booking', group: 'setup', setting: 'ACCOUNTING' },
+  { id: 'chart-of-accounts', route: '/chart-of-accounts', resource: 'accounting', icon: '📒', titleKey: 'more.chartOfAccounts', group: 'setup', setting: 'ACCOUNTING' },
   { id: 'categories', route: '/categories', resource: 'category', icon: '🗂', titleKey: 'more.categories', group: 'setup' },
   { id: 'modifiers', route: '/modifiers', resource: 'modifier', icon: '➕', titleKey: 'more.modifiers', group: 'setup' },
   { id: 'discounts', route: '/discounts', resource: 'discount', icon: '🏷', titleKey: 'more.discounts', group: 'setup' },
@@ -74,6 +79,7 @@ export const GROUP_ORDER: ModuleGroup[] = ['daily', 'reports', 'stock', 'setup']
 export function homeRoute(user: StaffUser | null | undefined): string {
   if (!user?.role) return '/more';
   if (user.role.role === 'OWNER' || can(user, 'dashboard', 'read')) return '/report/dashboard';
+  if (user.role.role.toUpperCase() === 'BOARD MEMBER' && can(user, 'board-member-dashboard', 'read')) return '/board';
   if (can(user, 'restaurant', 'read')) return '/tables';
   const first = visibleModules(user).find((m) => m.resource !== null && !m.setting);
   return first ? first.route : '/more';

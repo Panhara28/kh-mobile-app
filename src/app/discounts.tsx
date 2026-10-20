@@ -1,4 +1,5 @@
 import * as Crypto from 'expo-crypto';
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -111,6 +112,10 @@ export default function DiscountsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader title={t('more.discounts')} right={mayAdd ? <Button title={`+ ${t('admin.add')}`} size="sm" onPress={() => { setProblem(false); setEditing({ row: null, form: emptyDiscountForm() }); }} /> : undefined} />
+      <View style={styles.tabs}>
+        <Chip label={t('discounts.tabDiscounts')} selected onPress={() => undefined} />
+        <Chip label={t('discounts.tabPromotionSets')} selected={false} onPress={() => router.replace('/promotion-sets' as never)} />
+      </View>
       <View style={styles.filters}>
         <Input value={search} onChangeText={setSearch} placeholder={t('admin.search')} autoCorrect={false} accessibilityLabel={t('admin.search')} />
       </View>

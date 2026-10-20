@@ -80,6 +80,13 @@ function Navigator() {
         <Stack.Screen name="deliveries" />
         <Stack.Screen name="payment-methods" />
         <Stack.Screen name="shift" />
+        <Stack.Screen name="retail" />
+        <Stack.Screen name="board" />
+        <Stack.Screen name="board-sale" />
+        <Stack.Screen name="booking" />
+        <Stack.Screen name="chart-of-accounts" />
+        <Stack.Screen name="promotion-sets" />
+        <Stack.Screen name="promotion-set/[id]" />
         <Stack.Screen name="tables" />
         <Stack.Screen name="table/[id]" />
         <Stack.Screen name="table-setup" />
