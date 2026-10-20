@@ -16,8 +16,8 @@ Checked against the web source (`src/components/gui/modifier/*`, `src/app/api/mo
 | Applies to Products: search to add a product, list of applied products with picture and variants, remove, filter when there are more than 5, "already has this modifier" | Same (the product is found with the product search) |
 | Search | Added on the phone (title, description, option names) |
 
-## A kh-pos bug the phone works around
+## A kh-pos bug that is fixed (branch `fix/token-leak-and-modifier-items` in kh-pos)
 
-When a modifier is **updated**, kh-pos (`src/app/api/modifier/update-modifier.ts`) only saves the options that arrive with an id, and it treats an option that has an id as a new one. On the web form a newly added option has no id, so **an option added while editing is silently lost**. The phone gives every option an id (its own, or a new one for an added option), so nothing is lost. The web page still has the bug; the fix is to swap the two branches in that file. Say if you want me to make that change in kh-pos.
+kh-pos (`src/app/api/modifier/update-modifier.ts`) used to treat an option that arrived with an id as a new one and to save no option that arrived without one: every edit gave every option a new id, and **an option added on the web while editing was silently lost**. The phone worked around it by giving every option an id. The fix (kh-pos commit `dad1bbd`, not pushed or merged): an option with the id of a current option is updated in place, one without an id (or with an id the modifier does not have, which is what the phone sends for an option it added) is added, one left out is removed. Until that branch is running on your server the phone still behaves as before, and after it the phone needs no change.
 
 **Offline:** the list is read from the saved copy; add, edit, delete and applying to products need the server.

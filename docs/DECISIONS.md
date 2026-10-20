@@ -64,3 +64,8 @@ Staff must be able to take orders when the KH POS server can't be reached, and e
 - **Selling at the counter** (retail, cinema) creates the order only at Charge and deletes it again if payment is cancelled, so no draft is left behind and seats are freed.
 - **Data the phone does not edit is preserved** on save: pricing-template seat types, hall features and zones.
 - **Accounting has no permission in kh-pos**, so the phone follows the web: shown when the branch's Accounting setting is on, usable by any signed-in staff (`OPEN_RESOURCES`). Revisit if kh-pos adds a permission.
+
+## kh-pos fixes made for the phone (kh-pos branch `fix/token-leak-and-modifier-items`, not pushed)
+
+- `402202f` Login tokens: the user loader put every user's login `token` into the `createdBy` / `updatedBy` of orders, shifts, modifiers, groups ... and the user list returned it too. It now leaves the token out; only the bound-user list (the web's switch-warehouse menu, which signs in with that token) still sends it. Checked on the local server: shifts, users and modifiers had tokens before and none after. The phone's own removal of tokens (`lib/redact.ts`) stays as a second guard. **Not changed:** `GET /api/user/default-admin?warehouseId=` answers without any login with the branch's system admin token (the customer menu uses it); that needs a design decision.
+- `dad1bbd` Modifier edit: see MODIFIERS.md.
