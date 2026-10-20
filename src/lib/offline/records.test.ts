@@ -1,7 +1,7 @@
-import { SyncEngine } from './engine';
+import { SyncEngine, UNCONFIRMED } from './engine';
 import { FakeServer } from './fake-server';
 import { MemoryStore } from './memory-store';
-import { isUnsent, overlayRecords, recordCommand, recordCommands, type RecordRequest } from './records';
+import { hasPending, isUnsent, overlayRecords, waitingCount, recordCommand, recordCommands, type RecordRequest } from './records';
 import type { OutboxCommand } from './types';
 
 const USER = 'u1';
@@ -129,5 +129,77 @@ describe('showing waiting changes on a list', () => {
     expect(isUnsent(shown, [create], 'category', 'c3')).toBe(true);
     expect(isUnsent({ pendingSync: true }, [cmd(req({ recordId: 'c1' }))], 'category', 'c1')).toBe(false);
     expect(isUnsent({}, [create], 'category', 'c3')).toBe(false);
+  });
+});
+
+describe('actions on a record', () => {
+  const idOf = (r: { id: string }) => r.id;
+  it('shows an action that has a row like an edit, and ignores one without', () => {
+    const rows = [{ id: 'p1', status: 'pending' }];
+    const withRow = cmd(req({ entity: 'po', op: 'action', recordId: 'p1', row: { status: 'approved' } }));
+    const without = cmd(req({ entity: 'po', op: 'action', recordId: 'p1', row: undefined }));
+    expect(overlayRecords(rows, [withRow], 'po', idOf)[0]).toMatchObject({ status: 'approved', pendingSync: true });
+    expect(overlayRecords(rows, [without], 'po', idOf)).toEqual([{ id: 'p1', status: 'pending' }]);
+  });
+  it('does not add a row for an add that has no row to show', () => {
+    expect(overlayRecords([{ id: 'p1' }], [cmd(req({ entity: 'po', op: 'create', recordId: 'p2', row: undefined }))], 'po', idOf)).toEqual([{ id: 'p1' }]);
+  });
+  it('knows when a change to a record is waiting, and counts the waiting ones', () => {
+    const waiting = cmd(req({ entity: 'po', op: 'action', recordId: 'p1' }));
+    const failed = cmd(req({ entity: 'po', op: 'action', recordId: 'p2' }), 'failed');
+    expect(hasPending([waiting, failed], 'po', 'p1')).toBe(true);
+    expect(hasPending([waiting, failed], 'po', 'p2')).toBe(false);
+    expect(hasPending([waiting], 'other', 'p1')).toBe(false);
+    expect(waitingCount([waiting, failed], ['po'])).toBe(2);
+    expect(waitingCount([waiting], ['x'])).toBe(0);
+  });
+});
+
+describe('changes that must not be done twice', () => {
+  const stockIn = (id = 'a') => recordCommand(USER, req({ entity: 'stock', op: 'action', method: 'POST', path: '/api/inventory/stock-in', recordId: 'v1:s1', body: { qty: 5 }, label: 'Stock in', once: true, row: undefined }), id);
+
+  it('is sent at once when kh-pos answers', async () => {
+    const { server, engine } = setup();
+    const result = await engine.runOnce(stockIn(), async () => void (await server.api.call('POST', '/api/inventory/stock-in', { qty: 5 })));
+    expect(result).toBe('done');
+    expect(server.requests).toHaveLength(1);
+  });
+
+  it('waits when kh-pos is unreachable, then is sent once', async () => {
+    const { server, engine } = setup();
+    server.online = false;
+    const result = await engine.runOnce(stockIn(), async () => void (await server.api.call('POST', '/x', {})));
+    expect(result).toBe('queued');
+    expect(engine.getState().pending).toBe(1);
+    server.online = true;
+    await engine.tick();
+    expect(server.requests.filter((r) => r.path === '/api/inventory/stock-in')).toHaveLength(1);
+  });
+
+  it('does not queue or repeat it when the answer to the send is lost', async () => {
+    const { server, engine } = setup();
+    server.dropAnswerOnce = true;
+    await expect(engine.runOnce(stockIn(), async () => void (await server.api.call('POST', '/api/inventory/stock-in', { qty: 5 })))).rejects.toThrow(UNCONFIRMED);
+    expect(engine.getState().pending).toBe(0);
+    expect(server.requests).toHaveLength(1); // it reached kh-pos once and is not sent again
+  });
+
+  it('keeps a queued one as failed (not confirmed) instead of sending it again when the answer is lost on replay', async () => {
+    const { server, engine } = setup();
+    engine.setOnline(false);
+    await engine.enqueue(stockIn());
+    server.dropAnswerOnce = true;
+    engine.setOnline(true);
+    await engine.flush();
+    const state = engine.getState();
+    expect(state.failed).toBe(1);
+    expect(state.commands[0]?.error).toBe(UNCONFIRMED);
+    expect(server.requests).toHaveLength(1);
+  });
+
+  it('shows a kh-pos refusal of a once change to the caller', async () => {
+    const { server, engine } = setup();
+    server.refuseRequestWith = 'Not enough stock';
+    await expect(engine.runOnce(stockIn(), async () => void (await server.api.call('POST', '/api/inventory/stock-out', {})))).rejects.toThrow('Not enough stock');
   });
 });

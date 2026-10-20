@@ -5,7 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { KhPosApi } from '@/lib/api';
 import { fetchAllPages } from '@/lib/catalog';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import type { SlotRow } from '@/lib/org';
 import { applyToAll, cancelRemainingBody, categorize, initialReceive, receiveProblem, receiveRequest, remaining, sortForReceive, type PoDetail, type ReceiveMode, type ReceiveRow } from '@/lib/purchase';
 import { Badge, Button, Card, Chip, Field } from '../components';
@@ -22,7 +22,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 export function ReceiveSheet({ api, warehouseId, detail, onClose, onDone }: { api: KhPosApi; warehouseId: string; detail: PoDetail; onClose: () => void; onDone: () => void }) {
   const { t } = useTranslation();
   const { data } = useOffline();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const insets = useSafeAreaInsets();
   const items = detail.items;
 
@@ -83,18 +83,19 @@ export function ReceiveSheet({ api, warehouseId, detail, onClose, onDone }: { ap
       Alert.alert(t('po.error_date'));
       return;
     }
-    guard(async () => {
+    // kept on the phone and sent later when kh-pos can't be reached; it adds stock, so it is never sent twice
+    void (async () => {
       setBusy(true);
       try {
-        await api.call('POST', '/api/purchase-order/receive', receiveRequest(detail.id, selected, rows));
-        Alert.alert(t('po.receivedOk'));
+        const how = await writer({ entity: 'purchase-order', op: 'action', recordId: detail.id, method: 'POST', path: '/api/purchase-order/receive', body: receiveRequest(detail.id, selected, rows), label: `${t('po.receiveTitle')}: ${detail.poIncrement ?? detail.id.slice(0, 8)}`, once: true });
+        Alert.alert(t(how === 'queued' ? 'offline.savedOffline' : 'po.receivedOk'));
         onDone();
       } catch (e) {
         Alert.alert(t('po.receiveFailed'), e instanceof Error ? e.message : undefined);
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   function cancelRemaining() {
@@ -104,18 +105,18 @@ export function ReceiveSheet({ api, warehouseId, detail, onClose, onDone }: { ap
         text: t('po.cancelRemaining'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             setBusy(true);
             try {
-              await api.call('PUT', '/api/purchase-order', cancelRemainingBody(detail));
-              Alert.alert(t('po.cancelledOk'));
+              const how = await writer({ entity: 'purchase-order', op: 'action', recordId: detail.id, method: 'PUT', path: '/api/purchase-order', body: cancelRemainingBody(detail), label: `${t('po.cancelRemaining')}: ${detail.poIncrement ?? detail.id.slice(0, 8)}` });
+              Alert.alert(t(how === 'queued' ? 'offline.savedOffline' : 'po.cancelledOk'));
               onDone();
             } catch (e) {
               Alert.alert(t('po.cancelFailed'), e instanceof Error ? e.message : undefined);
             } finally {
               setBusy(false);
             }
-          }),
+          })(),
       },
     ]);
   }

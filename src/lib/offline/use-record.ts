@@ -15,7 +15,8 @@ export function useRecordWriter() {
   return useCallback(
     (req: RecordRequest): Promise<'done' | 'queued'> => {
       const cmd = recordCommand(user?.id ?? '', req, Crypto.randomUUID());
-      return engine.run(cmd, async () => void (await api.call(req.method, req.path, req.body)));
+      const send = async () => void (await api.call(req.method, req.path, req.body));
+      return req.once ? engine.runOnce(cmd, send) : engine.run(cmd, send);
     },
     [api, engine, user?.id],
   );

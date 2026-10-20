@@ -67,6 +67,8 @@ export interface EngineState {
 }
 
 const ID_MAP_KEY = 'idmap';
+/** The message of a change whose answer was lost: the staff must check kh-pos before doing it again. */
+export const UNCONFIRMED = 'Could not confirm whether kh-pos received this. Check there before doing it again.';
 const PROBE_MS = 8_000;
 
 const isNetwork = (e: unknown) => e instanceof ApiError && e.kind === 'network';
@@ -155,6 +157,29 @@ export class SyncEngine {
         this.setOnline(false);
       }
     }
+    await this.enqueue(cmd);
+    return 'queued';
+  }
+
+  /**
+   * Like `run`, for a change that must not be done twice (stock in, receive ...). It is sent at once only when kh-pos
+   * answers a ping; if the answer to the send itself is lost nobody can tell whether it got through, so it is NOT put in
+   * the outbox: the error says to check first. Offline, it waits like any other change.
+   */
+  async runOnce(cmd: NewCommand, tryOnline: () => Promise<void>): Promise<'done' | 'queued'> {
+    const free = this.state.online && this.state.pending === 0 && !this.flushing;
+    if (free && (await this.api.ping().catch(() => false))) {
+      try {
+        await tryOnline();
+        this.setOnline(true);
+        return 'done';
+      } catch (e) {
+        if (!isNetwork(e)) throw e;
+        this.setOnline(false);
+        throw new Error(UNCONFIRMED);
+      }
+    }
+    if (free) this.setOnline(false);
     await this.enqueue(cmd);
     return 'queued';
   }
@@ -310,6 +335,8 @@ export class SyncEngine {
       await this.api.call(p.method, p.path, p.body);
     } catch (e) {
       if (p.op === 'create' && /duplicate|already exist/i.test(messageOf(e))) return;
+      // the answer was lost: it may or may not have been applied, and doing it again could do it twice
+      if (p.once && isNetwork(e)) throw new Error(UNCONFIRMED);
       throw e;
     }
   }

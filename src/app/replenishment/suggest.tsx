@@ -5,7 +5,7 @@ import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, T
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { selectableIds, suggestBody, suggestProblem, suggestRows, suggestTotals, toStockIn, type SuggestGroup, type SuggestRow } from '@/lib/replenishment';
 import { useSession } from '@/lib/session';
 import { Badge, Button, Card, Chip, Field } from '@/ui/components';
@@ -23,7 +23,7 @@ export default function ReplenishmentSuggestScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data } = useOffline();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const insets = useSafeAreaInsets();
   const warehouseId = user?.currentWarehouseId ?? '';
 
@@ -87,18 +87,19 @@ export default function ReplenishmentSuggestScreen() {
       Alert.alert(t('rep.error_lines'));
       return;
     }
-    guard(async () => {
+    // kept on the phone and sent later when kh-pos can't be reached; it makes a new request, so it is never sent twice
+    void (async () => {
       setBusy(true);
       try {
-        await api.call('POST', '/api/replenishment', suggestBody(warehouseId, group.warehouseId, sel, grows));
-        Alert.alert(t('rep.created'));
+        const how = await writer({ entity: 'replenishment', op: 'action', recordId: `new:${group.warehouseId}`, method: 'POST', path: '/api/replenishment', body: suggestBody(warehouseId, group.warehouseId, sel, grows), label: t('rep.created'), once: true });
+        Alert.alert(t(how === 'queued' ? 'offline.savedOffline' : 'rep.created'));
         router.back();
       } catch (e) {
         Alert.alert(t('rep.saveFailed'), e instanceof Error ? e.message : undefined);
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   return (

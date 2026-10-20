@@ -7,7 +7,8 @@ import { dayText } from '@/lib/dates';
 import { can } from '@/lib/line';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { hasPending } from '@/lib/offline/records';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { emptyPoForm, formFromDetail, orderedBy, progressPercent, receivedSummary, rowActions, statusBody, statusTone, type PoDetail } from '@/lib/purchase';
 import { useSession } from '@/lib/session';
 import { Badge, Button, Card } from '@/ui/components';
@@ -26,8 +27,8 @@ export default function PurchaseOrderScreen() {
   const { t } = useTranslation();
   const { id, edit, receive } = useLocalSearchParams<{ id: string; edit?: string; receive?: string }>();
   const { api, user } = useSession();
-  const { data } = useOffline();
-  const guard = useOnlineOnly();
+  const { data, state } = useOffline();
+  const writer = useRecordWriter();
   const warehouseId = user?.currentWarehouseId ?? '';
 
   const [detail, setDetail] = useState<PoDetail | null>(null);
@@ -85,19 +86,23 @@ export default function PurchaseOrderScreen() {
   const sum = receivedSummary(d);
   const pct = progressPercent(d.received, d.totalQty);
 
+  // a change to this order is waiting for kh-pos: don't offer receive / approve again until it is sent
+  const waiting = hasPending(state.commands, 'purchase-order', d.id);
+
   function approve() {
-    guard(async () => {
+    void (async () => {
       setBusy(true);
       try {
-        await api.call('PUT', '/api/purchase-order', statusBody(d, 'approved'));
-        Alert.alert(t('po.statusUpdated'));
-        await load();
+        const how = await writer({ entity: 'purchase-order', op: 'action', recordId: d.id, method: 'PUT', path: '/api/purchase-order', body: statusBody(d, 'approved'), label: `${t('po.approve')}: ${d.poIncrement ?? d.id.slice(0, 8)}` });
+        if (how === 'queued') setDetail({ ...d, status: 'approved' });
+        Alert.alert(t(how === 'queued' ? 'offline.savedOffline' : 'po.statusUpdated'));
+        if (how === 'done') await load();
       } catch (e) {
         Alert.alert(t('po.statusFailed'), e instanceof Error ? e.message : undefined);
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   function remove() {
@@ -107,15 +112,15 @@ export default function PurchaseOrderScreen() {
         text: t('admin.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('DELETE', '/api/purchase-order', { id: d.id });
-              Alert.alert(t('po.deleted'));
+              const how = await writer({ entity: 'purchase-order', op: 'delete', recordId: d.id, method: 'DELETE', path: '/api/purchase-order', body: { id: d.id }, label: `${t('po.deleteTitle')}: ${d.poIncrement ?? d.id.slice(0, 8)}` });
+              Alert.alert(t(how === 'queued' ? 'offline.savedOffline' : 'po.deleted'));
               router.back();
             } catch (e) {
               Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }
@@ -194,9 +199,10 @@ export default function PurchaseOrderScreen() {
         </Card>
 
         {d.status === 'draft' && can(user, 'purchase-order', 'update') ? <Button title={t('po.approveOrder')} loading={busy} onPress={approve} /> : null}
-        {actions.includes('receive') && can(user, 'purchase-order', 'update') ? <Button title={t('po.createReceive')} onPress={() => setReceiving(true)} /> : null}
-        {actions.includes('edit') && can(user, 'purchase-order', 'update') ? <Button title={t('admin.edit')} variant="outline" onPress={() => router.push({ pathname: '/purchase-order/[id]', params: { id: d.id, edit: '1' } })} /> : null}
-        {actions.includes('delete') && can(user, 'purchase-order', 'delete') ? <Button title={t('admin.delete')} variant="outline" onPress={remove} /> : null}
+        {waiting ? <Text style={styles.waitNote}>{t('offline.waitingNote', { count: 1 })}</Text> : null}
+        {!waiting && actions.includes('receive') && can(user, 'purchase-order', 'update') ? <Button title={t('po.createReceive')} onPress={() => setReceiving(true)} /> : null}
+        {!waiting && actions.includes('edit') && can(user, 'purchase-order', 'update') ? <Button title={t('admin.edit')} variant="outline" onPress={() => router.push({ pathname: '/purchase-order/[id]', params: { id: d.id, edit: '1' } })} /> : null}
+        {!waiting && actions.includes('delete') && can(user, 'purchase-order', 'delete') ? <Button title={t('admin.delete')} variant="outline" onPress={remove} /> : null}
       </ScrollView>
       {receiving ? (
         <ReceiveSheet
@@ -224,6 +230,7 @@ function Line({ label, value, bold, color }: { label: string; value: string; bol
 }
 
 const styles = StyleSheet.create({
+  waitNote: { fontSize: font.small, color: colors.warning },
   safe: { flex: 1, backgroundColor: colors.page },
   flex: { flex: 1 },
   content: { padding: space.md, gap: space.sm },

@@ -14,6 +14,7 @@ export interface RecordRequest {
   path: string;
   body?: unknown;
   label: string;
+  once?: boolean;
   row?: Record<string, unknown>;
 }
 
@@ -25,7 +26,7 @@ export function recordCommand(userId: string, req: RecordRequest, id: string, no
     kind: 'record',
     tableId: `record:${req.entity}`,
     createdAt: now,
-    payload: { entity: req.entity, op: req.op, recordId: req.recordId, method: req.method, path: req.path, body: req.body, label: req.label, row: req.row },
+    payload: { entity: req.entity, op: req.op, recordId: req.recordId, method: req.method, path: req.path, body: req.body, label: req.label, once: req.once, row: req.row },
   };
 }
 
@@ -47,9 +48,9 @@ export function overlayRecords<T extends object>(rows: T[], commands: OutboxComm
     const failed = c.status === 'failed';
     if (p.op === 'delete') {
       out = out.filter((r) => idOf(r) !== p.recordId);
-    } else if (p.op === 'update') {
+    } else if (p.op === 'update' || (p.op === 'action' && p.row)) {
       out = out.map((r) => (idOf(r) === p.recordId ? { ...r, ...(p.row as Partial<T>), pendingSync: true, syncFailed: failed } : r));
-    } else if (!out.some((r) => idOf(r) === p.recordId)) {
+    } else if (p.op === 'create' && p.row && !out.some((r) => idOf(r) === p.recordId)) {
       out = [...out, { ...(p.row as T), pendingSync: true, syncFailed: failed }];
     }
   }
@@ -59,3 +60,11 @@ export function overlayRecords<T extends object>(rows: T[], commands: OutboxComm
 /** A record that is only waiting to be added can't be edited yet (its id is not on kh-pos). */
 export const isUnsent = (row: { pendingSync?: boolean }, commands: OutboxCommand[], entity: string, recordId: string) =>
   !!row.pendingSync && recordCommands(commands, entity).some((c) => c.payload.op === 'create' && c.payload.recordId === recordId);
+
+/** A change to this record is already waiting (so the same action is not done twice before it is sent). */
+export const hasPending = (commands: OutboxCommand[], entity: string, recordId: string) =>
+  recordCommands(commands, entity).some((c) => c.payload.recordId === recordId && c.status === 'pending');
+
+/** How many changes of these lists are waiting (pending or failed), for a small note on a screen. */
+export const waitingCount = (commands: OutboxCommand[], entities: string[]) =>
+  commands.filter((c) => c.kind === 'record' && entities.includes((c.payload as RecordPayload).entity)).length;

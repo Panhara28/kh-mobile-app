@@ -7,7 +7,8 @@ import { fetchAllPages } from '@/lib/catalog';
 import { can } from '@/lib/line';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { hasPending, type RecordRequest } from '@/lib/offline/records';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import type { SlotRow } from '@/lib/org';
 import { approvalBlockedByLots, emptyRepForm, isVerified, itemName, matchLotNumber, pickName, pickProgress, receiveBody, remaining, repFormFrom, repInfo, repTone, type PickRow, type RepDetail, type RepPick } from '@/lib/replenishment';
 import { useSession } from '@/lib/session';
@@ -29,8 +30,8 @@ export default function ReplenishmentScreen() {
   const { id, edit } = useLocalSearchParams<{ id: string; edit?: string }>();
   const creating = id === 'new';
   const { api, user } = useSession();
-  const { data } = useOffline();
-  const guard = useOnlineOnly();
+  const { data, state } = useOffline();
+  const writer = useRecordWriter();
   const warehouseId = user?.currentWarehouseId ?? '';
   const isMain = !!user?.warehouse?.isMain;
 
@@ -77,20 +78,25 @@ export default function ReplenishmentScreen() {
     );
   }, [data, warehouseId]);
 
-  function act(action: () => Promise<unknown>, after?: () => void) {
-    guard(async () => {
+  /** Does a change now, or keeps it on the phone to be sent when kh-pos can be reached (see docs/OFFLINE.md). */
+  function act(req: Pick<RecordRequest, 'method' | 'path' | 'body' | 'label' | 'once'>, after?: (how: 'done' | 'queued') => void) {
+    void (async () => {
       setBusy(true);
       try {
-        await action();
-        after?.();
-        await load();
+        const how = await writer({ entity: 'replenishment', op: 'action', recordId: id, ...req });
+        after?.(how);
+        if (how === 'queued') Alert.alert(t('offline.savedOffline'));
+        else await load();
       } catch (e) {
         Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
+
+  // a change to this replenishment is waiting for kh-pos: don't offer the same action again until it is sent
+  const waiting = hasPending(state.commands, 'replenishment', id);
 
   if (creating) {
     return <RepFormScreen api={api} warehouseId={warehouseId} initial={emptyRepForm(warehouseId)} initialPicking={[]} onSaved={() => router.back()} onCancel={() => router.back()} />;
@@ -114,17 +120,17 @@ export default function ReplenishmentScreen() {
   const items = d.replenishmentDetails;
   const mine = info.fromWarehouseId?.id === warehouseId;
   const money = (v: number | string | null | undefined) => formatMoney(v ?? 0, 'USD');
-  const canApprove = info.status === 'draft' && isMain && can(user, 'replenishment', 'update');
-  const canReceive = (info.status === 'approved' || info.status === 'receiving') && !isMain && can(user, 'replenishment', 'update');
+  const canApprove = !waiting && info.status === 'draft' && isMain && can(user, 'replenishment', 'update');
+  const canReceive = !waiting && (info.status === 'approved' || info.status === 'receiving') && !isMain && can(user, 'replenishment', 'update');
   const receivable = items.filter((i) => remaining(i) > 0);
   const pickRows = d.replenishmentPickingList ?? [];
   const progress = pickProgress(pickRows);
-  const canVerify = mine && info.status === 'draft' && can(user, 'replenishment', 'update');
+  const canVerify = !waiting && mine && info.status === 'draft' && can(user, 'replenishment', 'update');
   const blocked = approvalBlockedByLots(pickRows, restrictLot);
 
   /** Marks a lot as picked and checked. Typing its lot number does the same as tapping it. */
   function verify(p: PickRow) {
-    act(() => api.call('POST', `/api/replenishment/${encodeURIComponent(info.id)}/stock-picking-list`, { lotId: p.lot!.id }));
+    act({ method: 'POST', path: `/api/replenishment/${encodeURIComponent(info.id)}/stock-picking-list`, body: { lotId: p.lot!.id }, label: `${t('rep.detailsTitle')}: ${p.lot?.lotNumber ?? ''}`.trim(), once: true });
   }
 
   function approve() {
@@ -132,7 +138,7 @@ export default function ReplenishmentScreen() {
       Alert.alert(t('rep.lotRequired'), t('rep.lotRequiredHint'));
       return;
     }
-    act(() => api.call('PUT', `/api/replenishment/${encodeURIComponent(info.id)}/approve`), () => Alert.alert(t('rep.approved')));
+    act({ method: 'PUT', path: `/api/replenishment/${encodeURIComponent(info.id)}/approve`, label: t('po.approve') }, (how) => how === 'done' && Alert.alert(t('rep.approved')));
   }
 
   return (
@@ -239,13 +245,11 @@ export default function ReplenishmentScreen() {
                 Alert.alert(t('po.nothingToReceive'));
                 return;
               }
-              act(
-                () => api.call('POST', '/api/replenishment/receive', body),
-                () => {
-                  setReceiving(false);
-                  setPicks({});
-                },
-              );
+              // it adds stock at this branch, so it is never sent twice
+              act({ method: 'POST', path: '/api/replenishment/receive', body, label: t('po.receive'), once: true }, () => {
+                setReceiving(false);
+                setPicks({});
+              });
             }}
           />
         ) : null}

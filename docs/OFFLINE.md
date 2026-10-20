@@ -21,6 +21,19 @@ Other phones do not receive anything from this phone directly; they see the chan
 | Supplier | yes | yes | yes | kh-pos makes the id; a new supplier can't be edited until it is sent |
 | Settings (General) | - | yes | - | each setting is one saved value; image uploads inside a setting still need the server |
 
+## Stock and supply (round 2)
+
+These move stock, so they follow one extra rule, **"send once"**: a change that would be done twice if sent twice is only sent when kh-pos answers a ping, never repeated by itself, and if the answer to the send is lost it is **not** queued (the error says to check kh-pos first). A queued one whose answer is lost on the replay is kept as failed ("could not confirm ... check there before doing it again") for the staff to check, then Retry or Discard. Nobody gets stock twice by accident.
+
+| Where | What is saved offline | Rule |
+|---|---|---|
+| Stock counting (Products > a variant, or More) | Stock in, Stock out, Count, Move between slots | send once; the lots on screen are the saved copy, kh-pos checks the stock when it receives it (out of stock = failed with its message) |
+| Purchase Order | Delete (list and details), Approve, Cancel remaining, **Receive** | Receive is send once; the order shows "waiting" and offers no second receive / edit / delete until sent. Approve shows as approved on the details at once |
+| Replenishment | Delete, Approve (main branch), **Receive** (receiving branch), mark a picked lot, create from Suggestions | Receive, picked lot and Suggestions are send once; the details offer no second action while one waits |
+| Backlog | Resolve | send once; the row leaves the list at once |
+
+Not offline even in round 2: creating or editing a Purchase Order or a Replenishment (they need the live product search with stock and the picking list), Production (the parts to use are worked out by kh-pos), Returns "Put back in stock" (kh-pos answers yes or no), Product groups and Supplier prices (several calls in a row), Slots, Products (the full product form), stock finding and transfer.
+
 ## What still needs the server
 
 - **Users, bind users, passwords, roles:** a password must not sit in the phone's queue, and these change who may log in.
@@ -33,4 +46,5 @@ Other phones do not receive anything from this phone directly; they see the chan
 
 - A queued edit is made on the copy the phone saved last, then sent as a whole record (the web does the same): if someone else edited other fields meanwhile, this phone's version replaces them.
 - An add that is sent twice because the answer was lost can create a duplicate for modules where kh-pos makes the id (Category, Delivery, Supplier).
+- Stock figures on screen are the copy saved earlier; a stock out larger than what the saved copy shows is refused on the phone, and one that kh-pos refuses later shows as failed in the sync list.
 - Logging out keeps the queue on the phone; it is sent after the next login of the same person.

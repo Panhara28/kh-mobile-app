@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, FlatList, Image, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
 import { BACKLOG_PAGE, backlogCode, backlogImage, backlogQuery, backlogStock, variantLabel, type BacklogRow } from '@/lib/stock-activity';
 import { useSession } from '@/lib/session';
 import { Button, Card } from '@/ui/components';
@@ -21,9 +21,10 @@ export default function BacklogScreen() {
   const { t } = useTranslation();
   const { api } = useSession();
   const { data, state } = useOffline();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
 
   const [rows, setRows] = useState<BacklogRow[]>([]);
+  const listed = useRecordRows(rows, 'backlog', (b: BacklogRow) => b.id) ?? [];
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [moreLoading, setMoreLoading] = useState(false);
@@ -65,18 +66,20 @@ export default function BacklogScreen() {
   }, [load, online, syncVersion]);
 
   function resolve(r: BacklogRow) {
-    guard(async () => {
+    // kept on the phone and sent later when kh-pos can't be reached; it takes the stock, so it is never sent twice.
+    // The row leaves the list at once ("delete" only describes what the list shows; the request is the resolve call).
+    void (async () => {
       setBusyId(r.id);
       try {
-        await api.call('POST', '/api/back-log-order/resolve', { backlogId: r.id });
-        Alert.alert(t('backlog.resolved'));
+        const how = await writer({ entity: 'backlog', op: 'delete', recordId: r.id, method: 'POST', path: '/api/back-log-order/resolve', body: { backlogId: r.id }, label: t('backlog.resolve'), once: true });
+        Alert.alert(t(how === 'queued' ? 'offline.savedOffline' : 'backlog.resolved'));
         await load(0);
       } catch (e) {
         Alert.alert(t('backlog.resolveFailed'), e instanceof Error ? e.message : undefined);
       } finally {
         setBusyId('');
       }
-    });
+    })();
   }
 
   return (
@@ -89,7 +92,7 @@ export default function BacklogScreen() {
         <ErrorState error={error} onRetry={() => void load(0)} />
       ) : (
         <FlatList
-          data={rows}
+          data={listed}
           keyExtractor={(r) => r.id}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(0); setRefreshing(false); }} />}

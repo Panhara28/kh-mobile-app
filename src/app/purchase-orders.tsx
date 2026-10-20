@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { can } from '@/lib/line';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
 import { PO_STATUSES, poQuery, receivedText, rowActions, statusTone, type PoRow, type PoStatus } from '@/lib/purchase';
 import { useSession } from '@/lib/session';
 import { Badge, Button, Card, Chip } from '@/ui/components';
@@ -22,10 +22,11 @@ export default function PurchaseOrdersScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data, state } = useOffline();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const warehouseId = user?.currentWarehouseId ?? '';
   const [status, setStatus] = useState<PoStatus | ''>('');
   const [rows, setRows] = useState<PoRow[]>([]);
+  const listed = useRecordRows(rows, 'purchase-order', (p: PoRow) => p.id) ?? [];
   const [loading, setLoading] = useState(true);
   const [more, setMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -72,15 +73,15 @@ export default function PurchaseOrdersScreen() {
         text: t('admin.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('DELETE', '/api/purchase-order', { id: p.id });
-              Alert.alert(t('po.deleted'));
+              const how = await writer({ entity: 'purchase-order', op: 'delete', recordId: p.id, method: 'DELETE', path: '/api/purchase-order', body: { id: p.id }, label: `${t('po.deleteTitle')}: ${p.poIncrement ?? p.id.slice(0, 8)}` });
+              Alert.alert(t(how === 'queued' ? 'offline.savedOffline' : 'po.deleted'));
               await load(0);
             } catch (e) {
               Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }
@@ -105,7 +106,7 @@ export default function PurchaseOrdersScreen() {
         <ErrorState error={error} onRetry={() => void load(0)} />
       ) : (
         <FlatList
-          data={rows}
+          data={listed}
           keyExtractor={(p) => p.id}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(0); setRefreshing(false); }} />}

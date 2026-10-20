@@ -147,7 +147,8 @@ export interface CheckoutCommandPayload {
 export interface RecordPayload {
   /** Which list it belongs to, e.g. 'category'. */
   entity: string;
-  op: 'create' | 'update' | 'delete';
+  /** `action` is anything else done to a record (approve, receive, stock in ...); with a `row` it also shows on the list. */
+  op: 'create' | 'update' | 'delete' | 'action';
   /** Id of the record (made on the phone for an add). */
   recordId: string;
   method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -155,6 +156,12 @@ export interface RecordPayload {
   body?: unknown;
   /** Name shown in the sync list. */
   label: string;
+  /**
+   * Sending it twice would do it twice (stock in, receive, add with an id kh-pos makes). Such a change is only sent when
+   * kh-pos is known to be reachable, and if the answer is lost it is not sent again by itself: it is kept as failed
+   * ("not confirmed") for the staff to check first.
+   */
+  once?: boolean;
   /** The record as it should look on screen (add and edit). */
   row?: Record<string, unknown>;
 }

@@ -184,7 +184,7 @@
     "discardConfirm": "Discard this change? It will not be sent to KH POS.",
     "failedHint": "KH POS didn't accept this: {{reason}}",
     "sendQueued": "Saved on this phone. The kitchen gets the ticket once the KH POS server can be reached again.",
-    "savedOffline": "Saved on this phone. It will be sent when the KH POS server can be reached.",
+    "savedOffline": "Saved on this phone. It will be sent to kh-pos when the connection is back.",
     "notSent": "⏳ Not sent yet",
     "notOpened": "Not sent yet",
     "staleBanner": "Offline. Showing what was saved at {{time}}.",
@@ -224,7 +224,9 @@
     "cmdRecord_create": "Add {{name}}",
     "cmdRecord_update": "Save changes to {{name}}",
     "cmdRecord_delete": "Delete {{name}}",
-    "syncFailed": "Not saved - see sync"
+    "syncFailed": "Not saved - see sync",
+    "cmdRecord_action": "{{name}}",
+    "waitingNote": "{{count}} change(s) saved on this phone, waiting to be sent"
   },
   "checkout": {
     "title": "Payment",
@@ -1292,7 +1294,8 @@
     "do_count": "Save count",
     "do_in": "Add stock",
     "do_out": "Remove stock",
-    "do_move": "Move stock"
+    "do_move": "Move stock",
+    "savedOffline": "Saved on this phone. It will be sent to kh-pos when the connection is back."
   },
   "promo": {
     "new": "New promotion set",

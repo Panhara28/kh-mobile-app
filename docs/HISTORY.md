@@ -134,6 +134,7 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 | Print server client, test prints, QR scan | `1a0862c` | Receipts and test jobs over the print bridge WebSocket; see [PRINTING.md](PRINTING.md) |
 | Product Menu copy link and QR; real-phone checklist | `a6b7d5e`, `47d6509` | See [SETTINGS.md](SETTINGS.md) and the README |
 | Offline saves for setup screens | `a922d10`, `cb0f51d` | Payment Method, Delivery, Category, Modifier, Discount, Supplier and Settings are kept on the phone while offline and sent later; see [OFFLINE.md](OFFLINE.md) |
+| Offline stock and supply, "send once" rule | (this commit) | Stock in/out/count/move, Purchase Order and Replenishment actions and Backlog resolve are kept on the phone and sent later, never twice; see [OFFLINE.md](OFFLINE.md) |
 
 **Offline, per module.** Ordering at tables (including checkout, shifts, discounts, order type) works offline and is sent later, as above. Every other module **reads** from the saved copy offline and **needs the server to save**: it says so instead of failing. Retail POS and cinema ticket sale need the server to charge, because the stock, the seats taken and the invoice number come from kh-pos.
 

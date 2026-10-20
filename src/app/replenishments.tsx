@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { can } from '@/lib/line';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
 import { otherBranch, REP_PAGE, repActions, repCode, repFilters, repListQuery, repTone, type RepRow, type RepStatus } from '@/lib/replenishment';
 import { useSession } from '@/lib/session';
 import { Badge, Button, Card, Chip } from '@/ui/components';
@@ -23,11 +23,12 @@ export default function ReplenishmentsScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data, state } = useOffline();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const isMain = !!user?.warehouse?.isMain;
   const warehouseId = user?.currentWarehouseId ?? '';
   const [status, setStatus] = useState<RepStatus | ''>('');
   const [rows, setRows] = useState<RepRow[]>([]);
+  const listed = useRecordRows(rows, 'replenishment', (r: RepRow) => r.id) ?? [];
   const [loading, setLoading] = useState(true);
   const [more, setMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -74,15 +75,15 @@ export default function ReplenishmentsScreen() {
         text: t('admin.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('DELETE', '/api/replenishment', { id: r.id });
-              Alert.alert(t('rep.deleted'));
+              const how = await writer({ entity: 'replenishment', op: 'delete', recordId: r.id, method: 'DELETE', path: '/api/replenishment', body: { id: r.id }, label: `${t('rep.deleteTitle')}: ${r.id.slice(0, 8)}` });
+              Alert.alert(t(how === 'queued' ? 'offline.savedOffline' : 'rep.deleted'));
               await load(0);
             } catch (e) {
               Alert.alert(t('rep.deleteFailed'), e instanceof Error ? e.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }
@@ -107,7 +108,7 @@ export default function ReplenishmentsScreen() {
         <ErrorState error={error} onRetry={() => void load(0)} />
       ) : (
         <FlatList
-          data={rows}
+          data={listed}
           keyExtractor={(p) => p.id}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(0); setRefreshing(false); }} />}

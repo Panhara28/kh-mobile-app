@@ -5,13 +5,15 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Vi
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchAllPages } from '@/lib/catalog';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { waitingCount } from '@/lib/offline/records';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import type { SlotRow } from '@/lib/org';
 import { useSession } from '@/lib/session';
 import { countBody, countDifference, lotLabel, moveBody, stockInBody, stockOutBody, STOCK_MODES, totalStock, type StockDetail, type StockInForm, type StockMode } from '@/lib/stock-ops';
 import { Button, Card, Chip, Input } from '@/ui/components';
 import { NumberField } from '@/ui/form-fields';
 import { ScreenHeader } from '@/ui/screen-header';
+import { StaleBanner } from '@/ui/sync-status';
 import { ErrorState } from '@/ui/states';
 import { VariantPicker, type PickedVariant } from '@/ui/variant-picker';
 import { colors, font, radius, space } from '@/ui/theme';
@@ -22,8 +24,9 @@ const EMPTY_IN: StockInForm = { qty: 0, lotNumber: '', expiredAt: '', cost: 0 };
 export default function StockCountingScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
-  const { data } = useOffline();
-  const guard = useOnlineOnly();
+  const { data, state } = useOffline();
+  const writer = useRecordWriter();
+  const waiting = waitingCount(state.commands, ['stock']);
   const warehouseId = user?.currentWarehouseId ?? '';
 
   // opened from a product's variant menu with the variant (and the job) already chosen
@@ -35,6 +38,8 @@ export default function StockCountingScreen() {
   const [slotId, setSlotId] = useState('');
   const [toSlotId, setToSlotId] = useState('');
   const [detail, setDetail] = useState<StockDetail | null>(null);
+  /** The lots on screen come from the copy saved on this phone (kh-pos can't be reached). */
+  const [staleAt, setStaleAt] = useState<number | null | false>(false);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [counted, setCounted] = useState<Record<string, number>>({});
@@ -51,14 +56,15 @@ export default function StockCountingScreen() {
   const loadDetail = useCallback(async () => {
     if (!variant || !slotId) return;
     try {
-      const r = await api.call<{ result: StockDetail }>('GET', `/api/inventory/get-stock-detail-for-counting?variant_id=${encodeURIComponent(variant.variantId)}&slot_id=${encodeURIComponent(slotId)}`);
-      setDetail(r.result);
+      const r = await data.cachedRead('stock-detail', `${variant.variantId}:${slotId}`, async () => (await api.call<{ result: StockDetail }>('GET', `/api/inventory/get-stock-detail-for-counting?variant_id=${encodeURIComponent(variant.variantId)}&slot_id=${encodeURIComponent(slotId)}`)).result);
+      setDetail(r.data);
+      setStaleAt(r.stale ? r.savedAt : false);
       setError(null);
     } catch (e) {
       setDetail(null);
       setError(e);
     }
-  }, [api, variant, slotId]);
+  }, [api, data, variant, slotId]);
 
   useEffect(() => {
     // loads after an await, so the state is set asynchronously
@@ -100,24 +106,27 @@ export default function StockCountingScreen() {
       return;
     }
     const send = body;
-    guard(async () => {
+    // kept on the phone and sent later when kh-pos can't be reached; kh-pos checks the stock when it receives it
+    void (async () => {
       setBusy(true);
       try {
-        await api.call('POST', path, send);
+        const how = await writer({ entity: 'stock', op: 'action', recordId: `${variant.variantId}:${slotId}`, method: 'POST', path, body: send, label: `${t(`stockops.mode_${mode}`)}: ${variant.name}`, once: true });
         reset(true);
-        await loadDetail();
-        Alert.alert(t('stockops.done'));
+        if (how === 'done') await loadDetail();
+        Alert.alert(t(how === 'queued' ? 'stockops.savedOffline' : 'stockops.done'));
       } catch (e) {
         Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader title={t('more.stockCounting')} />
+      {staleAt !== false ? <StaleBanner savedAt={staleAt} /> : null}
+      {waiting > 0 ? <Text style={styles.waiting}>{t('offline.waitingNote', { count: waiting })}</Text> : null}
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.chips}>
@@ -216,6 +225,7 @@ export default function StockCountingScreen() {
 }
 
 const styles = StyleSheet.create({
+  waiting: { fontSize: font.small, color: colors.warning, paddingHorizontal: space.md, paddingVertical: space.xs, backgroundColor: colors.warningBg },
   safe: { flex: 1, backgroundColor: colors.page },
   flex: { flex: 1 },
   content: { padding: space.md, gap: space.sm },
