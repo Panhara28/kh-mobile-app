@@ -126,6 +126,7 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 | Settings hub and General | `81c2ddc` | Profile > Settings tiles (General now; Users, Delivery, Payment Method later) and every General setting editor; see [SETTINGS.md](SETTINGS.md) |
 | Settings: Users, Delivery, Payment Method | `6b0d2e9` | The other three Settings sections, with bind users, owner password reset and delivery customers; see [SETTINGS.md](SETTINGS.md) |
 | Settings: Accessibility (roles and permissions) | `8efd5ba` | Roles list with per-resource switches, add/remove resources, new role; see [SETTINGS.md](SETTINGS.md) |
+| Restaurant ordering restored | (this commit) | Tables, table order, kitchen status, checkout, transfer, Table setup and layout for restaurant roles; see [RESTAURANT.md](RESTAURANT.md) |
 
 **Offline, per module.** Ordering at tables (including checkout, shifts, discounts, order type) works offline and is sent later, as above. Every other module **reads** from the saved copy offline and **needs the server to save**: it says so instead of failing. Retail POS and cinema ticket sale need the server to charge, because the stock, the seats taken and the invoice number come from kh-pos.
 

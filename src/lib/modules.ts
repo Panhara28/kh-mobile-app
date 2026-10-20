@@ -43,6 +43,8 @@ export const MODULES: AppModule[] = [
   { id: 'products', route: '/products', resource: 'product', icon: '🍜', titleKey: 'more.products', group: 'setup' },
   { id: 'account', route: '/account', resource: null, icon: '👤', titleKey: 'more.account', group: 'daily' },
   { id: 'branches', route: '/branches', resource: 'warehouse', icon: '🏪', titleKey: 'more.branches', group: 'setup' },
+  { id: 'table-setup', route: '/table-setup', resource: 'table', icon: '🪑', titleKey: 'more.tableSetup', group: 'setup' },
+  { id: 'table-layout', route: '/table-layout', resource: 'table', icon: '🗺', titleKey: 'more.tableLayout', group: 'setup' },
   { id: 'settings', route: '/settings', resource: 'setting', icon: '⚙️', titleKey: 'more.settings', group: 'setup' },
   { id: 'categories', route: '/categories', resource: 'category', icon: '🗂', titleKey: 'more.categories', group: 'setup' },
   { id: 'modifiers', route: '/modifiers', resource: 'modifier', icon: '➕', titleKey: 'more.modifiers', group: 'setup' },
