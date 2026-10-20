@@ -1,5 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import { useCallback, useMemo } from 'react';
+import { planAndProduce } from '../production';
 import { useSession } from '../session';
 import { useOffline } from './provider';
 import { overlayRecords, recordCommand, type RecordRequest, type WithSyncFlag } from './records';
@@ -16,6 +17,10 @@ export function useRecordWriter() {
     (req: RecordRequest): Promise<'done' | 'queued'> => {
       const cmd = recordCommand(user?.id ?? '', req, Crypto.randomUUID());
       const send = async () => {
+        if (req.produce) {
+          await planAndProduce((method, path, body) => api.call(method, path, body), req.produce);
+          return;
+        }
         // the several calls of one change, one after the other
         for (const step of req.steps && req.steps.length > 0 ? req.steps : [{ method: req.method, path: req.path, body: req.body }]) {
           const answer = (await api.call(step.method, step.path, step.body)) as Record<string, unknown> | undefined;

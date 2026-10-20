@@ -1409,7 +1409,9 @@
     "lotMissing": "LOT \"{{lot}}\" not found in composition list.",
     "recent": "Production ({{count}})",
     "empty": "No production yet",
-    "composeIn": "Compose In"
+    "composeIn": "Compose In",
+    "offlineNote": "No connection: kh-pos will work out the parts and check the stock when this is sent.",
+    "offlineLots": "Production with lot verification needs a connection (the lots come from kh-pos)."
   },
   "board": {
     "empty": "No data for this period.",

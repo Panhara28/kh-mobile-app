@@ -280,3 +280,54 @@ describe('a duplicate that is not the record itself', () => {
     expect(engine.getState().failed).toBe(1);
   });
 });
+
+describe('production planned when it is sent', () => {
+  const produce = () => recordCommand(USER, req({ entity: 'production', op: 'action', method: 'POST', path: '/api/composition', recordId: 'v1', label: 'Produce', once: true, produce: { variantId: 'v1', qty: 4, slotId: 's1', cost: 2 }, row: undefined }), 'prod');
+  const part = (available: number) => ({ id: 'c1', name: 'Bag', availableStock: available, requiredStock: 8, canProduce: true, stockSlots: [{ slot: { id: 'sl1', name: 'Shelf' }, lot: { id: 'l1', lotNumber: 'L1' }, qty: 8 }] });
+
+  function fakeCall(server: FakeServer, available: number) {
+    (server.api as { call: unknown }).call = async (method: string, path: string, body?: unknown) => {
+      server.requests.push({ method, path, body });
+      return method === 'GET' ? { result: [part(available)] } : {};
+    };
+  }
+
+  it('plans from the stock at the time it is sent, then makes it once', async () => {
+    const { server, engine } = setup();
+    engine.setOnline(false);
+    await engine.enqueue(produce());
+    fakeCall(server, 20);
+    engine.setOnline(true);
+    await engine.flush();
+    expect(server.requests.map((r) => `${r.method} ${r.path.split('?')[0]}`)).toEqual(['GET /api/composition/draft', 'POST /api/composition']);
+    expect(engine.getState().pending).toBe(0);
+  });
+
+  it('is kept as failed when the stock turned out to be short, without making anything', async () => {
+    const { server, engine } = setup();
+    engine.setOnline(false);
+    await engine.enqueue(produce());
+    fakeCall(server, 1);
+    engine.setOnline(true);
+    await engine.flush();
+    expect(engine.getState().failed).toBe(1);
+    expect(engine.getState().commands[0]?.error).toContain('Not enough stock');
+    expect(server.requests.map((r) => r.method)).toEqual(['GET']);
+  });
+
+  it('does not repeat it when the answer to the making is lost', async () => {
+    const { server, engine } = setup();
+    engine.setOnline(false);
+    await engine.enqueue(produce());
+    (server.api as { call: unknown }).call = async (method: string, path: string, body?: unknown) => {
+      server.requests.push({ method, path, body });
+      if (method === 'POST') throw new ApiError('network', undefined, 'answer lost');
+      return { result: [part(20)] };
+    };
+    engine.setOnline(true);
+    await engine.flush();
+    expect(engine.getState().failed).toBe(1);
+    expect(engine.getState().commands[0]?.error).toBe(UNCONFIRMED);
+    expect(server.requests.filter((r) => r.method === 'POST')).toHaveLength(1);
+  });
+});

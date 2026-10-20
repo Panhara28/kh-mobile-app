@@ -75,6 +75,7 @@ For every screen, also check: it opens, scrolls, and goes back; the keyboard doe
 | Supply | Suppliers, Supplier prices, Purchase orders (receive: full, partial, custom), Replenishment (suggestions, approve) | codes, status changes, stock after receiving |
 | Restaurant | Tables, a table's order, cart, kitchen status, discount, order type (delivery), transfer, checkout, QR button on a table, Promotions chip, Table setup and layout | the same order on the phone and the web POS at the same time; offline ordering then reconnect (see above); a promotion set adds the lines and the discount appears |
 | Retail POS | Retail | barcode scan finds the product; an order with no table is accepted; charge and receipt |
+| Clean up dummy data / invoice preview | Settings > General > Type POS (needs a test branch: it deletes test orders) and Invoice Receipt | the purge shows progress and finishes; the preview changes when you edit the template, title or paddings |
 | Offline saves | airplane mode: edit a Category, a Supplier, a Setting, a Discount, a Modifier, a Payment Method; then turn the network on | the row shows "Not sent yet" and the sync list shows the waiting change; after reconnecting it shows no more mark and the web has the same values (see docs/OFFLINE.md) |
 | Settings | Profile > Settings: General (every category, A to Z), Accessibility, Users (add, edit, bind branches, reset password, Upload Excel), Delivery, Payment Method | every editor saves the same text the web saves; the web shows the new value; Users Upload Excel gives new users the password 123456 |
 | Accounting | Booking and Chart of accounts (only when the branch Accounting setting is on) | lists and entries match the web |
@@ -82,7 +83,7 @@ For every screen, also check: it opens, scrolls, and goes back; the keyboard doe
 | Printing | Profile > Print & Device Settings | Scan fills the address from the print app's QR; Test says connected; with method "Print server" and a printer name, a receipt prints on that printer; General > Inventory and Print Socket "Print" send a sample |
 | QR codes | Tables > QR; Settings > General > Product Menu Rules | the table QR opens that table's menu in a browser; the invoice QR opens the invoice; Copy and Share work |
 
-Known gaps are listed in `docs/SCOPE.md` and each module's doc (Cinema is not on the phone; the invoice template live preview and the phone receipt layout follow their own design, not the web templates).
+Known gaps are listed in `docs/SCOPE.md` and each module's doc (Cinema is not on the phone; the phone's printed receipts use the phone's own layout, not the web templates; the Invoice Receipt preview needs the kh-pos branch with the `/invoice/preview` page).
 
 ## Checks
 

@@ -28,9 +28,9 @@ Same as the web: every setting option is a category; the saved text of each sett
 
 ## Differences (not on the phone)
 
-- **Type POS: "Clean up dummy data"** (deletes test data on the server) is not on the phone on purpose.
+- **Type POS: "Clean up dummy data"** is on the phone (web `type-pos.tsx`, `POST /api/setting/clean`). It asks first ("This permanently deletes ... It cannot be undone"), needs the server, and shows the same "Database Purge Pipeline" progress and messages as the web while kh-pos deletes the orders, order lines, payments, shifts and kitchen logs made in testing mode at this branch (kh-pos does it in one transaction). **Never run against a server yet** (it deletes data): the stream reader is tested with sample events only.
 - **Type POS side effect:** on Save the web creates a "movies" category when the type becomes Cinema and tries to delete one with a placeholder id otherwise. The phone only saves the setting. (The web delete uses `"movies-category-id"`, which looks like an unfinished placeholder.)
-- **Test print buttons** (Inventory printer, Print Socket sample ticket) are on the phone and send the same sample jobs to this phone's print server (see PRINTING.md). The invoice template picker has no live preview (the three web templates are about 1,800 lines of web layout; the phone's own receipt does not use them).
+- **Test print buttons** (Inventory printer, Print Socket sample ticket) are on the phone and send the same sample jobs to this phone's print server (see PRINTING.md). The Invoice Receipt editor has a **live preview** (below).
 - **Brand Integration** tokens are hidden when listed and typed in a hidden box. The setting still holds them in plain text on the server, as the web does.
 - **Image uploads** (logo, QR code, banner, brand icon) go through the phone's photo library, 5 MB at most, using the same upload as product photos.
 - Saving needs the server (a warning appears offline). The list is cached for reading offline.
@@ -96,3 +96,7 @@ Checked against the web source (`accessiblity/index.tsx`, `role-card.tsx`, `perm
 
 - **Users > Upload Excel** (web `upload-user-dialog.tsx`, `/api/upload-excel/user`): pick a .xlsx/.xls up to 10 MB with the headers Full Name, Username, Phone Number, Position, Profile; the phone shows the rows read and warnings (no username, repeated username, no position) and uploads. **kh-pos gives every user made this way the password `123456`** and looks the Position up as a role name, so tell them to change it. Not on the phone: the web's "download template" button (the columns are listed on the screen).
 - **Product Menu Rules** now has Copy Link and a QR Code of the menu link.
+
+## Invoice Receipt live preview (round 5)
+
+The editor shows the web's own receipt templates (Default, Template I, Template CH, Template Funbeerking) with the web's sample order, as a WebView of a new kh-pos page, `/invoice/preview` (kh-pos branch `feat/mobile-invoice-preview`, commit `f969cd8`, not merged or pushed; **it must be running on your server for the preview to work**). The app gives the page its login token and sends the setting's text as you edit, so the preview follows the template, logo, title, paddings, discount options and receipts per checkout. Checked in Chrome on the local server: all four templates render (two copies for "2 receipts"). Needs the server and the page's fonts (they load from Google Fonts, so Khmer text uses the phone's font offline). **Not seen in the phone's WebView.** The phone's own printed receipts still use the phone layout (`lib/receipt.ts`), not these templates.

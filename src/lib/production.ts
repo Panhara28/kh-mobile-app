@@ -123,6 +123,49 @@ export function productionBody(f: ProductionForm, parts: DraftComponent[]) {
   };
 }
 
+/**
+ * What the form needs to produce offline: the product, how many, where the new stock goes and its cost. The parts and
+ * the slots and lots to take them from are NOT decided on the phone: kh-pos works them out from the stock it has when the
+ * change is sent (see planAndProduce).
+ */
+export interface ProduceIntent {
+  variantId: string;
+  qty: number;
+  slotId: string;
+  cost: number;
+}
+
+export type ProduceCall = (method: string, path: string, body?: unknown) => Promise<unknown>;
+
+/** The Produce button offline: a product, a quantity and a slot are enough, the parts are checked when it is sent. */
+export function produceBlockerOffline(f: ProductionForm, busy: boolean): 'busy' | 'product' | 'qty' | 'slot' | null {
+  if (busy) return 'busy';
+  if (!f.variantId) return 'product';
+  if (!(n(f.qty) > 0)) return 'qty';
+  if (!f.slotId) return 'slot';
+  return null;
+}
+
+/** Why a plan cannot be produced (the first part that is short), or null. */
+export function shortage(parts: DraftComponent[], qty: number): string | null {
+  if (parts.length === 0) return 'kh-pos has no recipe for this product';
+  if (!exceedsStock(parts, qty)) return null;
+  const short = parts.find((c) => !isStockSufficient(c));
+  return `Not enough stock to produce ${qty}${short ? `: ${componentTitle(short) || short.name || short.id}` : ''}`;
+}
+
+/**
+ * Produces a quantity the way the Produce button does, but asking kh-pos for the plan right now: the current stock
+ * decides which slots and lots the parts come from. Throws with the reason if the stock is short.
+ */
+export async function planAndProduce(call: ProduceCall, p: ProduceIntent): Promise<void> {
+  const draft = (await call('GET', `/api/composition/draft?${draftQuery(p.variantId, p.qty)}`)) as { result?: DraftComponent[] } | undefined;
+  const parts = draft?.result ?? [];
+  const problem = shortage(parts, p.qty);
+  if (problem) throw new Error(problem);
+  await call('POST', '/api/composition', productionBody({ variantId: p.variantId, cost: p.cost, qty: p.qty, slotId: p.slotId }, parts));
+}
+
 // ---- lot verification (shown when "restrict product lot" is on) ----
 
 export interface LotRow {

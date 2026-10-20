@@ -1,4 +1,4 @@
-import { filterOptions, allVerified, compositeQuery, draftQuery, emptyProduction, exceedsStock, historyQuery, isStockSufficient, lotRows, missingLots, produceBlocker, productionBody, rowAmount, slotLine, slotText, suggestedQty, unitRequired, verifyLot, type DraftComponent } from './production';
+import { filterOptions, planAndProduce, produceBlockerOffline, shortage, allVerified, compositeQuery, draftQuery, emptyProduction, exceedsStock, historyQuery, isStockSufficient, lotRows, missingLots, produceBlocker, productionBody, rowAmount, slotLine, slotText, suggestedQty, unitRequired, verifyLot, type DraftComponent } from './production';
 
 const part = (over: Partial<DraftComponent> = {}): DraftComponent => ({ id: 'c1', name: 'Bag', basicProduct: { title: 'Flour' }, availableStock: 20, requiredStock: 10, canProduce: true, stockSlots: [{ slot: { id: 's1', name: 'Shelf' }, lot: { id: 'l1', lotNumber: 'L-1' }, qty: 10 }], ...over });
 const form = (over = {}) => ({ ...emptyProduction(), variantId: 'v1', cost: 2.5, qty: 5, slotId: 'out', ...over });
@@ -97,5 +97,46 @@ describe('filterOptions', () => {
     expect(filterOptions(rows, '885').map((r) => r.variantId)).toEqual(['1']);
     expect(filterOptions(rows, 'zzz')).toEqual([]);
     expect(filterOptions(rows, '  ')).toBe(rows);
+  });
+});
+
+describe('producing with the plan made when it is sent', () => {
+  const okParts = [part({ id: 'c1', availableStock: 20, requiredStock: 10 })];
+  const intent = { variantId: 'v1', qty: 5, slotId: 'out', cost: 2.5 };
+
+  it('needs only a product, a quantity and a slot while offline', () => {
+    expect(produceBlockerOffline(emptyProduction(), false)).toBe('product');
+    expect(produceBlockerOffline({ ...emptyProduction(), variantId: 'v1' }, false)).toBe('qty');
+    expect(produceBlockerOffline({ ...emptyProduction(), variantId: 'v1', qty: 2 }, false)).toBe('slot');
+    expect(produceBlockerOffline({ ...emptyProduction(), variantId: 'v1', qty: 2, slotId: 's' }, true)).toBe('busy');
+    expect(produceBlockerOffline({ ...emptyProduction(), variantId: 'v1', qty: 2, slotId: 's' }, false)).toBeNull();
+  });
+
+  it('names what is short, or says there is no recipe', () => {
+    expect(shortage([], 5)).toContain('no recipe');
+    expect(shortage(okParts, 5)).toBeNull();
+    expect(shortage([part({ id: 'c1', availableStock: 1, requiredStock: 10 })], 5)).toContain('Not enough stock to produce 5: Flour');
+  });
+
+  it('asks kh-pos for the plan, then makes it from that plan', async () => {
+    const calls: { method: string; path: string; body?: unknown }[] = [];
+    await planAndProduce(async (method, path, body) => {
+      calls.push({ method, path, body });
+      return method === 'GET' ? { result: okParts } : {};
+    }, intent);
+    expect(calls.map((c) => `${c.method} ${c.path.split('?')[0]}`)).toEqual(['GET /api/composition/draft', 'POST /api/composition']);
+    expect(calls[0]!.path).toContain('variantId=v1&qty=5');
+    expect(calls[1]!.body).toMatchObject({ composedVariant: { variantId: 'v1', qty: 5, slotId: 'out' }, componentVariants: [{ id: 'c1' }] });
+  });
+
+  it('does not produce when the stock is short', async () => {
+    const calls: string[] = [];
+    await expect(
+      planAndProduce(async (method) => {
+        calls.push(method);
+        return { result: [part({ availableStock: 0, requiredStock: 10 })] };
+      }, intent),
+    ).rejects.toThrow('Not enough stock');
+    expect(calls).toEqual(['GET']);
   });
 });

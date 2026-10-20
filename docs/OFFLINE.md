@@ -54,10 +54,14 @@ More changes are kept on the phone and sent later. A change with several calls (
 | Users | Edit, delete | not adding a user or resetting a password: a password must not be kept in the phone's queue. Changing the branches a person is bound to is sent once, and only when that list was loaded online |
 | Roles (Accessibility) | Change a role's permissions; a new role is sent once | the role shows its new permissions at once |
 
+## Production offline (round 5)
+
+Offline you pick a product (from the saved product search), a quantity and the slot for the new stock, and Produce is kept on the phone. **The parts are not decided on the phone.** When the change is sent, kh-pos is asked for the plan (which parts, and from which slots and lots) with the stock it has *then*, and only if every part is available is the production made; otherwise the change is kept as failed with the reason ("Not enough stock to produce 5: Flour") and nothing is made. It uses up parts and makes stock, so it is send once (a lost answer is never repeated by itself). With "restrict product lot" on, production still needs a connection. The product search needs to have been opened online once.
+
 ## What still needs the server
 
 - **Adding a user, resetting a password, adding or deleting a branch:** a password must not sit in the phone's queue and these change who can log in.
-- **Production:** the parts and lots to use are worked out by kh-pos from the live stock.
+- **Production with "restrict product lot" on:** the lots to scan come from kh-pos. (Without it, production works offline: see below.)
 - **Editing a replenishment:** changing the lines changes the picking list, which is worked out by kh-pos.
 - **Retail POS charging:** the stock, the invoice number and the payment come from kh-pos.
 - **Uploading pictures and Excel files**, and **logging in on a phone for the first time.**

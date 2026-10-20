@@ -6,6 +6,7 @@ import type { KhPosApi } from '@/lib/api';
 import { fetchAllPages } from '@/lib/catalog';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import type { SlotRow } from '@/lib/org';
 import {
   componentImage,
@@ -16,6 +17,7 @@ import {
   isStockSufficient,
   missingLots,
   produceBlocker,
+  produceBlockerOffline,
   productionBody,
   slotLine,
   suggestedQty,
@@ -50,7 +52,9 @@ export function ProduceForm({
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { data } = useOffline();
+  const { data, state } = useOffline();
+  const writer = useRecordWriter();
+  const online = state.online;
 
   const [form, setForm] = useState<ProductionForm>(emptyProduction());
   const [title, setTitle] = useState('');
@@ -72,6 +76,11 @@ export function ProduceForm({
   /** Asks the server what the recipe needs for this quantity (the web does this on picking a product and on leaving the quantity box). */
   async function plan(variantId: string, qty: number) {
     if (!variantId) return;
+    if (!online) {
+      // offline there is no live plan: kh-pos checks the parts and the stock when the change is sent
+      setParts([]);
+      return;
+    }
     const id = ++run.current;
     setLoading(true);
     try {
@@ -95,14 +104,20 @@ export function ProduceForm({
     if (form.qty > 0) void plan(form.variantId, form.qty);
   }
 
-  const blocker = produceBlocker(form, parts, busy || loading);
+  const blocker = online ? produceBlocker(form, parts, busy || loading) : produceBlockerOffline(form, busy);
 
   async function save() {
     setBusy(true);
     try {
-      await api.call('POST', '/api/composition', productionBody(form, parts));
-      setScanning(false);
-      Alert.alert(t('production.done'));
+      if (online) {
+        await api.call('POST', '/api/composition', productionBody(form, parts));
+        setScanning(false);
+        Alert.alert(t('production.done'));
+      } else {
+        // kept on the phone and sent later; it uses up parts and makes stock, so it is sent only once
+        await writer({ entity: 'production', op: 'action', recordId: form.variantId, method: 'POST', path: '/api/composition', produce: { variantId: form.variantId, qty: form.qty, slotId: form.slotId, cost: form.cost }, label: `${t('production.addProducts')}: ${title}`, once: true });
+        Alert.alert(t('offline.savedOffline'));
+      }
       onSaved();
     } catch (e) {
       Alert.alert(t('production.saveFailed'), e instanceof Error ? e.message : undefined);
@@ -112,6 +127,10 @@ export function ProduceForm({
   }
 
   function produce() {
+    if (!online && restrictLots) {
+      Alert.alert(t('production.offlineLots'));
+      return;
+    }
     if (restrictLots) {
       if (missingLots(parts)) {
         Alert.alert(t('production.lotsMissing'));
@@ -157,6 +176,7 @@ export function ProduceForm({
               />
             </Card>
 
+            {!online ? <Text style={styles.empty}>{t('production.offlineNote')}</Text> : null}
             <View style={styles.row}>
               <Text style={styles.section}>{t('production.summary')}</Text>
               <Badge tone="outline" text={t('production.items', { count: parts.length })} />

@@ -1,4 +1,5 @@
 import { ApiError, type KhPosApi, type MenuProduct, type OrderLine } from '../api';
+import { planAndProduce } from '../production';
 import { addExtras, addToTable, kitchenMoves, mergeTarget, pendingQty, serveMoves, statusQty } from '../order';
 import type {
   AddLinePayload,
@@ -331,6 +332,20 @@ export class SyncEngine {
    */
   private async replayRecord(cmd: OutboxCommand<'record'>): Promise<void> {
     const p = cmd.payload;
+    if (p.produce) {
+      // the plan is made now from kh-pos' stock; a lost answer to the final call could mean it was made, so it is not repeated
+      let posted = false;
+      try {
+        await planAndProduce(async (method, path, body) => {
+          if (method === 'POST') posted = true;
+          return this.api.call(method, path, body);
+        }, p.produce);
+      } catch (e) {
+        if (posted && isNetwork(e)) throw new Error(UNCONFIRMED);
+        throw e;
+      }
+      return;
+    }
     const steps = p.steps && p.steps.length > 0 ? p.steps : [{ method: p.method, path: p.path, body: p.body }];
     for (let i = p.done ?? 0; i < steps.length; i++) {
       const step = steps[i]!;

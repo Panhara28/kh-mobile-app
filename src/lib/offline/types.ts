@@ -167,6 +167,8 @@ export interface RecordPayload {
    * An answer of `false` is a refusal.
    */
   mustBeTrue?: string;
+  /** Production: kh-pos makes the plan (parts, slots, lots) from its stock when this is sent; see planAndProduce. */
+  produce?: { variantId: string; qty: number; slotId: string; cost: number };
   /** Name shown in the sync list. */
   label: string;
   /**

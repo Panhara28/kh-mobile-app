@@ -12,6 +12,6 @@ The login, the saved copy of lists for offline reading and the saved-login for o
 
 **Restored later (round 2, from git before the scope cut, not re-compared line by line with the web):** Retail POS (`pos`), Accounting (Booking, Chart of accounts, shown only when the branch Accounting setting is on), Promotion Sets management (a tab on Discount), and the Board Member dashboard and sale report. They were compared with the web when first built; this time they were restored and checked by the type checker, the tests (514 pass) and the translation check only.
 
-**Still not on the phone:** all of Cinema (showtimes, halls and seats, pricing template, tickets, find ticket, settlement, manual ticket, ticket sale, and the Print Socket-only parts that need a cinema), the invoice template live preview, and Type POS "Clean up dummy data" (it deletes data on the server). There is no general Customers page in the web either (only Delivery), so none was restored.
+**Still not on the phone:** all of Cinema (showtimes, halls and seats, pricing template, tickets, find ticket, settlement, manual ticket, ticket sale, and the Print Socket-only parts that need a cinema), (the invoice template live preview and Type POS "Clean up dummy data" are on the phone now). There is no general Customers page in the web either (only Delivery), so none was restored.
 
 Which modules save while offline and send later: see [OFFLINE.md](OFFLINE.md).
