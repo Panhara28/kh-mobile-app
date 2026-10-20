@@ -75,6 +75,7 @@ For every screen, also check: it opens, scrolls, and goes back; the keyboard doe
 | Supply | Suppliers, Supplier prices, Purchase orders (receive: full, partial, custom), Replenishment (suggestions, approve) | codes, status changes, stock after receiving |
 | Restaurant | Tables, a table's order, cart, kitchen status, discount, order type (delivery), transfer, checkout, QR button on a table, Promotions chip, Table setup and layout | the same order on the phone and the web POS at the same time; offline ordering then reconnect (see above); a promotion set adds the lines and the discount appears |
 | Retail POS | Retail | barcode scan finds the product; an order with no table is accepted; charge and receipt |
+| Offline saves | airplane mode: edit a Category, a Supplier, a Setting, a Discount, a Modifier, a Payment Method; then turn the network on | the row shows "Not sent yet" and the sync list shows the waiting change; after reconnecting it shows no more mark and the web has the same values (see docs/OFFLINE.md) |
 | Settings | Profile > Settings: General (every category, A to Z), Accessibility, Users (add, edit, bind branches, reset password, Upload Excel), Delivery, Payment Method | every editor saves the same text the web saves; the web shows the new value; Users Upload Excel gives new users the password 123456 |
 | Accounting | Booking and Chart of accounts (only when the branch Accounting setting is on) | lists and entries match the web |
 | Board member | sign in as a Board Member role | the board dashboard and sale report |
