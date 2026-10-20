@@ -58,16 +58,30 @@ It prints the staff username and password. If you don't set `STAFF_PASSWORD`, it
 5. Switch the network back on. Within about 10 seconds the pill goes to **Online**, the changes are sent, and the table shows the real invoice number. Check the same table on the web POS.
 6. Try a conflict: offline, add a dish to a table; on the web POS close or change that table; go online. The change KH POS can't apply shows under **Needs attention** in the sync list.
 
-## Try the new modules
+## Real-phone checklist
 
-None of these has been opened on a real phone yet. With kh-pos running, open **More** and try each one that your role shows; the points most likely to need a fix:
+**None of this has been opened on a real phone yet.** Everything below was checked by reading the web source, by tests, and by running the phone's logic against a local kh-pos, never on a device. Do this with the phone next to the web admin (same server and branch), as a role that has the module (the owner sees all), and note anything that differs in words, fields, order, numbers or behaviour. Each module has a doc in `docs/` listing what was compared and the known differences.
 
-1. **Retail POS:** an order with no table must be accepted by kh-pos; barcode search must find a product by its barcode.
-2. **Cinema tickets:** the ticket's QR must hold the reservation code exactly (the scan matches it).
-3. **Cinema ticket sale and halls:** seats and prices come from the hall and pricing template; selling then paying turns the reservations from pending to confirmed.
-4. **Production, replenishment, purchase orders, stock counting:** these write stock; try them on test data first.
-5. **Accounting:** appears only when the branch's Accounting setting is on, and any signed-in staff can use it (as on the web).
-6. **Table floor plan:** dragging inside the scroll area; positions must match what the web shows.
+Setup: `.env.local` has `EXPO_PUBLIC_KHPOS_URL=http://<PC LAN address>:3001`; kh-pos must listen on the network (`next dev -H 0.0.0.0 -p 3001`) and the firewall must allow port 3001; the phone is on the same Wi-Fi; start Expo with `npx expo start -c`.
+
+For every screen, also check: it opens, scrolls, and goes back; the keyboard does not hide the Save button; Khmer and English both read well (Profile > language); offline it shows the saved copy and says changes need the server.
+
+| Area | Open | Compare with the web, and try |
+|---|---|---|
+| Login and home | log in as owner, then as a Service role | owner opens on the dashboard; a role with `restaurant` opens on the tables; More lists modules A to Z |
+| Reports | each report in More > Reports | same totals as the web for the same dates; filters, export, email |
+| Inventory | Products, Category, Discount (and its Promotion Sets tab), Modifier, Production, Branches and Slots, Stock movements, Product groups | list columns, add/edit/delete, stock in/out/count, Upload Excel (main branch) |
+| Order management | Orders, Order details, Stock finding and transfer, Returns, Backlog, Shift | filters and search, receipt print, undo, open/close shift |
+| Supply | Suppliers, Supplier prices, Purchase orders (receive: full, partial, custom), Replenishment (suggestions, approve) | codes, status changes, stock after receiving |
+| Restaurant | Tables, a table's order, cart, kitchen status, discount, order type (delivery), transfer, checkout, QR button on a table, Promotions chip, Table setup and layout | the same order on the phone and the web POS at the same time; offline ordering then reconnect (see above); a promotion set adds the lines and the discount appears |
+| Retail POS | Retail | barcode scan finds the product; an order with no table is accepted; charge and receipt |
+| Settings | Profile > Settings: General (every category, A to Z), Accessibility, Users (add, edit, bind branches, reset password, Upload Excel), Delivery, Payment Method | every editor saves the same text the web saves; the web shows the new value; Users Upload Excel gives new users the password 123456 |
+| Accounting | Booking and Chart of accounts (only when the branch Accounting setting is on) | lists and entries match the web |
+| Board member | sign in as a Board Member role | the board dashboard and sale report |
+| Printing | Profile > Print & Device Settings | Scan fills the address from the print app's QR; Test says connected; with method "Print server" and a printer name, a receipt prints on that printer; General > Inventory and Print Socket "Print" send a sample |
+| QR codes | Tables > QR; Settings > General > Product Menu Rules | the table QR opens that table's menu in a browser; the invoice QR opens the invoice; Copy and Share work |
+
+Known gaps are listed in `docs/SCOPE.md` and each module's doc (Cinema is not on the phone; the invoice template live preview and the phone receipt layout follow their own design, not the web templates).
 
 ## Checks
 
