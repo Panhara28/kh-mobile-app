@@ -331,13 +331,25 @@ export class SyncEngine {
    */
   private async replayRecord(cmd: OutboxCommand<'record'>): Promise<void> {
     const p = cmd.payload;
-    try {
-      await this.api.call(p.method, p.path, p.body);
-    } catch (e) {
-      if (p.op === 'create' && /duplicate|already exist/i.test(messageOf(e))) return;
-      // the answer was lost: it may or may not have been applied, and doing it again could do it twice
-      if (p.once && isNetwork(e)) throw new Error(UNCONFIRMED);
-      throw e;
+    const steps = p.steps && p.steps.length > 0 ? p.steps : [{ method: p.method, path: p.path, body: p.body }];
+    for (let i = p.done ?? 0; i < steps.length; i++) {
+      const step = steps[i]!;
+      try {
+        const answer = (await this.api.call(step.method, step.path, step.body)) as Record<string, unknown> | undefined;
+        if (p.mustBeTrue && answer && answer[p.mustBeTrue] === false) throw new Error('kh-pos did not accept it');
+      } catch (e) {
+        // an add that already got through (the answer was lost) answers "already exists": that call is done
+        if (!(p.op === 'create' && i === 0 && /duplicate entry[^]*PRIMARY|already exist/i.test(messageOf(e)))) {
+          // the answer was lost: it may or may not have been applied, and doing it again could do it twice
+          if (p.once && isNetwork(e)) throw new Error(UNCONFIRMED);
+          throw e;
+        }
+      }
+      if (steps.length > 1) {
+        // carry on from the next call if this one is interrupted
+        cmd.payload = { ...p, done: i + 1 };
+        await this.store.outboxUpdate(cmd.id, { payload: cmd.payload });
+      }
     }
   }
 

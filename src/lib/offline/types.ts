@@ -154,6 +154,19 @@ export interface RecordPayload {
   method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   path: string;
   body?: unknown;
+  /**
+   * A change that takes several calls in a row (a product group: the group, its products, its branches ...). They are
+   * sent in order; how many are done is kept so a retry carries on from the next one. `method`, `path` and `body`
+   * then describe the first call.
+   */
+  steps?: { method: RecordPayload['method']; path: string; body?: unknown }[];
+  /** How many of the `steps` have been sent. */
+  done?: number;
+  /**
+   * kh-pos answers a yes or no inside a successful reply (for example `{result: false}`): this is the field to look at.
+   * An answer of `false` is a refusal.
+   */
+  mustBeTrue?: string;
   /** Name shown in the sync list. */
   label: string;
   /**

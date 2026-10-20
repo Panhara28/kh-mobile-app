@@ -13,6 +13,8 @@ export interface RecordRequest {
   method: RecordPayload['method'];
   path: string;
   body?: unknown;
+  steps?: RecordPayload['steps'];
+  mustBeTrue?: string;
   label: string;
   once?: boolean;
   row?: Record<string, unknown>;
@@ -26,7 +28,7 @@ export function recordCommand(userId: string, req: RecordRequest, id: string, no
     kind: 'record',
     tableId: `record:${req.entity}`,
     createdAt: now,
-    payload: { entity: req.entity, op: req.op, recordId: req.recordId, method: req.method, path: req.path, body: req.body, label: req.label, once: req.once, row: req.row },
+    payload: { entity: req.entity, op: req.op, recordId: req.recordId, method: req.method, path: req.path, body: req.body, steps: req.steps, mustBeTrue: req.mustBeTrue, label: req.label, once: req.once, row: req.row },
   };
 }
 

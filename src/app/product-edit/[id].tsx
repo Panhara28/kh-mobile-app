@@ -6,6 +6,7 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Vi
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useOffline } from '@/lib/offline/provider';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { dayText } from '@/lib/dates';
 import { applyOptions, createBody, defaultMovie, formFromDetail, isMovie, newProductForm, setCategory, updateBody, validateProduct, type Detail, type OptionForm, type ProductFormData, type ProductProblem } from '@/lib/product-form';
 import { useSession } from '@/lib/session';
@@ -38,6 +39,7 @@ export default function ProductEditScreen() {
   const { api, user } = useSession();
   const { data } = useOffline();
   const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const insets = useSafeAreaInsets();
   const { warehouseId, currency } = useBranch();
   const isMain = (user?.warehouse as { isMain?: boolean } | null | undefined)?.isMain !== false;
@@ -113,18 +115,20 @@ export default function ProductEditScreen() {
       Alert.alert(t(`pform.problem_${bad.field}`, { n: 'index' in bad ? bad.index + 1 : 0 }));
       return;
     }
-    guard(async () => {
+    // kept on the phone and sent later when kh-pos can't be reached. The ids of the product and its variants are made
+    // here, so sending the same add twice only clashes with itself. Pictures must already be uploaded (that needs the server).
+    void (async () => {
       setBusy(true);
       try {
-        if (f.isNewProduct) await api.call('POST', '/api/product-v2', createBody(f));
-        else await api.call('PUT', '/api/product-v2', updateBody(f));
+        const how = await writer({ entity: 'product', op: f.isNewProduct ? 'create' : 'update', recordId: f.productId, method: f.isNewProduct ? 'POST' : 'PUT', path: '/api/product-v2', body: f.isNewProduct ? createBody(f) : updateBody(f), label: f.title });
+        if (how === 'queued') Alert.alert(t('offline.savedOffline'));
         router.back();
       } catch (e) {
         Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   return (

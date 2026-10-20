@@ -5,7 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { addResource, createRoleBody, removeResource, resourceLabel, togglePermission, toRoles, updateRoleBody, validateRoleName, type Permissions, type Role, type RoleRow } from '@/lib/accessibility';
 import { can } from '@/lib/line';
 import { useCachedLoad } from '@/lib/offline/use-cached-load';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
 import { useSession } from '@/lib/session';
 import { PermissionList } from '@/ui/accessibility/permission-list';
 import { Badge, Button, Card, Field } from '@/ui/components';
@@ -21,9 +21,10 @@ import { colors, font, space } from '@/ui/theme';
 export default function AccessibilityScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const insets = useSafeAreaInsets();
   const load = useCachedLoad<Role[]>('accessibility', 'roles', useCallback(async () => toRoles((await api.call<RoleRow[]>('GET', '/api/user/role')) as unknown as RoleRow[]), [api]));
+  const roles = useRecordRows(load.value, 'role', (r: Role) => r.id);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [editing, setEditing] = useState<Record<string, Permissions>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -45,21 +46,20 @@ export default function AccessibilityScreen() {
   function save(role: Role) {
     const perms = editing[role.id];
     if (!perms) return;
-    guard(() => {
-      void (async () => {
-        setBusy(role.id);
-        try {
-          await api.call('PUT', '/api/user/role', updateRoleBody(role, perms));
-          discard(role.id);
-          await load.reload();
-          Alert.alert(t('acc.saved'));
-        } catch (e) {
-          Alert.alert(t('acc.saveFailed'), e instanceof Error ? e.message : undefined);
-        } finally {
-          setBusy(null);
-        }
-      })();
-    });
+    // kept on the phone and sent later when kh-pos can't be reached; the role shows its new permissions at once
+    void (async () => {
+      setBusy(role.id);
+      try {
+        const how = await writer({ entity: 'role', op: 'update', recordId: role.id, method: 'PUT', path: '/api/user/role', body: updateRoleBody(role, perms), label: role.role, row: { permissions: perms } });
+        discard(role.id);
+        await load.reload();
+        Alert.alert(t(how === 'queued' ? 'offline.savedOffline' : 'acc.saved'));
+      } catch (e) {
+        Alert.alert(t('acc.saveFailed'), e instanceof Error ? e.message : undefined);
+      } finally {
+        setBusy(null);
+      }
+    })();
   }
 
   function create() {
@@ -69,21 +69,20 @@ export default function AccessibilityScreen() {
       Alert.alert(t(problem === 'empty' ? 'acc.nameEmpty' : 'acc.nameLong'));
       return;
     }
-    guard(() => {
-      void (async () => {
-        setBusy('new');
-        try {
-          await api.call('POST', '/api/user/role', createRoleBody(adding.name, adding.permissions));
-          setAdding(null);
-          await load.reload();
-          Alert.alert(t('acc.created'));
-        } catch (e) {
-          Alert.alert(t('acc.createFailed'), e instanceof Error ? e.message : undefined);
-        } finally {
-          setBusy(null);
-        }
-      })();
-    });
+    // a new role is sent only once (kh-pos makes its id)
+    void (async () => {
+      setBusy('new');
+      try {
+        const how = await writer({ entity: 'role', op: 'create', recordId: `new:${adding.name.trim()}`, method: 'POST', path: '/api/user/role', body: createRoleBody(adding.name, adding.permissions), label: adding.name.trim(), once: true });
+        setAdding(null);
+        await load.reload();
+        Alert.alert(t(how === 'queued' ? 'offline.savedOffline' : 'acc.created'));
+      } catch (e) {
+        Alert.alert(t('acc.createFailed'), e instanceof Error ? e.message : undefined);
+      } finally {
+        setBusy(null);
+      }
+    })();
   }
 
   return (
@@ -92,11 +91,11 @@ export default function AccessibilityScreen() {
       {load.staleAt !== false ? <StaleBanner savedAt={load.staleAt} /> : null}
       {load.value === null ? (
         load.loading ? <LoadingState /> : <ErrorState error={load.error} onRetry={() => void load.reload()} />
-      ) : load.value.length === 0 ? (
+      ) : (roles ?? []).length === 0 ? (
         <EmptyState title={t('acc.noRoles')} description={t('acc.noRolesHint')} />
       ) : (
         <ScrollView contentContainerStyle={styles.body}>
-          {load.value.map((role) => {
+          {(roles ?? []).map((role) => {
             const open = expanded === role.id;
             const changed = !!editing[role.id];
             return (

@@ -136,6 +136,7 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 | Offline saves for setup screens | `a922d10`, `cb0f51d` | Payment Method, Delivery, Category, Modifier, Discount, Supplier and Settings are kept on the phone while offline and sent later; see [OFFLINE.md](OFFLINE.md) |
 | Offline stock and supply, "send once" rule | `7c563fa` | Stock in/out/count/move, Purchase Order and Replenishment actions and Backlog resolve are kept on the phone and sent later, never twice; see [OFFLINE.md](OFFLINE.md) |
 | Offline Purchase Order / Replenishment creation, saved product catalog | `cbd5eef` | The product search works from a saved copy offline; new orders are kept and sent once; see [OFFLINE.md](OFFLINE.md) |
+| Offline: product groups, slots, supplier prices, returns, products, user edits, branch edits, roles | (this commit) | Several-call changes, yes-or-no answers and the stricter duplicate rule; see [OFFLINE.md](OFFLINE.md) |
 
 **Offline, per module.** Ordering at tables (including checkout, shifts, discounts, order type) works offline and is sent later, as above. Every other module **reads** from the saved copy offline and **needs the server to save**: it says so instead of failing. Retail POS and cinema ticket sale need the server to charge, because the stock, the seats taken and the invoice number come from kh-pos.
 

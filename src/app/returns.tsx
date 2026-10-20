@@ -5,7 +5,8 @@ import { ActivityIndicator, Alert, FlatList, Image, Modal, RefreshControl, Scrol
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { hasPending } from '@/lib/offline/records';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { RETURN_PAGE, returnCode, returnHistory, returnImage, returnProduct, returnsQuery, type ReturnRow, type ReturnTab, type StockInSlot } from '@/lib/stock-activity';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
@@ -144,7 +145,9 @@ export default function ReturnsScreen() {
 function StockInfoSheet({ row, onClose, onDone }: { row: ReturnRow; onClose: () => void; onDone: () => void }) {
   const { t } = useTranslation();
   const { api } = useSession();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
+  const { state } = useOffline();
+  const waiting = hasPending(state.commands, 'return', row.id);
   const insets = useSafeAreaInsets();
   const [slots, setSlots] = useState<StockInSlot[] | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -171,22 +174,20 @@ function StockInfoSheet({ row, onClose, onDone }: { row: ReturnRow; onClose: () 
       {
         text: t('returns.yes'),
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             setBusy(true);
             try {
-              const res = await api.call<{ result?: boolean }>('POST', '/api/pos/return/stock-in', { id: row.id });
-              if (res.result) {
-                Alert.alert(t('returns.stockedIn'));
-                onDone();
-              } else {
-                Alert.alert(t('returns.stockInFailed'));
-              }
+              // kept on the phone and sent later when kh-pos can't be reached; it puts stock back, so it is sent only once,
+              // and kh-pos answering {result: false} counts as a refusal
+              const how = await writer({ entity: 'return', op: 'action', recordId: row.id, method: 'POST', path: '/api/pos/return/stock-in', body: { id: row.id }, label: t('returns.returnStock'), once: true, mustBeTrue: 'result' });
+              Alert.alert(t(how === 'queued' ? 'offline.savedOffline' : 'returns.stockedIn'));
+              onDone();
             } catch (e) {
               Alert.alert(t('returns.stockInFailed'), e instanceof Error ? e.message : undefined);
             } finally {
               setBusy(false);
             }
-          }),
+          })(),
       },
     ]);
   }
@@ -222,7 +223,7 @@ function StockInfoSheet({ row, onClose, onDone }: { row: ReturnRow; onClose: () 
         </ScrollView>
         <View style={[styles.footer, { paddingBottom: insets.bottom + space.md }]}>
           <Button title={t('common.close')} variant="outline" onPress={onClose} style={styles.flex} />
-          <Button title={t('returns.returnStock')} loading={busy} onPress={putBack} style={styles.flex} />
+          <Button title={t('returns.returnStock')} loading={busy} disabled={waiting} onPress={putBack} style={styles.flex} />
         </View>
       </SafeAreaView>
     </Modal>

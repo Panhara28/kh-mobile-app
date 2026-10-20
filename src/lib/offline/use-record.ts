@@ -15,7 +15,13 @@ export function useRecordWriter() {
   return useCallback(
     (req: RecordRequest): Promise<'done' | 'queued'> => {
       const cmd = recordCommand(user?.id ?? '', req, Crypto.randomUUID());
-      const send = async () => void (await api.call(req.method, req.path, req.body));
+      const send = async () => {
+        // the several calls of one change, one after the other
+        for (const step of req.steps && req.steps.length > 0 ? req.steps : [{ method: req.method, path: req.path, body: req.body }]) {
+          const answer = (await api.call(step.method, step.path, step.body)) as Record<string, unknown> | undefined;
+          if (req.mustBeTrue && answer && answer[req.mustBeTrue] === false) throw new Error('kh-pos did not accept it');
+        }
+      };
       return req.once ? engine.runOnce(cmd, send) : engine.run(cmd, send);
     },
     [api, engine, user?.id],

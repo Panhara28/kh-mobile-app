@@ -1,3 +1,4 @@
+import { ApiError } from '../api';
 import { SyncEngine, UNCONFIRMED } from './engine';
 import { FakeServer } from './fake-server';
 import { MemoryStore } from './memory-store';
@@ -84,7 +85,7 @@ describe('record commands in the engine', () => {
     const { server, engine } = setup();
     engine.setOnline(false);
     await engine.enqueue(recordCommand(USER, req({ op: 'create', method: 'POST', recordId: 'c9', body: { id: 'c9' } }), 'a'));
-    server.refuseRequestWith = 'Duplicate entry for key PRIMARY';
+    server.refuseRequestWith = "Duplicate entry 'c9' for key 'category.PRIMARY'";
     engine.setOnline(true);
     await engine.flush();
     expect(engine.getState().failed).toBe(0);
@@ -201,5 +202,81 @@ describe('changes that must not be done twice', () => {
     const { server, engine } = setup();
     server.refuseRequestWith = 'Not enough stock';
     await expect(engine.runOnce(stockIn(), async () => void (await server.api.call('POST', '/api/inventory/stock-out', {})))).rejects.toThrow('Not enough stock');
+  });
+});
+
+describe('changes with several calls, and answers that can be a refusal', () => {
+  const steps = [
+    { method: 'POST' as const, path: '/api/group', body: { id: 'g1' } },
+    { method: 'POST' as const, path: '/api/group/g1/products', body: { p: 1 } },
+    { method: 'POST' as const, path: '/api/group/g1/warehouse', body: { w: 1 } },
+  ];
+  const group = () => recordCommand(USER, req({ entity: 'group', op: 'create', method: 'POST', path: steps[0]!.path, body: steps[0]!.body, steps, label: 'Group' }), 'g');
+
+  it('sends the calls in order', async () => {
+    const { server, engine } = setup();
+    engine.setOnline(false);
+    await engine.enqueue(group());
+    engine.setOnline(true);
+    await engine.flush();
+    expect(server.requests.map((r) => r.path)).toEqual(['/api/group', '/api/group/g1/products', '/api/group/g1/warehouse']);
+    expect(engine.getState().pending).toBe(0);
+  });
+
+  it('carries on from the next call after a failure instead of starting again', async () => {
+    const { server, engine } = setup();
+    engine.setOnline(false);
+    await engine.enqueue(group());
+    engine.setOnline(true);
+    // the second call is refused once
+    const real = server.api.call;
+    let n = 0;
+    (server.api as { call: unknown }).call = async (m: string, p: string, b?: unknown) => {
+      if (++n === 2) throw new ApiError('server', 400, 'products not found');
+      return real(m, p, b);
+    };
+    await engine.flush();
+    expect(engine.getState().failed).toBe(1);
+    expect(server.requests.map((r) => r.path)).toEqual(['/api/group']); // the first went through
+
+    (server.api as { call: unknown }).call = real;
+    await engine.retryAll();
+    await engine.flush();
+    expect(server.requests.map((r) => r.path)).toEqual(['/api/group', '/api/group/g1/products', '/api/group/g1/warehouse']); // the first was not sent again
+    expect(engine.getState().failed).toBe(0);
+  });
+
+  it('counts the first call of an add as done when it already exists', async () => {
+    const { server, engine } = setup();
+    engine.setOnline(false);
+    await engine.enqueue(group());
+    server.refuseRequestWith = "Duplicate entry 'g1' for key 'group.PRIMARY'";
+    engine.setOnline(true);
+    await engine.flush();
+    expect(engine.getState().failed).toBe(0);
+    expect(server.requests.map((r) => r.path)).toEqual(['/api/group/g1/products', '/api/group/g1/warehouse']);
+  });
+
+  it('treats a false yes-or-no answer as a refusal', async () => {
+    const { server, engine } = setup();
+    engine.setOnline(false);
+    await engine.enqueue(recordCommand(USER, req({ entity: 'return', op: 'action', method: 'POST', path: '/api/pos/return/stock-in', body: { id: 'r1' }, label: 'Put back', mustBeTrue: 'result' }), 'r'));
+    (server.api as { call: unknown }).call = async () => ({ result: false });
+    engine.setOnline(true);
+    await engine.flush();
+    expect(engine.getState().failed).toBe(1);
+    expect(engine.getState().commands[0]?.error).toBe('kh-pos did not accept it');
+  });
+});
+
+describe('a duplicate that is not the record itself', () => {
+  it('is a real conflict (for example the same barcode), not a lost answer', async () => {
+    const { server, engine } = setup();
+    engine.setOnline(false);
+    await engine.enqueue(recordCommand(USER, req({ entity: 'product', op: 'create', method: 'POST', recordId: 'p1', body: { id: 'p1' }, label: 'Cola' }), 'p'));
+    server.refuseRequestWith = "Duplicate entry '885' for key 'product_variant.barcode'";
+    engine.setOnline(true);
+    await engine.flush();
+    expect(engine.getState().failed).toBe(1);
   });
 });

@@ -6,9 +6,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { fetchAllPages } from '@/lib/catalog';
 import { can } from '@/lib/line';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
 import type { BranchRow } from '@/lib/org';
-import { deleteSteps, emptyGroup, groupForm, groupListQuery, GROUP_PAGE, heldLabel, pickedLabel, saveSteps, slimGroup, validateGroup, type GroupForm, type GroupRow, type PickedProduct, type Step } from '@/lib/product-groups';
+import { deleteSteps, emptyGroup, groupForm, groupListQuery, GROUP_PAGE, heldLabel, pickedLabel, saveSteps, slimGroup, validateGroup, type GroupForm, type GroupRow, type PickedProduct } from '@/lib/product-groups';
 import { useSession } from '@/lib/session';
 import { dateOnly } from '@/lib/suppliers';
 import { Badge, Button, Card, Chip, Input } from '@/ui/components';
@@ -27,11 +27,12 @@ export default function ProductGroupsScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data, state } = useOffline();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const insets = useSafeAreaInsets();
 
   const [warehouseId, setWarehouseId] = useState('');
   const [groups, setGroups] = useState<GroupRow[]>([]);
+  const listed = useRecordRows(groups, 'product-group', (g: GroupRow) => g.groupId) ?? [];
   const [total, setTotal] = useState(0);
   const [branches, setBranches] = useState<BranchRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,11 +99,6 @@ export default function ProductGroupsScreen() {
     });
   }
 
-  /** Runs the calls one after the other, each waiting for the one before. */
-  async function run_(steps: Step[]) {
-    for (const s of steps) await api.call(s.method, s.path, s.body);
-  }
-
   function save() {
     const e = editing!;
     if (validateGroup(e.form)) {
@@ -110,10 +106,29 @@ export default function ProductGroupsScreen() {
       return;
     }
     setProblem('');
-    guard(async () => {
+    // the calls are kept on the phone and sent later, in order, when kh-pos can't be reached (the group's id is made here)
+    const steps = saveSteps({ id: e.id, existing: e.row, form: e.form, products: e.products, warehouseIds: e.warehouseIds });
+    const first = steps[0]!;
+    void (async () => {
       setBusy(true);
       try {
-        await run_(saveSteps({ id: e.id, existing: e.row, form: e.form, products: e.products, warehouseIds: e.warehouseIds }));
+        await writer({
+          entity: 'product-group',
+          op: e.row ? 'update' : 'create',
+          recordId: e.id,
+          method: first.method,
+          path: first.path,
+          body: first.body,
+          steps,
+          label: e.form.name.trim(),
+          row: {
+            groupId: e.id,
+            groupName: e.form.name.trim(),
+            description: e.form.description.trim() || null,
+            warehouses: e.warehouseIds.map((w) => ({ warehouseId: w, warehouse: { name: branches.find((b) => b.id === w)?.name ?? null } })),
+            products: e.products.map((p) => ({ productId: p.productId, productVariantId: p.variantId, product: { title: p.label }, variant: null })),
+          },
+        });
         setEditing(null);
         await load(0);
       } catch {
@@ -121,7 +136,7 @@ export default function ProductGroupsScreen() {
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   function remove(g: GroupRow) {
@@ -131,14 +146,16 @@ export default function ProductGroupsScreen() {
         text: t('admin.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await run_(deleteSteps(g));
+              const steps = deleteSteps(g);
+              const first = steps[0]!;
+              await writer({ entity: 'product-group', op: 'delete', recordId: g.groupId, method: first.method, path: first.path, body: first.body, steps, label: g.groupName });
               await load(0);
             } catch (err) {
               Alert.alert(t('errors.server'), err instanceof Error ? err.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }
@@ -166,7 +183,7 @@ export default function ProductGroupsScreen() {
         <ErrorState error={error} onRetry={() => void load(0)} />
       ) : (
         <FlatList
-          data={groups}
+          data={listed}
           keyExtractor={(g) => g.groupId}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(0); setRefreshing(false); }} />}

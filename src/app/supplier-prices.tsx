@@ -5,7 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { fetchAllPages, type SupplierRow } from '@/lib/catalog';
 import { can } from '@/lib/line';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
 import { useSession } from '@/lib/session';
 import { emptyPriceForm, hasFilters, PAGE, priceCreateBody, priceFormOf, priceImage, priceProblem, priceQuery, priceUpdateBody, productName, scheduledPriceText, type Order, type PriceFormData, type PriceItem } from '@/lib/supplier-prices';
 import { useBranch } from '@/lib/use-branch';
@@ -26,7 +26,7 @@ export default function SupplierPricesScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data, state } = useOffline();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const insets = useSafeAreaInsets();
   const { currency } = useBranch();
 
@@ -37,6 +37,7 @@ export default function SupplierPricesScreen() {
   const [order, setOrder] = useState<Order>('asc');
   const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
   const [rows, setRows] = useState<PriceItem[]>([]);
+  const listed = useRecordRows(rows, 'supplier-price', (p: PriceItem) => p.id ?? '') ?? [];
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [moreLoading, setMoreLoading] = useState(false);
@@ -105,19 +106,23 @@ export default function SupplierPricesScreen() {
     const bad = priceProblem(e.form);
     setProblem(bad);
     if (bad) return;
-    guard(async () => {
+    // kept on the phone and sent later when kh-pos can't be reached. A new price is sent only once (kh-pos makes its id)
+    // and appears in the list after it has been sent; a changed one shows its new price at once.
+    void (async () => {
       setBusy(true);
       try {
-        if (e.id) await api.call('PUT', '/api/supplier/product-price', priceUpdateBody(e.id, e.form));
-        else await api.call('POST', '/api/supplier/product-price', priceCreateBody(e.form));
+        const how = e.id
+          ? await writer({ entity: 'supplier-price', op: 'update', recordId: e.id, method: 'PUT', path: '/api/supplier/product-price', body: priceUpdateBody(e.id, e.form), label: e.form.productTitle, row: { price: e.form.price, scheduledPrice: e.form.scheduledPrice, scheduledAt: e.form.scheduledAt || null } })
+          : await writer({ entity: 'supplier-price', op: 'create', recordId: `new:${e.form.supplierId}:${e.form.productVariantId}`, method: 'POST', path: '/api/supplier/product-price', body: priceCreateBody(e.form), label: e.form.productTitle, once: true });
         setEditing(null);
+        if (how === 'queued') Alert.alert(t('offline.savedOffline'));
         await load(0);
       } catch (err) {
         Alert.alert(t('sprice.saveFailed'), err instanceof Error ? err.message : undefined);
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   function remove(p: PriceItem) {
@@ -127,14 +132,14 @@ export default function SupplierPricesScreen() {
         text: t('admin.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('DELETE', '/api/supplier/product-price', { id: p.id });
+              await writer({ entity: 'supplier-price', op: 'delete', recordId: p.id!, method: 'DELETE', path: '/api/supplier/product-price', body: { id: p.id }, label: productName(p) });
               await load(0);
             } catch (err) {
               Alert.alert(t('errors.server'), err instanceof Error ? err.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }
@@ -172,7 +177,7 @@ export default function SupplierPricesScreen() {
         <ErrorState error={error} onRetry={() => void load(0)} />
       ) : (
         <FlatList
-          data={rows}
+          data={listed}
           keyExtractor={(p, i) => p.id ?? String(i)}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(0); setRefreshing(false); }} />}

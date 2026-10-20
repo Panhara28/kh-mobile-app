@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { fetchAllPages } from '@/lib/catalog';
 import { can } from '@/lib/line';
 import { useOffline } from '@/lib/offline/provider';
+import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import { branchBody, branchForm, branchTitle, emptyBranch, validateBranch, type BranchForm, type BranchRow } from '@/lib/org';
 import { useSession } from '@/lib/session';
@@ -31,6 +32,8 @@ export default function BranchesScreen() {
   const insets = useSafeAreaInsets();
 
   const [rows, setRows] = useState<BranchRow[] | null>(null);
+  const writer = useRecordWriter();
+  const listed = useRecordRows(rows, 'branch', (b: BranchRow) => b.id ?? '');
   const [error, setError] = useState<unknown>(null);
   const [staleAt, setStaleAt] = useState<number | null | false>(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -100,10 +103,18 @@ export default function BranchesScreen() {
     setProblem(bad);
     if (bad) return;
     const body = branchBody(e.form, e.row ?? undefined);
-    guard(async () => {
+    // an edit is kept on the phone and sent later when kh-pos can't be reached; a new branch has an account password,
+    // which must not be kept in the phone's queue, so adding needs the server
+    const edit = e.row;
+    const run = async () => {
       setBusy(true);
       try {
-        await api.call(e.row ? 'PUT' : 'POST', '/api/warehouse-v2', body);
+        if (edit) {
+          const upd = body as { warehouseName: string; ownerName: string; phoneNumber: string; address: string; image: string; lat: string; lng: string; useMainBranchVisibility: boolean };
+          await writer({ entity: 'branch', op: 'update', recordId: edit.id!, method: 'PUT', path: '/api/warehouse-v2', body, label: upd.warehouseName, row: { name: upd.warehouseName, ownerName: upd.ownerName, phone: upd.phoneNumber, address: upd.address, image: upd.image, lat: upd.lat, lng: upd.lng } });
+        } else {
+          await api.call('POST', '/api/warehouse-v2', body);
+        }
         setEditing(null);
         await load();
       } catch (err) {
@@ -111,7 +122,9 @@ export default function BranchesScreen() {
       } finally {
         setBusy(false);
       }
-    });
+    };
+    if (edit) void run();
+    else guard(run);
   }
 
   function remove(b: BranchRow) {
@@ -141,7 +154,7 @@ export default function BranchesScreen() {
         error ? <ErrorState error={error} onRetry={() => void load()} /> : <LoadingState />
       ) : (
         <FlatList
-          data={rows}
+          data={listed}
           keyExtractor={(b, i) => b.id ?? String(i)}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}

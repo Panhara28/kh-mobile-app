@@ -39,16 +39,30 @@ These move stock, so they follow one extra rule, **"send once"**: a change that 
 | Purchase Order | Create, and Edit | A new order is "send once" (kh-pos makes its id): it shows in the list as "Not sent yet", and can't be opened, edited, received or deleted until it has been sent. An edit is one PUT of the whole order (last write wins) and the order shows "waiting" until it is sent. The supplier list needs to have been opened online once |
 | Replenishment | Create (not edit) | Sent once, **without a picking list** (the web also lets a saved order get its picking list when it is opened); the picking list is only worked out when someone opens the draft with kh-pos reachable. Shown as "Not sent yet" and not openable until sent. Editing a replenishment needs the server, because changing lines changes the picking list |
 
-Still not offline: Production (the parts to use are worked out by kh-pos), Returns "Put back in stock" (kh-pos answers yes or no), Product groups and Supplier prices (several calls in a row), Slots, the full Product form.
+## The rest (round 4)
 
+More changes are kept on the phone and sent later. A change with several calls (a product group: the group, its products, its branches ...) is sent call by call, and the phone remembers how many went through, so a retry carries on from the next call and never starts again. A reply that is a "yes or no" inside a successful answer (Returns "Put back in stock" answers `{result: false}` when it refuses) counts as a refusal. An add that clashes only with **its own id** ("Duplicate entry ... PRIMARY") is taken as already done; any other duplicate (the same barcode, for example) is a real conflict and shows as failed.
+
+| Where | Offline | Rule |
+|---|---|---|
+| Product groups | Add, edit, delete | all the calls in one queued change; the group's id is made on the phone, so a new group can be edited at once |
+| Slots | Add, edit, delete | kh-pos makes the id of a new slot, so it can't be edited until sent |
+| Supplier prices | Change a price, delete; **add** is sent once | a changed price shows at once; a new price appears after it has been sent |
+| Returns | Put back in stock | send once; kh-pos refusing it shows as failed |
+| Products (the full product form) | Add, edit | one call with ids made on the phone; pictures must already be uploaded; a new product shows in the product list after it has been sent |
+| Branches | Edit only | adding a branch holds an account password, deleting is too serious, so both need the server |
+| Users | Edit, delete | not adding a user or resetting a password: a password must not be kept in the phone's queue. Changing the branches a person is bound to is sent once, and only when that list was loaded online |
+| Roles (Accessibility) | Change a role's permissions; a new role is sent once | the role shows its new permissions at once |
 
 ## What still needs the server
 
-- **Users, bind users, passwords, roles:** a password must not sit in the phone's queue, and these change who may log in.
-- **Branches (warehouses):** the form holds a password for the branch account.
-- **Product groups, Supplier prices, Products and stock (in/out/count), Slots, Purchase orders, Replenishment, Returns, Production, Backlog:** several calls in a row or stock and money that other phones change at the same time. They read their last saved copy offline and say a change needs a connection.
-- **Retail POS charging, invoice numbers, uploads (pictures, Excel), reports, printing to the print server:** the answer comes from kh-pos or the PC.
-- **Offline login** only works for staff who logged in on that phone before.
+- **Adding a user, resetting a password, adding or deleting a branch:** a password must not sit in the phone's queue and these change who can log in.
+- **Production:** the parts and lots to use are worked out by kh-pos from the live stock.
+- **Editing a replenishment:** changing the lines changes the picking list, which is worked out by kh-pos.
+- **Retail POS charging:** the stock, the invoice number and the payment come from kh-pos.
+- **Uploading pictures and Excel files**, and **logging in on a phone for the first time.**
+- **Reports** show their last saved copy offline (they are read-only).
+- **Printing to the print server** needs the printer PC on the same network, not the internet, so it works offline; it is not a kh-pos change.
 
 ## Limits worth knowing
 

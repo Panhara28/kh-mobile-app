@@ -1,10 +1,12 @@
+import * as Crypto from 'expo-crypto';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { can } from '@/lib/line';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { isUnsent } from '@/lib/offline/records';
+import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
 import { emptySlot, SLOT_PAGE, slotBody, slotForm, slotQuery, slotTitle, type SlotForm, type SlotRow } from '@/lib/org';
 import { useSession } from '@/lib/session';
 import { dateOnly } from '@/lib/suppliers';
@@ -23,12 +25,13 @@ export function SlotsView({ warehouseId }: { warehouseId: string }) {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data, state } = useOffline();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const insets = useSafeAreaInsets();
 
   const [typed, setTyped] = useState('');
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<SlotRow[]>([]);
+  const listed = useRecordRows(rows, 'slot', (s: SlotRow) => s.id) ?? [];
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [moreLoading, setMoreLoading] = useState(false);
@@ -83,10 +86,12 @@ export function SlotsView({ warehouseId }: { warehouseId: string }) {
     const e = editing!;
     if (!e.form.slotName.trim()) return;
     const body = slotBody(e.form, warehouseId, e.row ?? undefined);
-    guard(async () => {
+    // kept on the phone and sent later when kh-pos can't be reached; kh-pos makes the id of a new slot, so it can't be edited until sent
+    const id = e.row?.id ?? Crypto.randomUUID();
+    void (async () => {
       setBusy(true);
       try {
-        await api.call(e.row ? 'PUT' : 'POST', '/api/warehouse/slot', body);
+        await writer({ entity: 'slot', op: e.row ? 'update' : 'create', recordId: id, method: e.row ? 'PUT' : 'POST', path: '/api/warehouse/slot', body, label: body.slotName, row: { id, name: body.slotName, warehouseId, forReplenishment: body.forReplenishment } });
         setEditing(null);
         await load(0);
       } catch (err) {
@@ -94,7 +99,7 @@ export function SlotsView({ warehouseId }: { warehouseId: string }) {
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   function remove(s: SlotRow) {
@@ -104,14 +109,14 @@ export function SlotsView({ warehouseId }: { warehouseId: string }) {
         text: t('admin.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('DELETE', '/api/warehouse/slot', { id: s.id });
+              await writer({ entity: 'slot', op: 'delete', recordId: s.id, method: 'DELETE', path: '/api/warehouse/slot', body: { id: s.id }, label: s.name });
               await load(0);
             } catch (err) {
               Alert.alert(t('slots.deleteFailed'), err instanceof Error ? err.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }
@@ -131,7 +136,7 @@ export function SlotsView({ warehouseId }: { warehouseId: string }) {
         <ErrorState error={error} onRetry={() => void load(0)} />
       ) : (
         <FlatList
-          data={rows}
+          data={listed}
           keyExtractor={(s, i) => s.id ?? String(i)}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(0); setRefreshing(false); }} />}
@@ -154,8 +159,9 @@ export function SlotsView({ warehouseId }: { warehouseId: string }) {
               </View>
               <Text style={styles.muted}>{t('slots.created', { date: dateOnly(s.createdAt) })}</Text>
               <View style={styles.row}>
-                {mayEdit ? <Button title={t('admin.edit')} variant="outline" size="sm" onPress={() => setEditing({ row: s, form: slotForm(s) })} /> : null}
-                {mayDelete ? <Button title={t('admin.delete')} variant="ghost" size="sm" onPress={() => remove(s)} /> : null}
+                {s.syncFailed ? <Badge tone="destructive" text={t('offline.syncFailed')} /> : s.pendingSync ? <Badge tone="info" text={t('offline.notSent')} /> : null}
+                {mayEdit && !isUnsent(s, state.commands, 'slot', s.id) ? <Button title={t('admin.edit')} variant="outline" size="sm" onPress={() => setEditing({ row: s, form: slotForm(s) })} /> : null}
+                {mayDelete && !isUnsent(s, state.commands, 'slot', s.id) ? <Button title={t('admin.delete')} variant="ghost" size="sm" onPress={() => remove(s)} /> : null}
               </View>
             </Card>
           )}
