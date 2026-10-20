@@ -9,8 +9,10 @@ import { applyOutbox } from '@/lib/offline/overlay';
 import { useOffline } from '@/lib/offline/provider';
 import { orderCounts } from '@/lib/order';
 import { useSession } from '@/lib/session';
+import { invoiceLink, tableMenuLink } from '@/lib/qr';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button } from '@/ui/components';
+import { QrSheet } from '@/ui/qr-sheet';
 import { EmptyState, ErrorState, LoadingState } from '@/ui/states';
 import { StaleBanner, SyncBadge } from '@/ui/sync-status';
 import { colors, font, radius, shadow, space } from '@/ui/theme';
@@ -20,7 +22,7 @@ const REFRESH_MS = 15_000;
 /** Staff home: the branch's tables with their status and open order. */
 export default function TablesScreen() {
   const { t } = useTranslation();
-  const { user, logout } = useSession();
+  const { api, user, logout } = useSession();
   const { data, state } = useOffline();
   const { currency } = useBranch();
   const [saved, setSaved] = useState<RestaurantTable[] | null>(null);
@@ -28,6 +30,8 @@ export default function TablesScreen() {
   const [staleAt, setStaleAt] = useState<number | null | false>(false);
   const [error, setError] = useState<unknown>(null);
   const [refreshing, setRefreshing] = useState(false);
+  /** The QR code on screen: a table's menu link or an open order's invoice link. */
+  const [qr, setQr] = useState<{ title: string; subtitle?: string; link: string } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -62,6 +66,25 @@ export default function TablesScreen() {
     setRefreshing(true);
     await load();
     setRefreshing(false);
+  }
+
+  /** Like the web table menu: "Qr Code" for the table, and "Gen Invoice QR" when it has an open order. */
+  function showQr(table: RestaurantTable) {
+    const branch = user?.currentWarehouseId;
+    const tableQr = () => setQr({ title: t('qr.tableTitle'), subtitle: table.table_name, link: tableMenuLink(api.baseUrl, branch, table.id) });
+    const orderId = table.order && !table.order.localOnly ? table.order.orderId : null;
+    if (!orderId) {
+      tableQr();
+      return;
+    }
+    Alert.alert(table.table_name, undefined, [
+      { text: t('qr.tableTitle'), onPress: tableQr },
+      {
+        text: t('qr.invoiceTitle'),
+        onPress: () => setQr({ title: `${t('qr.invoiceTitle')}${table.order?.invoiceNo ? ` (#${table.order.invoiceNo})` : ''}`, subtitle: t('qr.tableName', { name: table.table_name }), link: invoiceLink(api.baseUrl, branch, orderId) }),
+      },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
   }
 
   function confirmLogout() {
@@ -113,19 +136,21 @@ export default function TablesScreen() {
               table={item}
               currency={currency}
               onPress={() => router.push({ pathname: '/table/[id]', params: { id: item.id } })}
+              onQr={() => showQr(item)}
             />
           )}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />}
           ListEmptyComponent={<EmptyState title={t('tables.empty')} />}
         />
       )}
+      {qr ? <QrSheet title={qr.title} subtitle={qr.subtitle} link={qr.link} onClose={() => setQr(null)} /> : null}
     </SafeAreaView>
   );
 }
 
 const statusTone = { available: 'outline', order_taken: 'default', cleaning: 'info' } as const;
 
-function TableCard({ table, currency, onPress }: { table: RestaurantTable; currency: CurrencyCode; onPress: () => void }) {
+function TableCard({ table, currency, onPress, onQr }: { table: RestaurantTable; currency: CurrencyCode; onPress: () => void; onQr: () => void }) {
   const { t } = useTranslation();
   const counts = orderCounts(table.order);
   const occupied = table.status === 'order_taken';
@@ -156,6 +181,9 @@ function TableCard({ table, currency, onPress }: { table: RestaurantTable; curre
           {table.setting_capacity ? t('tables.seats', { count: table.setting_capacity }) : ' '}
         </Text>
       )}
+      <Pressable onPress={onQr} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('qr.button', { name: table.table_name })} style={[styles.qrButton, occupied && styles.qrButtonOnDark]}>
+        <Text style={[styles.qrText, occupied && styles.textOnDark]}>▦ {t('qr.short')}</Text>
+      </Pressable>
     </Pressable>
   );
 }
@@ -196,6 +224,9 @@ const styles = StyleSheet.create({
   tableName: { flexShrink: 1, fontSize: font.title, fontWeight: '700', color: colors.foreground },
   textOnDark: { color: colors.primaryForeground },
   orderInfo: { gap: 4 },
+  qrButton: { alignSelf: 'flex-start', marginTop: 'auto', paddingHorizontal: space.sm, paddingVertical: 4, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border },
+  qrButtonOnDark: { borderColor: '#a1a1aa' },
+  qrText: { fontSize: 12, fontWeight: '600', color: colors.foreground },
   amount: { fontSize: font.heading, fontWeight: '700', color: colors.foreground },
   meta: { fontSize: 12, color: colors.mutedForeground },
   metaOnDark: { color: '#a1a1aa' },

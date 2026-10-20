@@ -1972,5 +1972,15 @@
     "desc_supplier": "Handle supplier data and purchase orders",
     "desc_accessibility": "Configure accessibility and permission settings",
     "desc_order-preparation": "Control order preparation status updates (pending, cooking, served)"
+  },
+  "qr": {
+    "short": "QR",
+    "button": "QR code of {{name}}",
+    "tableTitle": "Table QR Code",
+    "invoiceTitle": "Invoice QR Code",
+    "tableName": "Table {{name}}",
+    "link": "Menu Link",
+    "share": "Share link",
+    "open": "Open link"
   }
 }
