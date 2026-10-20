@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { KhPosApi } from '@/lib/api';
-import { compositeQuery, type CompositeOption } from '@/lib/production';
+import { ApiError, type KhPosApi } from '@/lib/api';
+import { useOffline } from '@/lib/offline/provider';
+import { compositeQuery, filterOptions, type CompositeOption } from '@/lib/production';
 import { Card, Input } from '../components';
 import { ErrorState } from '../states';
+import { StaleBanner } from '../sync-status';
 import { colors, font, radius, space } from '../theme';
 
 const PAGE = 20;
@@ -14,6 +16,9 @@ const PAGE = 20;
 export function CompositePicker({ api, warehouseId, onPick, onClose, compositeOnly = true, includeNotForSale = false, forReplenishment = false }: { api: KhPosApi; warehouseId: string; onPick: (v: CompositeOption) => void; onClose: () => void; compositeOnly?: boolean; includeNotForSale?: boolean; forReplenishment?: boolean }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const { data, state } = useOffline();
+  /** The list on screen comes from the copy saved on this phone (kh-pos can't be reached). */
+  const [savedAt, setSavedAt] = useState<number | null | false>(false);
   const [text, setText] = useState('');
   const [rows, setRows] = useState<CompositeOption[]>([]);
   const [more, setMore] = useState(true);
@@ -26,9 +31,20 @@ export function CompositePicker({ api, warehouseId, onPick, onClose, compositeOn
       const id = ++run.current;
       setLoading(true);
       try {
-        const r = await api.call<{ result?: CompositeOption[] }>('GET', `/api/product/search-product?${compositeQuery(search, warehouseId, offset, PAGE, { compositeOnly, includeNotForSale, forReplenishment })}`);
+        let got: CompositeOption[];
+        try {
+          if (!state.online) throw new ApiError('network');
+          const r = await api.call<{ result?: CompositeOption[] }>('GET', `/api/product/search-product?${compositeQuery(search, warehouseId, offset, PAGE, { compositeOnly, includeNotForSale, forReplenishment })}`);
+          got = r.result ?? [];
+          if (id === run.current) setSavedAt(false);
+        } catch (e) {
+          if (!(e instanceof ApiError) || e.kind !== 'network') throw e;
+          // kh-pos can't be reached: search the copy of the products saved on this phone
+          const catalog = await data.catalog(warehouseId, { compositeOnly, includeNotForSale, forReplenishment });
+          got = filterOptions(catalog.data, search).slice(offset, offset + PAGE);
+          if (id === run.current) setSavedAt(catalog.savedAt ?? Date.now());
+        }
         if (id !== run.current) return;
-        const got = r.result ?? [];
         setRows((prev) => (offset === 0 ? got : [...prev, ...got]));
         setMore(got.length >= PAGE);
         setError(null);
@@ -38,8 +54,13 @@ export function CompositePicker({ api, warehouseId, onPick, onClose, compositeOn
         if (id === run.current) setLoading(false);
       }
     },
-    [api, warehouseId, compositeOnly, includeNotForSale, forReplenishment],
+    [api, data, state.online, warehouseId, compositeOnly, includeNotForSale, forReplenishment],
   );
+
+  // save the products now, while kh-pos can be reached, so the search also works offline later
+  useEffect(() => {
+    if (state.online) void data.catalog(warehouseId, { compositeOnly, includeNotForSale, forReplenishment }).catch(() => undefined);
+  }, [data, state.online, warehouseId, compositeOnly, includeNotForSale, forReplenishment]);
 
   useEffect(() => {
     const h = setTimeout(() => void load(0, text), 300);
@@ -55,6 +76,7 @@ export function CompositePicker({ api, warehouseId, onPick, onClose, compositeOn
             <Text style={styles.close}>✕</Text>
           </Pressable>
         </View>
+        {savedAt !== false ? <StaleBanner savedAt={savedAt} /> : null}
         {error && rows.length === 0 ? (
           <ErrorState error={error} onRetry={() => void load(0, text)} />
         ) : (

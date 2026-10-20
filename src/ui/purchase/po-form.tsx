@@ -7,7 +7,7 @@ import type { KhPosApi } from '@/lib/api';
 import { fetchAllPages } from '@/lib/catalog';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import type { CompositeOption } from '@/lib/production';
 import { addExtra, addProduct, formTotals, removeExtra, removeItem, saveBody, setExtra, setItem, validateForm, visibleExtras, visibleItems, type PoForm } from '@/lib/purchase';
 import { Button, Card, Chip, Field } from '../components';
@@ -30,7 +30,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 export function PoFormScreen({ api, warehouseId, initial, onSaved, onCancel }: { api: KhPosApi; warehouseId: string; initial: PoForm; onSaved: () => void; onCancel: () => void }) {
   const { t } = useTranslation();
   const { data } = useOffline();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const insets = useSafeAreaInsets();
   const [form, setForm] = useState<PoForm>(initial);
   const [suppliers, setSuppliers] = useState<SupplierRef[]>([]);
@@ -65,18 +65,37 @@ export function PoFormScreen({ api, warehouseId, initial, onSaved, onCancel }: {
       Alert.alert(t('po.error_date'));
       return;
     }
-    guard(async () => {
+    // kept on the phone and sent later when kh-pos can't be reached. kh-pos makes the id of a new order, so a new
+    // order is sent only once and can't be opened or edited until it has been sent.
+    const body = saveBody(form, warehouseId);
+    const localId = Crypto.randomUUID();
+    const supplier = suppliers.find((s) => s.id === form.supplierId);
+    void (async () => {
       setBusy(true);
       try {
-        await api.call(editing ? 'PUT' : 'POST', '/api/purchase-order', saveBody(form, warehouseId));
-        Alert.alert(editing ? t('po.updated') : t('po.created'));
+        const how = await writer(
+          editing
+            ? { entity: 'purchase-order', op: 'update', recordId: form.id, method: 'PUT', path: '/api/purchase-order', body, label: `${t('po.editTitle')}: ${supplier?.name ?? ''}`.trim() }
+            : {
+                entity: 'purchase-order',
+                op: 'create',
+                recordId: localId,
+                method: 'POST',
+                path: '/api/purchase-order',
+                body,
+                label: `${t('po.createTitle')}: ${supplier?.name ?? ''}`.trim(),
+                once: true,
+                row: { id: localId, status: 'draft', total: totals.total, totalQty: items.reduce((a, i) => a + (Number(i.qty) || 0), 0), supplier: { name: supplier?.name ?? '' }, purchasedAt: form.purchasedAt, expectedAt: form.expectedAt || null, received: 0, receivedTotal: 0 },
+              },
+        );
+        Alert.alert(t(how === 'queued' ? 'offline.savedOffline' : editing ? 'po.updated' : 'po.created'));
         onSaved();
       } catch (e) {
         Alert.alert(editing ? t('po.updateFailed') : t('po.createFailed'), e instanceof Error ? e.message : undefined);
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   return (

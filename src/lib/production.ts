@@ -22,6 +22,16 @@ export interface CompositeOption {
   images?: { url: string }[] | null;
 }
 
+/** The products whose title, SKU or barcode contain every typed word (the saved copy of the product search, used offline). */
+export function filterOptions(rows: CompositeOption[], text: string): CompositeOption[] {
+  const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return rows;
+  return rows.filter((r) => {
+    const hay = `${r.productTitle} ${r.sku ?? ''} ${r.barcode ?? ''}`.toLowerCase();
+    return words.every((w) => hay.includes(w));
+  });
+}
+
 /** The web product search; `compositeOnly` for Production, `includeNotForSale` for purchase orders and product groups. */
 export function compositeQuery(search: string, warehouseId: string, offset: number, limit = 20, opts: { compositeOnly?: boolean; includeNotForSale?: boolean; forReplenishment?: boolean } = {}): string {
   const q = new URLSearchParams({ limit: String(limit), offset: String(offset), replenishment: String(opts.forReplenishment ?? false), compositeOnly: String(opts.compositeOnly ?? true), includeProductNotForSale: String(opts.includeNotForSale ?? false) });

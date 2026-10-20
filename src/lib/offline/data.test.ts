@@ -119,3 +119,37 @@ describe('filterMenu', () => {
     expect(filterMenu(all, { search: '', categoryId: '', limit: 1, offset: 1 }).map((p) => p.variantId)).toEqual(['b']);
   });
 });
+
+describe('the saved product catalog', () => {
+  const page = (from: number, n: number) => Array.from({ length: n }, (_, i) => ({ variantId: `v${from + i}`, productTitle: `Item ${from + i}`, sku: `S${from + i}` }));
+
+  it('reads every page of the product search, and serves the saved copy offline', async () => {
+    let up = true;
+    const calls: string[] = [];
+    const { data } = setup({
+      call: (async (_m: string, path: string) => {
+        calls.push(path);
+        if (!up) return down();
+        const offset = Number(new URLSearchParams(path.split('?')[1]).get('offset'));
+        return { result: offset === 0 ? page(0, 100) : offset === 100 ? page(100, 30) : [] };
+      }) as KhPosApi['call'],
+    });
+    const live = await data.catalog('w1', { includeNotForSale: true });
+    expect(live.stale).toBe(false);
+    expect(live.data).toHaveLength(130);
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toContain('includeProductNotForSale=true');
+
+    up = false;
+    const saved = await data.catalog('w1', { includeNotForSale: true });
+    expect(saved.stale).toBe(true);
+    expect(saved.data).toHaveLength(130);
+  });
+
+  it('keeps one saved copy per kind of search', async () => {
+    const { data } = setup({ call: (async () => ({ result: page(0, 3) })) as KhPosApi['call'] });
+    await data.catalog('w1', { includeNotForSale: true });
+    const other = setup({ call: (async () => down()) as KhPosApi['call'] });
+    await expect(other.data.catalog('w1', { includeNotForSale: true })).rejects.toThrow();
+  });
+});

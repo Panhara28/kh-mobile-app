@@ -32,7 +32,15 @@ These move stock, so they follow one extra rule, **"send once"**: a change that 
 | Replenishment | Delete, Approve (main branch), **Receive** (receiving branch), mark a picked lot, create from Suggestions | Receive, picked lot and Suggestions are send once; the details offer no second action while one waits |
 | Backlog | Resolve | send once; the row leaves the list at once |
 
-Not offline even in round 2: creating or editing a Purchase Order or a Replenishment (they need the live product search with stock and the picking list), Production (the parts to use are worked out by kh-pos), Returns "Put back in stock" (kh-pos answers yes or no), Product groups and Supplier prices (several calls in a row), Slots, Products (the full product form), stock finding and transfer.
+**Creating orders offline (round 3).** The product search of the Purchase Order, Replenishment and Production forms now works offline: while kh-pos can be reached the picker also saves every product it can find (title, SKU, barcode, stock, cost), and when kh-pos can't be reached it searches that saved copy and says so (stock and cost are as of the last time it was saved; the very first time needs a connection). With it:
+
+| Where | Offline | Rule |
+|---|---|---|
+| Purchase Order | Create, and Edit | A new order is "send once" (kh-pos makes its id): it shows in the list as "Not sent yet", and can't be opened, edited, received or deleted until it has been sent. An edit is one PUT of the whole order (last write wins) and the order shows "waiting" until it is sent. The supplier list needs to have been opened online once |
+| Replenishment | Create (not edit) | Sent once, **without a picking list** (the web also lets a saved order get its picking list when it is opened); the picking list is only worked out when someone opens the draft with kh-pos reachable. Shown as "Not sent yet" and not openable until sent. Editing a replenishment needs the server, because changing lines changes the picking list |
+
+Still not offline: Production (the parts to use are worked out by kh-pos), Returns "Put back in stock" (kh-pos answers yes or no), Product groups and Supplier prices (several calls in a row), Slots, the full Product form.
+
 
 ## What still needs the server
 

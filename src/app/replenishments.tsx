@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { can } from '@/lib/line';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
+import { isUnsent } from '@/lib/offline/records';
 import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
 import { otherBranch, REP_PAGE, repActions, repCode, repFilters, repListQuery, repTone, type RepRow, type RepStatus } from '@/lib/replenishment';
 import { useSession } from '@/lib/session';
@@ -122,7 +123,8 @@ export default function ReplenishmentsScreen() {
           ListEmptyComponent={<EmptyState title={t('rep.empty')} />}
           ListFooterComponent={more ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
           renderItem={({ item }) => {
-            const actions = repActions(item.status, isMain);
+            const unsent = isUnsent(item, state.commands, 'replenishment', item.id);
+            const actions = unsent ? [] : repActions(item.status, isMain);
             return (
               <Card style={styles.card}>
                 <View style={styles.row}>
@@ -137,6 +139,7 @@ export default function ReplenishmentsScreen() {
                   {t('rep.totalSent')}: {item.totalSentQty ?? 0} · {t('rep.totalReceived')}: {item.totalReceivedQty ?? 0}
                 </Text>
                 <Text style={styles.total}>{t('rep.totalCost')}: {formatMoney(item.totalCost ?? 0, 'USD')}</Text>
+                {unsent ? <Badge tone="info" text={t('offline.notSent')} /> : null}
                 <View style={styles.row}>
                   {actions.includes('details') ? <Button title={t('rep.details')} variant="outline" size="sm" onPress={() => router.push({ pathname: '/replenishment/[id]', params: { id: item.id } })} /> : null}
                   {actions.includes('edit') && can(user, 'replenishment', 'update') ? <Button title={t('admin.edit')} variant="outline" size="sm" onPress={() => router.push({ pathname: '/replenishment/[id]', params: { id: item.id, edit: '1' } })} /> : null}

@@ -1,4 +1,4 @@
-import { allVerified, compositeQuery, draftQuery, emptyProduction, exceedsStock, historyQuery, isStockSufficient, lotRows, missingLots, produceBlocker, productionBody, rowAmount, slotLine, slotText, suggestedQty, unitRequired, verifyLot, type DraftComponent } from './production';
+import { filterOptions, allVerified, compositeQuery, draftQuery, emptyProduction, exceedsStock, historyQuery, isStockSufficient, lotRows, missingLots, produceBlocker, productionBody, rowAmount, slotLine, slotText, suggestedQty, unitRequired, verifyLot, type DraftComponent } from './production';
 
 const part = (over: Partial<DraftComponent> = {}): DraftComponent => ({ id: 'c1', name: 'Bag', basicProduct: { title: 'Flour' }, availableStock: 20, requiredStock: 10, canProduce: true, stockSlots: [{ slot: { id: 's1', name: 'Shelf' }, lot: { id: 'l1', lotNumber: 'L-1' }, qty: 10 }], ...over });
 const form = (over = {}) => ({ ...emptyProduction(), variantId: 'v1', cost: 2.5, qty: 5, slotId: 'out', ...over });
@@ -82,5 +82,20 @@ describe('recent production rows', () => {
     expect(rowAmount({ id: 'x', qty: 4 })).toBe(0);
     expect(slotText({ id: 'x', qty: 1, slot: { name: 'Front', posSlot: 1 } })).toBe('Front (POS)');
     expect(slotText({ id: 'x', qty: 1 })).toBe('');
+  });
+});
+
+describe('filterOptions', () => {
+  const rows = [
+    { variantId: '1', productTitle: 'Tiger Beer (Can)', sku: 'TB-01', barcode: '885' },
+    { variantId: '2', productTitle: 'Angkor Beer (Bottle)', sku: 'AB-02', barcode: '886' },
+  ];
+  it('finds by title, SKU or barcode, every word', () => {
+    expect(filterOptions(rows, 'beer').map((r) => r.variantId)).toEqual(['1', '2']);
+    expect(filterOptions(rows, 'tiger can').map((r) => r.variantId)).toEqual(['1']);
+    expect(filterOptions(rows, 'ab-02').map((r) => r.variantId)).toEqual(['2']);
+    expect(filterOptions(rows, '885').map((r) => r.variantId)).toEqual(['1']);
+    expect(filterOptions(rows, 'zzz')).toEqual([]);
+    expect(filterOptions(rows, '  ')).toBe(rows);
   });
 });

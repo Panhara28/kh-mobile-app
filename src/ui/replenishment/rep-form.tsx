@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -7,6 +8,7 @@ import { fetchAllPages } from '@/lib/catalog';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import type { BranchRow } from '@/lib/org';
 import type { CompositeOption } from '@/lib/production';
 import { addRepLine, pickBody, pickingFor, pickRowsFor, removeRepLine, repFormProblem, repFormTotals, repSaveBody, setRepLine, type PickRow, type RepForm } from '@/lib/replenishment';
@@ -22,8 +24,9 @@ import { colors, font, radius, space } from '../theme';
  */
 export function RepFormScreen({ api, warehouseId, initial, initialPicking, onSaved, onCancel }: { api: KhPosApi; warehouseId: string; initial: RepForm; initialPicking: PickRow[]; onSaved: () => void; onCancel: () => void }) {
   const { t } = useTranslation();
-  const { data } = useOffline();
+  const { data, state } = useOffline();
   const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const insets = useSafeAreaInsets();
   const [form, setForm] = useState<RepForm>(initial);
   const [branches, setBranches] = useState<BranchRow[]>([]);
@@ -77,6 +80,35 @@ export function RepFormScreen({ api, warehouseId, initial, initialPicking, onSav
     const bad = repFormProblem(form);
     if (bad) {
       Alert.alert(bad === 'to' ? t('rep.error_to') : bad === 'same' ? t('rep.error_same') : bad === 'lines' ? t('rep.error_lines') : t('rep.error_qty'));
+      return;
+    }
+    // offline: a new request is kept on the phone and sent later, without a picking list (the web gives a saved order
+    // one when it is opened). It makes a new request at kh-pos, so it is sent only once and can't be opened until sent.
+    if (!editing && !state.online) {
+      const body = repSaveBody(form);
+      const localId = Crypto.randomUUID();
+      void (async () => {
+        setBusy(true);
+        try {
+          await writer({
+            entity: 'replenishment',
+            op: 'create',
+            recordId: localId,
+            method: 'POST',
+            path: '/api/replenishment',
+            body,
+            label: `${t('rep.createTitle')}: ${branches.find((b) => b.id === form.toWarehouseId)?.name ?? ''}`.trim(),
+            once: true,
+            row: { id: localId, status: 'draft', createdAt: new Date().toISOString(), fromWarehouseId: { id: form.fromWarehouseId, name: from?.name }, toWarehouseId: { id: form.toWarehouseId, name: branches.find((b) => b.id === form.toWarehouseId)?.name }, totalSentQty: totals.qty, totalReceivedQty: 0, totalCost: totals.cost },
+          });
+          Alert.alert(t('offline.savedOffline'));
+          onSaved();
+        } catch (e) {
+          Alert.alert(t('rep.saveFailed'), e instanceof Error ? e.message : undefined);
+        } finally {
+          setBusy(false);
+        }
+      })();
       return;
     }
     guard(async () => {

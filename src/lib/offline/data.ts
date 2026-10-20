@@ -1,4 +1,6 @@
 import { ApiError, type Category, type KhPosApi, type MenuProduct, type MenuQuery, type PaymentMethod, type PosInfo, type PromotionOption, type RestaurantTable, type Setting, type Shift } from '../api';
+import { fetchAllPages } from '../catalog';
+import { compositeQuery, type CompositeOption } from '../production';
 import type { PromotionSet } from '../promotion-set';
 import { filterMenu } from './menu-local';
 import type { LocalStore } from './types';
@@ -169,6 +171,22 @@ export class OfflineData {
   /** Promotion sets for the menu. The saved copy shows them offline, but adding one needs the server. */
   promotionSets(warehouseId: string): Promise<Loaded<PromotionSet[]>> {
     return this.read(this.key('promotionsets', warehouseId), () => this.api.promotionSets(warehouseId));
+  }
+
+  /**
+   * Every product the product search of a purchase order / replenishment / production form can find, saved so the
+   * search still works offline (stock and cost are as of the last time it was saved).
+   */
+  catalog(warehouseId: string, opts: { compositeOnly?: boolean; includeNotForSale?: boolean; forReplenishment?: boolean }): Promise<Loaded<CompositeOption[]>> {
+    const key = this.key('catalog', `${opts.compositeOnly ? 'c' : '-'}${opts.includeNotForSale ? 'n' : '-'}${opts.forReplenishment ? 'r' : '-'}`);
+    return this.read(key, () =>
+      fetchAllPages<CompositeOption>(async (offset, limit) => {
+        const r = await this.api.call<{ result?: CompositeOption[] }>('GET', `/api/product/search-product?${compositeQuery('', warehouseId, offset, limit, opts)}`);
+        const got = r.result ?? [];
+        // the search does not say how many there are in all: a full page means there may be more
+        return { data: got, total: got.length >= limit ? offset + got.length + 1 : offset + got.length };
+      }, 100, 60),
+    );
   }
 
   posInfo(warehouseId: string): Promise<Loaded<PosInfo>> {

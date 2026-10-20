@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { can } from '@/lib/line';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
+import { isUnsent } from '@/lib/offline/records';
 import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
 import { PO_STATUSES, poQuery, receivedText, rowActions, statusTone, type PoRow, type PoStatus } from '@/lib/purchase';
 import { useSession } from '@/lib/session';
@@ -120,7 +121,8 @@ export default function PurchaseOrdersScreen() {
           ListEmptyComponent={<EmptyState title={t('po.empty')} />}
           ListFooterComponent={more ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
           renderItem={({ item }) => {
-            const actions = rowActions(item.status);
+            const actions = isUnsent(item, state.commands, 'purchase-order', item.id) ? [] : rowActions(item.status);
+            const unsent = isUnsent(item, state.commands, 'purchase-order', item.id);
             return (
               <Card style={styles.card}>
                 <View style={styles.row}>
@@ -133,7 +135,7 @@ export default function PurchaseOrdersScreen() {
                 <Text style={styles.muted}>{t('po.expectedOn')}: {item.expectedAt ? item.expectedAt.slice(0, 10) : 'N/A'}</Text>
                 <Text style={styles.total}>{formatMoney(item.receivedTotal ?? 0, 'USD')} / {formatMoney(item.total ?? 0, 'USD')}</Text>
                 <View style={styles.row}>
-                  <Button title={item.status === 'draft' ? t('po.approve') : t('po.viewDetails')} variant="outline" size="sm" onPress={() => open(item)} />
+                  {unsent ? <Badge tone="info" text={t('offline.notSent')} /> : <Button title={item.status === 'draft' ? t('po.approve') : t('po.viewDetails')} variant="outline" size="sm" onPress={() => open(item)} />}
                   {actions.includes('receive') && can(user, 'purchase-order', 'update') ? <Button title={t('po.createReceive')} variant="outline" size="sm" onPress={() => open(item, { receive: '1' })} /> : null}
                   {actions.includes('edit') && can(user, 'purchase-order', 'update') ? <Button title={t('admin.edit')} variant="outline" size="sm" onPress={() => open(item, { edit: '1' })} /> : null}
                   {actions.includes('delete') && can(user, 'purchase-order', 'delete') ? <Button title={t('admin.delete')} variant="ghost" size="sm" onPress={() => remove(item)} /> : null}
