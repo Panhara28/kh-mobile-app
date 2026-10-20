@@ -10,6 +10,7 @@ import { allChange, appliesBody, appliesOn, appliesState, canLimitVariants, cate
 import { can } from '@/lib/line';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
+import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
@@ -31,11 +32,12 @@ export default function DiscountsScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data, state } = useOffline();
-  const guard = useOnlineOnly();
   const insets = useSafeAreaInsets();
   const { currency, warehouseId } = useBranch();
 
   const [rows, setRows] = useState<DiscountItem[] | null>(null);
+  const writer = useRecordWriter();
+  const listed = useRecordRows(rows, 'discount', (d: DiscountItem) => d.id);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [staleAt, setStaleAt] = useState<number | null | false>(false);
@@ -73,10 +75,20 @@ export default function DiscountsScreen() {
       return;
     }
     const body = discountSaveBody(e.form, warehouseId, () => Crypto.randomUUID(), e.row ?? undefined);
-    guard(async () => {
+    // kept on the phone and sent later when kh-pos can't be reached (the id of a new campaign is made here)
+    void (async () => {
       setBusy(true);
       try {
-        await api.call(e.row ? 'PUT' : 'POST', '/api/discount', body);
+        await writer({
+          entity: 'discount',
+          op: e.row ? 'update' : 'create',
+          recordId: body.id,
+          method: e.row ? 'PUT' : 'POST',
+          path: '/api/discount',
+          body,
+          label: body.title,
+          row: { id: body.id, title: body.title, description: body.description, discountType: body.discountType, value: body.value, warehouseId: body.warehouseId },
+        });
         setEditing(null);
         await load();
       } catch (err) {
@@ -84,7 +96,7 @@ export default function DiscountsScreen() {
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   function remove(d: DiscountItem) {
@@ -94,19 +106,19 @@ export default function DiscountsScreen() {
         text: t('admin.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('DELETE', '/api/discount', { id: d.id });
+              await writer({ entity: 'discount', op: 'delete', recordId: d.id, method: 'DELETE', path: '/api/discount', body: { id: d.id }, label: d.title });
               await load();
             } catch (err) {
               Alert.alert(t('discounts.deleteFailed'), err instanceof Error ? err.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }
 
-  const shown = (rows ?? []).filter((d) => matchesDiscount(d, search));
+  const shown = (listed ?? []).filter((d) => matchesDiscount(d, search));
   const f = editing?.form;
 
   return (

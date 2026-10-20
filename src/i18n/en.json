@@ -1973,7 +1973,8 @@
     "testFailed": "Test failed",
     "copyLink": "Copy Link",
     "linkCopied": "Menu link has been copied to clipboard",
-    "showQr": "QR Code"
+    "showQr": "QR Code",
+    "savedOffline": "Saved on this phone. It will be sent when the connection is back."
   },
   "delivery": {
     "name": "Delivery Name",

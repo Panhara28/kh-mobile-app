@@ -9,6 +9,7 @@ import { can } from '@/lib/line';
 import { addOption, bindBody, boundProducts, canRemoveOption, emptyModifierForm, filterBound, matchesModifier, modifierFormOf, modifierProblem, modifierSaveBody, patchOption, removeOption, summary, type BoundProduct, type ModifierFormData, type ModifierItem } from '@/lib/modifiers';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
+import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
@@ -29,11 +30,12 @@ export default function ModifiersScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data, state } = useOffline();
-  const guard = useOnlineOnly();
   const insets = useSafeAreaInsets();
   const { currency, warehouseId } = useBranch();
 
   const [rows, setRows] = useState<ModifierItem[] | null>(null);
+  const writer = useRecordWriter();
+  const listed = useRecordRows(rows, 'modifier', (m: ModifierItem) => m.modifierId);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [staleAt, setStaleAt] = useState<number | null | false>(false);
@@ -71,11 +73,24 @@ export default function ModifiersScreen() {
       setShowProblem(true);
       return;
     }
-    const body = modifierSaveBody(e.form, () => Crypto.randomUUID(), e.row ?? undefined);
-    guard(async () => {
+    const saved = modifierSaveBody(e.form, () => Crypto.randomUUID(), e.row ?? undefined);
+    // kh-pos takes the id of a new modifier from the request, so one made here lets it be edited at once
+    const id = e.row?.modifierId ?? Crypto.randomUUID();
+    const body = { ...saved, id };
+    // kept on the phone and sent later when kh-pos can't be reached
+    void (async () => {
       setBusy(true);
       try {
-        await api.call(e.row ? 'PUT' : 'POST', '/api/modifier', body);
+        await writer({
+          entity: 'modifier',
+          op: e.row ? 'update' : 'create',
+          recordId: id,
+          method: e.row ? 'PUT' : 'POST',
+          path: '/api/modifier',
+          body,
+          label: body.title,
+          row: { modifierId: id, title: body.title, description: body.description, items: body.items.map((i) => ({ id: i.id, name: i.name, price: String(i.price) })) },
+        });
         setEditing(null);
         await load();
       } catch (err) {
@@ -83,7 +98,7 @@ export default function ModifiersScreen() {
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   function remove(m: ModifierItem) {
@@ -93,19 +108,19 @@ export default function ModifiersScreen() {
         text: t('admin.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('DELETE', '/api/modifier', { id: m.modifierId });
+              await writer({ entity: 'modifier', op: 'delete', recordId: m.modifierId, method: 'DELETE', path: '/api/modifier', body: { id: m.modifierId }, label: m.title });
               await load();
             } catch (err) {
               Alert.alert(t('modifiers.deleteFailed'), err instanceof Error ? err.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }
 
-  const shown = (rows ?? []).filter((m) => matchesModifier(m, search));
+  const shown = (listed ?? []).filter((m) => matchesModifier(m, search));
   const f = editing?.form;
   const sum = f ? summary(f) : null;
   const problem = f ? modifierProblem(f) : null;

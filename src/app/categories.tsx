@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +8,8 @@ import { canAddCategory, canDeleteCategory, categoryFormOf, categoryProblem, emp
 import { fetchAllPages } from '@/lib/catalog';
 import { can } from '@/lib/line';
 import { useOffline } from '@/lib/offline/provider';
+import { isUnsent } from '@/lib/offline/records';
+import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import type { BranchRow } from '@/lib/org';
 import { useSession } from '@/lib/session';
@@ -35,6 +38,8 @@ export default function CategoriesScreen() {
   const { warehouseId, currency } = useBranch();
 
   const [rows, setRows] = useState<CategoryItem[] | null>(null);
+  const writer = useRecordWriter();
+  const listed = useRecordRows(rows, 'category', (c: CategoryItem) => c.id);
   const [printers, setPrinters] = useState<PrinterItem[]>([]);
   const [branch, setBranch] = useState<BranchRow | null>(null);
   const [search, setSearch] = useState('');
@@ -105,10 +110,13 @@ export default function CategoriesScreen() {
       return;
     }
     const body = saveBody(e.form, e.row ?? undefined);
-    guard(async () => {
+    const id = e.row?.id ?? Crypto.randomUUID();
+    const shownRow = { id, title: body.title, description: body.description, imageUrl: body.imageUrl, printerId: body.printerId, sortOrder: body.sortOrder, excludeFeeDelivery: body.excludeFeeDelivery, markExtraFee: body.markExtraFee };
+    // kept on the phone and sent later when kh-pos can't be reached
+    void (async () => {
       setBusy(true);
       try {
-        await api.call(e.row ? 'PUT' : 'POST', '/api/category', body);
+        await writer({ entity: 'category', op: e.row ? 'update' : 'create', recordId: id, method: e.row ? 'PUT' : 'POST', path: '/api/category', body, label: body.title, row: shownRow });
         setEditing(null);
         await load();
       } catch (err) {
@@ -116,7 +124,7 @@ export default function CategoriesScreen() {
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   function remove(c: CategoryItem) {
@@ -126,14 +134,14 @@ export default function CategoriesScreen() {
         text: t('admin.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('DELETE', '/api/category', { id: c.id });
+              await writer({ entity: 'category', op: 'delete', recordId: c.id, method: 'DELETE', path: '/api/category', body: { id: c.id }, label: c.title });
               await load();
             } catch (err) {
               Alert.alert(t('errors.server'), err instanceof Error ? err.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }
@@ -157,7 +165,7 @@ export default function CategoriesScreen() {
     ]);
   }
 
-  const shown = (rows ?? []).filter((c) => matches(c, search));
+  const shown = (listed ?? []).filter((c) => matches(c, search));
   const f = editing?.form;
   const ro = (field: 'title' | 'description' | 'image' | 'sortOrder') => isReadOnlyField(isMain, field);
   const toneColor = (tone: 'success' | 'destructive' | 'warning') => (tone === 'success' ? colors.success : tone === 'destructive' ? colors.destructive : colors.warning);
@@ -200,11 +208,12 @@ export default function CategoriesScreen() {
                 {Number(c.markExtraFee) > 0 ? <Badge tone="info" text={t('categories.extraFeeN', { fee: formatMoney(Number(c.markExtraFee), currency) })} /> : null}
               </View>
               {c.createdAt ? <Text style={styles.muted}>{t('categories.created', { date: c.createdAt.slice(0, 10) })}</Text> : null}
+              {c.syncFailed ? <Badge tone="destructive" text={t('offline.syncFailed')} /> : c.pendingSync ? <Badge tone="info" text={t('offline.notSent')} /> : null}
               <View style={styles.chips}>
-                {mayEdit ? <Button title={t('admin.edit')} variant="outline" size="sm" onPress={() => { setProblem(false); setEditing({ row: c, form: categoryFormOf(c) }); }} /> : null}
-                {mayToggle ? <Button title={t('categories.enableSale')} variant="outline" size="sm" onPress={() => setForSale(c, 'enable')} /> : null}
-                {mayToggle ? <Button title={t('categories.disableSale')} variant="outline" size="sm" onPress={() => setForSale(c, 'disable')} /> : null}
-                {mayDelete ? <Button title={t('admin.delete')} variant="ghost" size="sm" onPress={() => remove(c)} /> : null}
+                {mayEdit && !isUnsent(c, state.commands, 'category', c.id) ? <Button title={t('admin.edit')} variant="outline" size="sm" onPress={() => { setProblem(false); setEditing({ row: c, form: categoryFormOf(c) }); }} /> : null}
+                {mayToggle && !c.pendingSync ? <Button title={t('categories.enableSale')} variant="outline" size="sm" onPress={() => setForSale(c, 'enable')} /> : null}
+                {mayToggle && !c.pendingSync ? <Button title={t('categories.disableSale')} variant="outline" size="sm" onPress={() => setForSale(c, 'disable')} /> : null}
+                {mayDelete && !isUnsent(c, state.commands, 'category', c.id) ? <Button title={t('admin.delete')} variant="ghost" size="sm" onPress={() => remove(c)} /> : null}
               </View>
             </Card>
           )}

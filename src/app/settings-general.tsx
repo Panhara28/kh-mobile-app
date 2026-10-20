@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { can } from '@/lib/line';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { useSession } from '@/lib/session';
 import type { SettingRow } from '@/lib/settings-admin';
 import { canEditSetting, generateCategories, getSettingConfig, settingsForCategory, validateSetting } from '@/lib/settings-general';
@@ -19,8 +19,8 @@ import { colors, font, radius, space } from '@/ui/theme';
 /** One setting row: its editor, and a Save for that row alone (like the web). */
 function SettingEditor({ row, isMain, onSaved }: { row: SettingRow; isMain: boolean; onSaved: () => Promise<void> }) {
   const { t } = useTranslation();
-  const { api, user } = useSession();
-  const guard = useOnlineOnly();
+  const { user } = useSession();
+  const writer = useRecordWriter();
   const config = getSettingConfig(row.option ?? '', row.value ?? '');
   const [value, setValue] = useState(row.value ?? '');
   const [busy, setBusy] = useState(false);
@@ -40,20 +40,19 @@ function SettingEditor({ row, isMain, onSaved }: { row: SettingRow; isMain: bool
       Alert.alert(t(`sg.problem_${problem}`));
       return;
     }
-    guard(() => {
-      void (async () => {
-        setBusy(true);
-        try {
-          await api.call('PUT', '/api/setting', { id: row.id, option: row.option ?? '', value });
-          await onSaved();
-          Alert.alert(t('sg.saved'));
-        } catch (e) {
-          Alert.alert(t('sg.saveFailed'), e instanceof Error ? e.message : undefined);
-        } finally {
-          setBusy(false);
-        }
-      })();
-    });
+    // kept on the phone and sent later when kh-pos can't be reached
+    void (async () => {
+      setBusy(true);
+      try {
+        const how = await writer({ entity: 'setting', op: 'update', recordId: String(row.id), method: 'PUT', path: '/api/setting', body: { id: row.id, option: row.option ?? '', value }, label: config.label, row: { value } });
+        await onSaved();
+        Alert.alert(t(how === 'queued' ? 'sg.savedOffline' : 'sg.saved'));
+      } catch (e) {
+        Alert.alert(t('sg.saveFailed'), e instanceof Error ? e.message : undefined);
+      } finally {
+        setBusy(false);
+      }
+    })();
   }
 
   return (

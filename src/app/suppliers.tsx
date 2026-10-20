@@ -5,8 +5,10 @@ import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl,
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchAllPages } from '@/lib/catalog';
 import { can } from '@/lib/line';
+import * as Crypto from 'expo-crypto';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { isUnsent } from '@/lib/offline/records';
+import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
 import { useSession } from '@/lib/session';
 import { dateOnly, emptySupplierForm, matchesSupplier, orNA, supplierFormOf, supplierProblem, supplierSaveBody, type SupplierFormData, type SupplierItem } from '@/lib/suppliers';
 import { Badge, Button, Card, Input } from '@/ui/components';
@@ -25,10 +27,11 @@ export default function SuppliersScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data, state } = useOffline();
-  const guard = useOnlineOnly();
   const insets = useSafeAreaInsets();
 
   const [rows, setRows] = useState<SupplierItem[] | null>(null);
+  const writer = useRecordWriter();
+  const listed = useRecordRows(rows, 'supplier', (s: SupplierItem) => s.id);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<unknown>(null);
   const [staleAt, setStaleAt] = useState<number | null | false>(false);
@@ -61,10 +64,21 @@ export default function SuppliersScreen() {
     const e = editing!;
     if (supplierProblem(e.form)) return;
     const body = supplierSaveBody(e.form, e.row ?? undefined);
-    guard(async () => {
+    // kept on the phone and sent later when kh-pos can't be reached; kh-pos makes the id of a new supplier, so it can't be edited until it is sent
+    const id = e.row?.id ?? Crypto.randomUUID();
+    void (async () => {
       setBusy(true);
       try {
-        await api.call(e.row ? 'PUT' : 'POST', '/api/supplier', body);
+        await writer({
+          entity: 'supplier',
+          op: e.row ? 'update' : 'create',
+          recordId: id,
+          method: e.row ? 'PUT' : 'POST',
+          path: '/api/supplier',
+          body,
+          label: body.name,
+          row: { id, name: body.name, contactName: body.contactName, contactPhone: body.contactPhone, contactEmail: body.contactEmail, address: body.address, note: body.note, isConsignment: body.isConsignment },
+        });
         setEditing(null);
         await load();
       } catch (err) {
@@ -72,7 +86,7 @@ export default function SuppliersScreen() {
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   function remove(s: SupplierItem) {
@@ -82,19 +96,19 @@ export default function SuppliersScreen() {
         text: t('admin.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('DELETE', '/api/supplier', { id: s.id });
+              await writer({ entity: 'supplier', op: 'delete', recordId: s.id, method: 'DELETE', path: '/api/supplier', body: { id: s.id }, label: s.name });
               await load();
             } catch (err) {
               Alert.alert(t('errors.server'), err instanceof Error ? err.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }
 
-  const shown = (rows ?? []).filter((s) => matchesSupplier(s, search));
+  const shown = (listed ?? []).filter((s) => matchesSupplier(s, search));
   const f = editing?.form;
   const set = (patch: Partial<SupplierFormData>) => setEditing((e) => (e && e.form ? { ...e, form: { ...e.form, ...patch } } : e));
 
@@ -129,8 +143,9 @@ export default function SuppliersScreen() {
               <Text style={styles.body}>{t('suppliers.note')}: {orNA(s.note)}</Text>
               {s.createdAt ? <Text style={styles.muted}>{t('suppliers.created', { date: dateOnly(s.createdAt) })}</Text> : null}
               <View style={styles.row}>
-                {mayEdit ? <Button title={t('admin.edit')} variant="outline" size="sm" onPress={() => setEditing({ row: s, form: supplierFormOf(s) })} /> : null}
-                {mayDelete ? <Button title={t('admin.delete')} variant="ghost" size="sm" onPress={() => remove(s)} /> : null}
+                {s.syncFailed ? <Badge tone="destructive" text={t('offline.syncFailed')} /> : s.pendingSync ? <Badge tone="info" text={t('offline.notSent')} /> : null}
+                {mayEdit && !isUnsent(s, state.commands, 'supplier', s.id) ? <Button title={t('admin.edit')} variant="outline" size="sm" onPress={() => setEditing({ row: s, form: supplierFormOf(s) })} /> : null}
+                {mayDelete && !isUnsent(s, state.commands, 'supplier', s.id) ? <Button title={t('admin.delete')} variant="ghost" size="sm" onPress={() => remove(s)} /> : null}
               </View>
             </Card>
           )}

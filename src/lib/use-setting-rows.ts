@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useOffline } from '@/lib/offline/provider';
+import { useRecordRows } from '@/lib/offline/use-record';
 import { useSession } from '@/lib/session';
 import type { SettingRow } from '@/lib/settings-admin';
 
@@ -9,16 +10,16 @@ import type { SettingRow } from '@/lib/settings-admin';
  */
 export function useSettingRows() {
   const { api, user } = useSession();
-  const { data } = useOffline();
+  const { data, state } = useOffline();
   const warehouseId = user?.currentWarehouseId ?? '';
-  const [rows, setRows] = useState<SettingRow[] | null>(null);
+  const [saved, setSaved] = useState<SettingRow[] | null>(null);
   const [stale, setStale] = useState<number | null | false>(false);
   const [error, setError] = useState<unknown>(null);
 
   const reload = useCallback(async () => {
     try {
       const r = await data.cachedRead('settings-general', warehouseId, async () => (await api.call<{ result?: SettingRow[] }>('GET', `/api/setting?warehouseId=${encodeURIComponent(warehouseId)}`)).result ?? []);
-      setRows(r.data);
+      setSaved(r.data);
       setStale(r.stale ? r.savedAt : false);
       setError(null);
     } catch (e) {
@@ -30,7 +31,10 @@ export function useSettingRows() {
     // loads after an await, so the state is set asynchronously
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void reload();
-  }, [reload]);
+  }, [reload, state.online, state.syncVersion]);
+
+  // changes waiting for kh-pos are shown at once
+  const rows = useRecordRows(saved, 'setting', (r: SettingRow) => String(r.id));
 
   return { rows, stale, error, reload };
 }
