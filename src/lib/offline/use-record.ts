@@ -29,7 +29,7 @@ export function useRecordWriter() {
         // the several calls of one change, one after the other (a later call may use the `result` of the one before)
         let resultId: string | undefined;
         for (const raw of req.steps && req.steps.length > 0 ? req.steps : [{ method: req.method, path: req.path, body: req.body }]) {
-          const step = withResult(raw, resultId);
+          const step = await engine.resolveUploads(withResult(raw, resultId));
           const answer = (await api.call(step.method, step.path, step.body)) as Record<string, unknown> | undefined;
           if (req.mustBeTrue && answer && answer[req.mustBeTrue] === false) throw new Error('kh-pos did not accept it');
           resultId = resultOf(answer) ?? resultId;

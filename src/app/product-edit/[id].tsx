@@ -116,7 +116,7 @@ export default function ProductEditScreen() {
       return;
     }
     // kept on the phone and sent later when kh-pos can't be reached. The ids of the product and its variants are made
-    // here, so sending the same add twice only clashes with itself. Pictures must already be uploaded (that needs the server).
+    // here, so sending the same add twice only clashes with itself. Pictures picked on the phone travel inside it and are uploaded when it is sent.
     void (async () => {
       setBusy(true);
       try {
@@ -146,7 +146,7 @@ export default function ProductEditScreen() {
           </Section>
 
           <Section title={t('pform.images')}>
-            <ImagesSection api={api} form={form} onChange={change} guard={guard} />
+            <ImagesSection form={form} onChange={change} />
           </Section>
 
           <Section title={t('pform.variants')}>

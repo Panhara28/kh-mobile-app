@@ -522,3 +522,53 @@ describe('A change with several calls', () => {
     expect(engine.getState().commands).toEqual([]);
   });
 });
+
+describe('A queued change with a picture picked on the phone', () => {
+  it('uploads the picture first, sends the change with its address, and does not upload it twice on a retry', async () => {
+    const { server, engine } = setup();
+    server.answers['POST /api/upload'] = { url: '/files/cat.jpg' };
+    await queue(engine, {
+      id: 'pic1',
+      userId: USER,
+      kind: 'record',
+      tableId: 'record:category',
+      createdAt: 1,
+      payload: { entity: 'category', op: 'create', recordId: 'c1', method: 'POST', path: '/api/category', body: { title: 'Tea', imageUrl: 'data:image/jpeg;base64,QUJD' }, label: 'Tea' },
+    });
+    server.refuseRequestWith = null;
+    await engine.flush();
+    expect(server.requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /api/upload', 'POST /api/category']);
+    expect(server.requests[0]!.body).toMatchObject({ fileContent: 'QUJD' });
+    expect(server.requests[1]!.body).toEqual({ title: 'Tea', imageUrl: '/files/cat.jpg' });
+    expect(engine.getState().commands).toEqual([]);
+  });
+
+  it('remembers an upload when the change itself is refused, so Retry does not upload the picture again', async () => {
+    const { server, engine } = setup();
+    server.answers['POST /api/upload'] = { url: '/files/cat.jpg' };
+    await queue(engine, {
+      id: 'pic2',
+      userId: USER,
+      kind: 'record',
+      tableId: 'record:category',
+      createdAt: 1,
+      payload: { entity: 'category', op: 'create', recordId: 'c2', method: 'POST', path: '/api/category', body: { title: 'Tea', imageUrl: 'data:image/jpeg;base64,QUJD' }, label: 'Tea' },
+    });
+    // the upload goes through, then kh-pos refuses the category
+    const original = server.api.call;
+    let first = true;
+    server.api.call = (async (m: string, p: string, b?: unknown) => {
+      if (p === '/api/category' && first) {
+        first = false;
+        throw new ApiError('server', 400, 'No');
+      }
+      return original(m, p, b);
+    }) as typeof original;
+    await engine.flush();
+    expect(engine.getState().failed).toBe(1);
+    await engine.retry('pic2');
+    await engine.flush();
+    expect(server.requests.filter((r) => r.path === '/api/upload')).toHaveLength(1);
+    expect(engine.getState().commands).toEqual([]);
+  });
+});

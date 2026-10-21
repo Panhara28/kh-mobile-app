@@ -3,6 +3,7 @@ import { planAndProduce } from '../production';
 import { retailOrderBody } from '../retail';
 import type { SecretBox } from './secret';
 import { resultOf, withResult } from './steps';
+import { hasDataImage, resolveUploads } from './uploads';
 import { buildTransfer, selectAll } from '../transfer';
 import { addExtras, addToTable, kitchenMoves, mergeTarget, pendingQty, serveMoves, statusQty } from '../order';
 import type {
@@ -164,6 +165,23 @@ export class SyncEngine {
   }
 
   // ---- changes ----
+
+  /**
+   * Uploads every picture kept inside `value` as a data address (see uploads.ts) and returns it with their addresses
+   * from kh-pos. A picture already uploaded by an earlier try is not uploaded again.
+   */
+  async resolveUploads<T>(value: T): Promise<T> {
+    if (!hasDataImage(value)) return value;
+    return resolveUploads(
+      value,
+      async (base64, extension) => {
+        const res = await this.api.call<{ url?: string }>('POST', '/api/upload', { fileName: `${this.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`, fileContent: base64 });
+        if (!res.url) throw new Error('The picture could not be uploaded.');
+        return res.url;
+      },
+      { get: async (k) => (await this.store.getCache<string>(k))?.value ?? null, set: (k, u) => this.store.setCache(k, u) },
+    );
+  }
 
   /** Sends a command at once with the same code that replays it (for `run`, which has already written it to the database). */
   replayNow(cmd: NewCommand): Promise<void> {
@@ -434,7 +452,8 @@ export class SyncEngine {
       }
       return;
     }
-    const steps = p.steps && p.steps.length > 0 ? p.steps : [{ method: p.method, path: p.path, body: p.body }];
+    // pictures picked on the phone travel inside the change as data addresses: they are uploaded now
+    const steps = await this.resolveUploads(p.steps && p.steps.length > 0 ? p.steps : [{ method: p.method, path: p.path, body: p.body }]);
     let resultId = p.resultId;
     for (let i = p.done ?? 0; i < steps.length; i++) {
       const step = withResult(steps[i]!, resultId);

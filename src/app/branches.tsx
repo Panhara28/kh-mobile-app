@@ -8,13 +8,12 @@ import { fetchAllPages } from '@/lib/catalog';
 import { can } from '@/lib/line';
 import { useOffline } from '@/lib/offline/provider';
 import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import { branchBody, branchForm, branchTitle, emptyBranch, validateBranch, type BranchForm, type BranchRow } from '@/lib/org';
 import { useSession } from '@/lib/session';
 import { dateOnly, orNA } from '@/lib/suppliers';
 import { Badge, Button, Card, Input } from '@/ui/components';
 import { ToggleRow } from '@/ui/product-form/parts';
-import { uploadBase64 } from '@/ui/product-form/images-section';
+import { pictureValue } from '@/lib/offline/uploads';
 import { ScreenHeader } from '@/ui/screen-header';
 import { EmptyState, ErrorState, LoadingState } from '@/ui/states';
 import { StaleBanner } from '@/ui/sync-status';
@@ -28,7 +27,6 @@ export default function BranchesScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data, state } = useOffline();
-  const guard = useOnlineOnly();
   const insets = useSafeAreaInsets();
 
   const [rows, setRows] = useState<BranchRow[] | null>(null);
@@ -83,18 +81,18 @@ export default function BranchesScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.7, mediaTypes: ['images'] });
     const asset = result.assets?.[0];
     if (result.canceled || !asset?.base64) return;
-    guard(() => {
+    {
       void (async () => {
         setUploading(true);
         try {
-          set({ image: await uploadBase64(api, asset.base64!) });
+          set({ image: pictureValue(asset.base64!) });
         } catch (e) {
           Alert.alert(t('products.uploadFailed'), e instanceof Error ? e.message : undefined);
         } finally {
           setUploading(false);
         }
       })();
-    });
+    }
   }
 
   function save() {

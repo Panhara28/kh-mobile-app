@@ -10,13 +10,12 @@ import { can } from '@/lib/line';
 import { useOffline } from '@/lib/offline/provider';
 import { isUnsent } from '@/lib/offline/records';
 import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import type { BranchRow } from '@/lib/org';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
 import { formatMoney } from '@/lib/money';
 import { Badge, Button, Card, Chip, Input } from '@/ui/components';
-import { uploadBase64 } from '@/ui/product-form/images-section';
+import { pictureValue } from '@/lib/offline/uploads';
 import { NumInput, ToggleRow } from '@/ui/product-form/parts';
 import { ScreenHeader } from '@/ui/screen-header';
 import { EmptyState, ErrorState, LoadingState } from '@/ui/states';
@@ -33,7 +32,6 @@ export default function CategoriesScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data, state } = useOffline();
-  const guard = useOnlineOnly();
   const insets = useSafeAreaInsets();
   const { warehouseId, currency } = useBranch();
 
@@ -88,11 +86,11 @@ export default function CategoriesScreen() {
     const r = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.7, mediaTypes: ['images'] });
     const b64 = r.assets?.[0]?.base64;
     if (r.canceled || !b64) return;
-    guard(() => {
+    {
       void (async () => {
         setUploading(true);
         try {
-          const url = await uploadBase64(api, b64);
+          const url = pictureValue(b64);
           setEditing((e) => (e ? { ...e, form: { ...e.form, imageUrl: url } } : e));
         } catch (e) {
           Alert.alert(t('products.uploadFailed'), e instanceof Error ? e.message : undefined);
@@ -100,7 +98,7 @@ export default function CategoriesScreen() {
           setUploading(false);
         }
       })();
-    });
+    }
   }
 
   function save() {

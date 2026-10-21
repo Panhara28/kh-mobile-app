@@ -824,7 +824,7 @@ export class KhPosApi {
   /** Product image URLs may be relative to the kh-pos server. */
   imageUrl(url: string | undefined | null): string | null {
     if (!url) return null;
-    if (/^https?:\/\//i.test(url)) return url;
+    if (/^(https?:\/\/|data:)/i.test(url)) return url;
     return `${this.baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   }
 }
