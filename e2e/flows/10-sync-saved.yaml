@@ -5,6 +5,13 @@ appId: ${APP_ID}
 - launchApp:
     stopApp: false
 - openLink: "${LINK_BASE}more"
+- runFlow:
+    when:
+      visible:
+        id: "sync-close"
+    commands:
+      - tapOn:
+          id: "sync-close"
 - extendedWaitUntil:
     visible:
       id: "sync-pill-.*"
