@@ -8,7 +8,7 @@ import { rangeFor } from '@/lib/dates';
 import { can } from '@/lib/line';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { hasActiveFilters, itemCount, LIST_STATUSES, orderActions, orderWhen, searchFilter, servedTypeKey, summarize, SUMMARY_LIMIT, whoFor, type OrderFilter, type OrderRow, type OrderStatus, type SearchType } from '@/lib/orders';
 import { useSession } from '@/lib/session';
 import { pickSetting } from '@/lib/settings';
@@ -45,7 +45,7 @@ export default function OrdersScreen() {
   const { data, state } = useOffline();
   const { currency, warehouseId } = useBranch();
   const { shift, reload: reloadShift } = useShift();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
 
   const [range, setRange] = useState<DateRange | null>(() => rangeFor('today'));
   const [rangeKey, setRangeKey] = useState(0);
@@ -177,10 +177,11 @@ export default function OrdersScreen() {
   }
 
   function print(o: OrderRow) {
-    guard(async () => {
+    void (async () => {
       setBusyId(o.orderId);
       try {
-        await api.markPrinted(o.orderId);
+        // the print count is sent at once, or kept on the phone and sent later
+        await writer({ entity: 'order-print', op: 'action', recordId: `print:${o.orderId}:${Date.now()}`, method: 'POST', path: `/api/pos/order/${encodeURIComponent(o.orderId)}/print`, body: {}, label: `${t('orders.printReceipt')} #${o.invoiceNo}` });
       } catch {
         // the receipt can still be shown if the count could not be saved
       } finally {
@@ -188,7 +189,7 @@ export default function OrdersScreen() {
       }
       void load(0);
       view(o, true);
-    });
+    })();
   }
 
   function reverse(o: OrderRow) {
@@ -198,19 +199,19 @@ export default function OrdersScreen() {
         text: t('orders.undo'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             setBusyId(o.orderId);
             try {
-              const r = await api.undoOrder(o.orderId);
-              Alert.alert(t('orders.undone'));
-              if (r.tableNumber) router.push({ pathname: '/table/[id]', params: { id: r.tableNumber } });
+              const how = await writer({ entity: 'order', op: 'action', recordId: `undo:${o.orderId}`, method: 'PUT', path: `/api/pos/order/${encodeURIComponent(o.orderId)}/undo-from-complete-to-draft`, body: {}, once: true, label: `${t('orders.undo')} #${o.invoiceNo}` });
+              Alert.alert(how === 'queued' ? t('offline.savedOffline') : t('orders.undone'));
+              if (how === 'done' && o.tableNumber) router.push({ pathname: '/table/[id]', params: { id: o.tableNumber } });
               else await load(0);
             } catch (e) {
               Alert.alert(t('orders.undoFailed'), e instanceof Error ? e.message : undefined);
             } finally {
               setBusyId('');
             }
-          }),
+          })(),
       },
     ]);
   }

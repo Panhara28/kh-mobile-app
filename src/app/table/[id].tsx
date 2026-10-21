@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CheckoutPayment, MenuProduct, OrderLine, PaymentMethod, PosInfo, RestaurantTable } from '@/lib/api';
 import { applyOutbox } from '@/lib/offline/overlay';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { useOffline } from '@/lib/offline/provider';
 import type { CommandKind, CommandPayload, NewCommand } from '@/lib/offline/types';
 import { activeLines, addToTable, canCheckout, kitchenMoves, modifierNames, modifierPrice, orderCounts, pendingQty, serveMoves, statusQty } from '@/lib/order';
@@ -51,6 +52,7 @@ export default function TableScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api, user } = useSession();
   const { data, engine, state } = useOffline();
+  const writer = useRecordWriter();
   const { warehouseId, currency, capEnabled, exchangeRate } = useBranch();
   const { shift, reload: reloadShift } = useShift();
 
@@ -433,7 +435,9 @@ export default function TableScreen() {
       const walkIn = (await data.posInfo(warehouseId)).data.posCustomerId;
       const body = orderTypeBody(type, walkIn, customer);
       if (!body) return;
-      await api.setOrderType(orderId, body);
+      // sent at once, or kept on the phone and sent when kh-pos can be reached
+      const how = await writer({ entity: 'order', op: 'action', recordId: `type:${orderId}`, method: 'PUT', path: `/api/pos/order/${encodeURIComponent(orderId)}/customer`, body, label: t('orderType.title') });
+      if (how === 'queued') Alert.alert(t('offline.savedOffline'));
       setOrderTypeOpen(false);
     } catch (e) {
       showError(e);
