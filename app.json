@@ -46,6 +46,14 @@
           "photosPermission": "KH POS uses your photos to add pictures to products.",
           "cameraPermission": "KH POS uses the camera to take pictures of products."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
     ],
     "experiments": {
