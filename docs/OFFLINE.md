@@ -78,13 +78,25 @@ How a screen uses it: every GET answer is kept on the phone by its address (`KhP
 
 **Limits:** only the first pages are synced (three of 30 for most lists), so scrolling further, other filters, searches, and the details of one record (a product, a purchase order) show offline only if they were read before. Reports are synced for today, yesterday, the last 7 days and the last 30 days (Dashboard, Sale report and breakdown, End of day, Sold items, Void orders, Guests, Stock, Expiry, Sale product) with the branch's own data and no extra filters; a custom date range or a filter shows offline only if it was read before. The Orders list keeps its own set of recent orders. The first sync needs the phone to stay online for a minute or two after login.
 
-## What still needs the server
+## Everything is written to SQLite first (round 9)
 
-- **Adding a user, resetting a password, adding or deleting a branch:** a password must not sit in the phone's queue and these change who can log in.
-- **Production with "restrict product lot" on:** the lots to scan come from kh-pos. (Without it, production works offline: see below.)
-- **Editing a replenishment:** changing the lines changes the picking list, which is worked out by kh-pos.
-- **Uploading pictures and Excel files**, and **logging in on a phone for the first time.**
-- **Reports** show their last saved copy offline (they are read-only).
+Every change the app makes (not Cinema, which is not on the phone) goes through one door, `SyncEngine.run` / `runOnce` (and `useRecordWriter` for the setup screens): it is **written to the phone's SQLite database first** with the status `sending`, then sent at once when kh-pos can be reached and removed when kh-pos has answered. If the signal is lost mid-send it becomes `pending` and is replayed in order; if kh-pos refuses it, the reason is shown and it is not kept.
+
+- **A crash or the app being closed mid-send:** at the next launch a change left `sending` is looked at (`recoverSending`). A change that can safely be sent again (table, shift, checkout, retail sale, transfer, an edit or delete) goes back to waiting. One that would be done twice if it had got through (a new record whose id kh-pos makes, stock moves, returns, undo, bookings, production, imports) is kept as **failed: "The app was closed while this was being sent. Check in KH POS ..."** for the staff to Retry or Discard. A `once` change whose answer is lost while online is kept the same way ("Could not confirm ...").
+- **Passwords are sealed:** a change that carries a password (add user, reset password, change your own password, add a branch with its account, the user Excel upload) is stored as `enc1:...`: XChaCha20-Poly1305 with a random 256-bit key held in the phone's secure storage (Android Keystore / iOS Keychain), never in the SQLite file (`secret.ts`, `phone-secret.ts`). If the secure storage is reset the sealed change cannot be read and is shown as failed ("can no longer be read ... do it again"). The offline sign-in on the phone still uses the verifier saved at the last online login, so a password changed while offline works offline only after it has been sent and the person has logged in online once.
+- **Pictures:** a picture picked for a category, product, branch, user or setting is kept as a data address inside the change, and uploaded just before the change is sent (`uploads.ts`); one already uploaded by an earlier try is not uploaded again (remembered by a hash).
+- **Excel imports** are read on the phone; the rows are the change.
+- **A later call can use an earlier answer:** a replenishment is created and then its picking list is set with the id kh-pos answered (`{{result}}` in the later call; the id is kept so a retry carries on).
+- **Table transfers:** the whole order to a free table shows on the other table at once; part of an order or a table that has an order is kept as it is (no on-screen change) and kh-pos checks it when it is sent.
+- **Retail sale:** online and offline use the same sale command (the order is opened and paid in one go, nothing is left open if the cashier backs out).
+
+### What still needs the server
+
+- **Logging in on a phone for the first time** (and a password the phone has not seen).
+- **Clean up dummy data (Type POS):** it deletes server data with a live progress stream; it is deliberately not queued.
+- **Production with "restrict product lot" on:** the lots to scan come from kh-pos.
+- **A picking list for a replenishment** (and the stock figures behind it) is worked out by kh-pos, so an order saved offline gets it when it is opened with kh-pos reachable.
+- **Reading** a record that was never read before (details of an old product, an old order): the background sync keeps the first screens and the first records of the main lists.
 - **Printing to the print server** needs the printer PC on the same network, not the internet, so it works offline; it is not a kh-pos change.
 
 ## Limits worth knowing
