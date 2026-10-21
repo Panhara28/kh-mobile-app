@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import { clock, elapsed, parseKhPosTime } from '@/lib/time';
+import { clock, clockWithDate, elapsed, parseKhPosTime } from '@/lib/time';
 
 /** "12 min", "2 h 5 min", "just now" (translated). */
 export function agoLabel(t: TFunction, date: Date, now = new Date()): string {
@@ -15,7 +15,7 @@ export function addedLabel(t: TFunction, value: string | null | undefined, now =
   return date ? t('time.addedAgo', { time: clock(date, now), ago: agoLabel(t, date, now) }) : null;
 }
 
-/** "ban · 23:20" for a status change, like the web's "mood · 2026-10-17 23:22". */
+/** "ban · 2026-10-17 23:20" for a status change, like the web. */
 export function byAtLabel(
   t: TFunction,
   by: { fullname?: string | null; username?: string | null } | null | undefined,
@@ -25,6 +25,6 @@ export function byAtLabel(
   const date = parseKhPosTime(value);
   if (!date) return null;
   const who = by?.username || by?.fullname;
-  const time = clock(date, now);
+  const time = clockWithDate(date);
   return who ? t('time.byAt', { who, time }) : time;
 }

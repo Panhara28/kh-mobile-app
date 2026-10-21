@@ -6,15 +6,21 @@ export type Action = 'create' | 'read' | 'update' | 'delete';
 /**
  * kh-pos permission check (src/hooks/use-permissions.ts + lib/permissions.ts): OWNER may do
  * everything; otherwise the role's list for the resource, stored as "create,read,update".
- * A resource missing from the list means read only.
+ * A resource missing from the list means no access at all: the web middleware refuses its pages
+ * (src/middleware.ts), so the phone hides the module too. "view-only" counts as read.
  */
+/** Parts of the web app that have no permission of their own: anyone signed in may use them (kh-pos shows them when the branch turns them on). */
+const OPEN_RESOURCES = ['accounting'];
+
 export function can(user: StaffUser | null | undefined, resource: string, action: Action): boolean {
   const role = user?.role;
   if (!role) return false;
+  if (OPEN_RESOURCES.includes(resource)) return true;
   if (role.role === 'OWNER') return true;
   const entry = role.permissions?.[resource];
-  if (!entry) return action === 'read';
+  if (!entry) return false;
   const actions = Array.isArray(entry) ? entry : entry.split(',').map((s) => s.trim());
+  if (action === 'read' && actions.includes('view-only')) return true;
   return actions.includes(action);
 }
 
@@ -35,6 +41,16 @@ export function checkStatusChange(line: OrderLine, status: CountableStatus, qty:
   if (next('pending') + next('cooking') + next('served') <= 0) return 'atLeastOne';
   if (qty < 1 && status !== 'pending') return 'confirmZero';
   return 'ok';
+}
+
+/** Every resend of the line's kitchen ticket, in order: who sent it and how many portions. */
+export function resendSummary(line: OrderLine): { who: string; qty: number | null }[] {
+  return (line.kitchenResends ?? []).map((r) => ({ who: r.by, qty: r.qty }));
+}
+
+/** Portions already sent to the kitchen (not pending): what a resend prints. */
+export function sentQty(line: OrderLine): number {
+  return statusQty(line, 'cooking') + statusQty(line, 'ready') + statusQty(line, 'served');
 }
 
 /** The line's special instructions (the "notes" option), if any. */

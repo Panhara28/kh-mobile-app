@@ -111,3 +111,21 @@ describe('imageUrl', () => {
     expect(a.imageUrl(null)).toBeNull();
   });
 });
+
+describe('ping', () => {
+  it('counts any answer from the server as reachable, even a refusal', async () => {
+    expect(await api(fakeFetch(() => ({ status: 401, json: {} })).fn).ping()).toBe(true);
+    expect(await api(fakeFetch(() => ({ status: 500, json: {} })).fn).ping()).toBe(true);
+  });
+
+  it('is false when the connection fails, and when there is no server address', async () => {
+    expect(await api(fakeFetch(() => new Error('Network request failed')).fn).ping()).toBe(false);
+    expect(await new KhPosApi('', () => null, fakeFetch(() => ({ json: {} })).fn).ping()).toBe(false);
+  });
+
+  it('needs no login', async () => {
+    const { fn, calls } = fakeFetch(() => ({ json: {} }));
+    await api(fn, null).ping();
+    expect(calls[0]!.headers.Authorization).toBeUndefined();
+  });
+});

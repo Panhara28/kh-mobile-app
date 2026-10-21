@@ -16,10 +16,10 @@ const line = (status: Record<string, number>, extra: Partial<OrderLine> = {}): O
 });
 
 describe('permissions (same rules as kh-pos)', () => {
-  it('reads "create,read,update" strings; OWNER can do everything; missing = read only', () => {
+  it('reads "create,read,update" strings; OWNER can do everything; a resource not in the list = no access', () => {
     expect(can(staff, 'order', 'update')).toBe(true);
     expect(can(staff, 'order-preparation', 'delete')).toBe(false);
-    expect(can(staff, 'setting', 'read')).toBe(true);
+    expect(can(staff, 'setting', 'read')).toBe(false);
     expect(can(staff, 'setting', 'update')).toBe(false);
     expect(can(owner, 'anything', 'delete')).toBe(true);
     expect(can(null, 'order', 'read')).toBe(false);

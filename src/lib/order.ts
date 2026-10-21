@@ -30,6 +30,19 @@ export function orderCounts(order: TableOrder | null | undefined) {
   };
 }
 
+/**
+ * Checkout is allowed once every portion has been served and the order is still open: the web
+ * restaurant POS's rule (restaurant-checkout.tsx). An order made offline has no status yet and
+ * counts as open.
+ */
+export function canCheckout(order: TableOrder | null | undefined): boolean {
+  const lines = activeLines(order);
+  if (lines.length === 0) return false;
+  const served = lines.reduce((a, l) => a + statusQty(l, 'served'), 0);
+  const all = lines.reduce((a, l) => a + (l.status ?? []).reduce((c, s) => c + Number(s.qty || 0), 0), 0);
+  return served === all && (!order?.orderStatus || order.orderStatus === 'DRAFT');
+}
+
 /** "Send to kitchen": every pending portion goes to cooking, like the web POS. */
 export function kitchenMoves(order: TableOrder | null | undefined): KitchenMove[] {
   return activeLines(order)
@@ -118,13 +131,15 @@ export interface AddRequest {
  *  - same plain item still pending: raise its pending quantity;
  *  - otherwise: a new line, then its options and note.
  * Always reload the table afterwards; the server's order is the source of truth.
+ * Resolves with the id of the order line the portions ended up on (the new line, or the line
+ * they were merged into).
  */
 export async function addToTable(
   api: Pick<KhPosApi, 'table' | 'setTableStatus' | 'posInfo' | 'nextInvoiceNumber' | 'createOrder' | 'addLine' | 'addModifier' | 'setPendingQty'>,
   req: AddRequest,
   newId: () => string,
   cache: { posInfo?: PosInfo } = {},
-): Promise<void> {
+): Promise<string> {
   const note = req.note.trim();
   const plain = req.options.length === 0 && !note;
   const line: NewLine = { id: newId(), variantId: req.product.variantId, qty: req.qty, price: unitPrice(req.product) };
@@ -143,7 +158,7 @@ export async function addToTable(
           line,
         });
         await addExtras(api, orderId, line.id, req.options, note);
-        return;
+        return line.id;
       } catch (e) {
         // Another phone opened an order at the same moment. kh-pos only suggests the next
         // invoice number, so both may have got the same one. If it was this table, add to that
@@ -157,13 +172,14 @@ export async function addToTable(
   const target = plain ? mergeTarget(order, req.product, req.capEnabled) : null;
   if (target) {
     await api.setPendingQty(order.orderId, target.orderDetailId, pendingQty(target) + req.qty);
-    return;
+    return target.orderDetailId;
   }
   await api.addLine(order.orderId, line);
   await addExtras(api, order.orderId, line.id, req.options, note);
+  return line.id;
 }
 
-async function addExtras(
+export async function addExtras(
   api: Pick<KhPosApi, 'addModifier'>,
   orderId: string,
   orderDetailId: string,

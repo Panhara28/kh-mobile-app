@@ -1,0 +1,82 @@
+# Offline: what is saved on the phone and sent later
+
+**Not tried on real phones.** The queue is tested with a simulated server (`lib/offline/records.test.ts`, `engine.test.ts`): sent at once when online, kept and sent in order when back, kept as "Needs attention" when kh-pos refuses, an add that already got through counts as done.
+
+## How it works
+
+The phone keeps a queue (the "outbox") in its own database. While kh-pos can't be reached, a save is written to the queue and shown on the screen at once (marked "Not sent yet"). When kh-pos is back the queue is sent in order; the sync list (the Online/Offline pill) shows what waits, what failed and why, with Retry and Discard. **kh-pos wins**: the phone only sends the same request the web would have sent, and if kh-pos refuses it, the change stays in the sync list as failed and the screen keeps showing it marked "Not saved". Two phones changing the same record: the last one sent wins (kh-pos has no edit conflict check for these).
+
+Other phones do not receive anything from this phone directly; they see the change after it reached kh-pos, the next time they load the screen.
+
+## What is saved and sent later
+
+| Module | Add | Edit | Delete | Notes |
+|---|---|---|---|---|
+| Table orders, kitchen status, discounts, shifts, checkout | yes | yes | yes | the first offline feature; see DECISIONS.md |
+| Payment Method | yes | yes | yes | the id of a new method is made on the phone |
+| Delivery customers | yes | yes | yes | kh-pos makes the id, so a new customer can't be edited until it is sent |
+| Category | yes | yes | yes | same; branches that are not the main one still can't add or delete (as the web) |
+| Modifier | yes | yes | yes | the id of a new modifier is made on the phone |
+| Discount (campaigns) | yes | yes | yes | the id is made on the phone; "Applies on" still needs the server |
+| Supplier | yes | yes | yes | kh-pos makes the id; a new supplier can't be edited until it is sent |
+| Settings (General) | - | yes | - | each setting is one saved value; image uploads inside a setting still need the server |
+
+## Stock and supply (round 2)
+
+These move stock, so they follow one extra rule, **"send once"**: a change that would be done twice if sent twice is only sent when kh-pos answers a ping, never repeated by itself, and if the answer to the send is lost it is **not** queued (the error says to check kh-pos first). A queued one whose answer is lost on the replay is kept as failed ("could not confirm ... check there before doing it again") for the staff to check, then Retry or Discard. Nobody gets stock twice by accident.
+
+| Where | What is saved offline | Rule |
+|---|---|---|
+| Stock counting (Products > a variant, or More) | Stock in, Stock out, Count, Move between slots | send once; the lots on screen are the saved copy, kh-pos checks the stock when it receives it (out of stock = failed with its message) |
+| Purchase Order | Delete (list and details), Approve, Cancel remaining, **Receive** | Receive is send once; the order shows "waiting" and offers no second receive / edit / delete until sent. Approve shows as approved on the details at once |
+| Replenishment | Delete, Approve (main branch), **Receive** (receiving branch), mark a picked lot, create from Suggestions | Receive, picked lot and Suggestions are send once; the details offer no second action while one waits |
+| Backlog | Resolve | send once; the row leaves the list at once |
+
+**Creating orders offline (round 3).** The product search of the Purchase Order, Replenishment and Production forms now works offline: while kh-pos can be reached the picker also saves every product it can find (title, SKU, barcode, stock, cost), and when kh-pos can't be reached it searches that saved copy and says so (stock and cost are as of the last time it was saved; the very first time needs a connection). With it:
+
+| Where | Offline | Rule |
+|---|---|---|
+| Purchase Order | Create, and Edit | A new order is "send once" (kh-pos makes its id): it shows in the list as "Not sent yet", and can't be opened, edited, received or deleted until it has been sent. An edit is one PUT of the whole order (last write wins) and the order shows "waiting" until it is sent. The supplier list needs to have been opened online once |
+| Replenishment | Create (not edit) | Sent once, **without a picking list** (the web also lets a saved order get its picking list when it is opened); the picking list is only worked out when someone opens the draft with kh-pos reachable. Shown as "Not sent yet" and not openable until sent. Editing a replenishment needs the server, because changing lines changes the picking list |
+
+## The rest (round 4)
+
+More changes are kept on the phone and sent later. A change with several calls (a product group: the group, its products, its branches ...) is sent call by call, and the phone remembers how many went through, so a retry carries on from the next call and never starts again. A reply that is a "yes or no" inside a successful answer (Returns "Put back in stock" answers `{result: false}` when it refuses) counts as a refusal. An add that clashes only with **its own id** ("Duplicate entry ... PRIMARY") is taken as already done; any other duplicate (the same barcode, for example) is a real conflict and shows as failed.
+
+| Where | Offline | Rule |
+|---|---|---|
+| Product groups | Add, edit, delete | all the calls in one queued change; the group's id is made on the phone, so a new group can be edited at once |
+| Slots | Add, edit, delete | kh-pos makes the id of a new slot, so it can't be edited until sent |
+| Supplier prices | Change a price, delete; **add** is sent once | a changed price shows at once; a new price appears after it has been sent |
+| Returns | Put back in stock | send once; kh-pos refusing it shows as failed |
+| Products (the full product form) | Add, edit | one call with ids made on the phone; pictures must already be uploaded; a new product shows in the product list after it has been sent |
+| Branches | Edit only | adding a branch holds an account password, deleting is too serious, so both need the server |
+| Users | Edit, delete | not adding a user or resetting a password: a password must not be kept in the phone's queue. Changing the branches a person is bound to is sent once, and only when that list was loaded online |
+| Roles (Accessibility) | Change a role's permissions; a new role is sent once | the role shows its new permissions at once |
+
+## Production offline (round 5)
+
+Offline you pick a product (from the saved product search), a quantity and the slot for the new stock, and Produce is kept on the phone. **The parts are not decided on the phone.** When the change is sent, kh-pos is asked for the plan (which parts, and from which slots and lots) with the stock it has *then*, and only if every part is available is the production made; otherwise the change is kept as failed with the reason ("Not enough stock to produce 5: Flour") and nothing is made. It uses up parts and makes stock, so it is send once (a lost answer is never repeated by itself). With "restrict product lot" on, production still needs a connection. The product search needs to have been opened online once.
+
+## Retail POS and table transfer offline (round 6)
+
+| Where | Offline | Rule |
+|---|---|---|
+| Retail POS | Search, scan, cart, Charge and pay | The products are the copy saved the last time Retail was opened online (all products, by name or barcode). The paid sale is kept on the phone with a receipt marked offline (no invoice number yet). When kh-pos is reached the phone checks the stock in the POS slot, asks for the invoice number, opens the order **with the order id made on the phone** and pays it. A lost answer never sells twice: an order that is already paid is done, one that is open is only paid. If a product is not in the POS slot the sale is kept as failed ("Move the stock to the POS slot, then Retry"). **Needs a kh-pos with the `orderId` change (branch `feat/mobile-offline-support`)**; an older kh-pos ignores the id and a retry after a lost answer could open a second order |
+| Table transfer | The **whole order** to a table the saved list shows as free | Only for a table with nothing waiting to be sent. The order shows on the other table at once. When sent, kh-pos' own order and tables are read again: an order already on the destination is done; a destination that has an order now, or an order that left the table, is kept as failed with the reason (nothing is merged or split by surprise). Moving part of an order, or onto a table with an order, still needs the server |
+
+## What still needs the server
+
+- **Adding a user, resetting a password, adding or deleting a branch:** a password must not sit in the phone's queue and these change who can log in.
+- **Production with "restrict product lot" on:** the lots to scan come from kh-pos. (Without it, production works offline: see below.)
+- **Editing a replenishment:** changing the lines changes the picking list, which is worked out by kh-pos.
+- **Uploading pictures and Excel files**, and **logging in on a phone for the first time.**
+- **Reports** show their last saved copy offline (they are read-only).
+- **Printing to the print server** needs the printer PC on the same network, not the internet, so it works offline; it is not a kh-pos change.
+
+## Limits worth knowing
+
+- A queued edit is made on the copy the phone saved last, then sent as a whole record (the web does the same): if someone else edited other fields meanwhile, this phone's version replaces them.
+- An add that is sent twice because the answer was lost can create a duplicate for modules where kh-pos makes the id (Category, Delivery, Supplier).
+- Stock figures on screen are the copy saved earlier; a stock out larger than what the saved copy shows is refused on the phone, and one that kh-pos refuses later shows as failed in the sync list.
+- Logging out keeps the queue on the phone; it is sent after the next login of the same person.
