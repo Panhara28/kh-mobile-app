@@ -9,6 +9,7 @@ import type {
   SetOptionPayload,
   SetPendingPayload,
   SetStatusPayload,
+  TransferPayload,
 } from './types';
 
 const statusKey = (s: 'pending' | 'cooking' | 'served') => (s === 'pending' ? 'customize.pending' : s === 'cooking' ? 'customize.preparing' : 'customize.served');
@@ -57,6 +58,10 @@ export function describeCommand(c: OutboxCommand): { key: string; params: Record
       return { key: 'offline.cmdCloseShift', params: {} };
     case 'checkout':
       return { key: 'offline.cmdCheckout', params: {} };
+    case 'transfer':
+      return { key: 'offline.cmdTransfer', params: { name: (c.payload as TransferPayload).destinationName } };
+    case 'retailSale':
+      return { key: 'offline.cmdRetailSale', params: {} };
     case 'record': {
       const p = c.payload as RecordPayload;
       return { key: `offline.cmdRecord_${p.op}`, params: { name: p.label } };

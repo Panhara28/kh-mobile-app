@@ -1,5 +1,6 @@
-import type { CheckoutPayment, MenuProduct, ModifierItem } from '../api';
+import type { CheckoutPayment, MenuProduct, ModifierItem, RestaurantTable } from '../api';
 import type { Receipt } from '../receipt';
+import type { RetailLine } from '../retail';
 
 /**
  * Offline support, in short:
@@ -32,6 +33,10 @@ export type CommandKind =
   | 'openShift'
   | 'closeShift'
   | 'checkout'
+  // Retail POS sale (no table)
+  | 'retailSale'
+  // Moves a table's whole order to a free table
+  | 'transfer'
   // Setup records (category, supplier, ...): one saved change to a screen's list, sent as it is
   | 'record';
 
@@ -155,6 +160,31 @@ export interface CheckoutCommandPayload {
 }
 
 /**
+ * Moves the whole order of the table the command belongs to onto another table (`destinationTableId`). Offline this is
+ * only allowed for a table with nothing waiting and a destination the saved copy shows as free; the body is worked out
+ * again from kh-pos' own order when it is sent, so it is always a whole-order move and never a split or a merge.
+ */
+export interface TransferPayload {
+  orderId: string;
+  destinationTableId: string;
+  destinationName: string;
+  transferDiscount: boolean;
+  /** The order as the phone showed it, so the destination table shows it at once. */
+  order: NonNullable<RestaurantTable['order']>;
+}
+
+/** A Retail POS sale made offline: the order is opened and paid in kh-pos when this is sent. */
+export interface RetailSalePayload {
+  /** Id of the order, made on the phone: the same one on every attempt, so the sale is never opened twice. */
+  orderId: string;
+  warehouseId: string;
+  cart: RetailLine[];
+  payments: CheckoutPayment[];
+  /** Kept so the receipt can be shown for a sale that has not reached kh-pos yet. */
+  receipt: Receipt;
+}
+
+/**
  * A change to a record of a setup screen (add, edit or delete a category, a supplier, a setting ...). It holds the
  * request to send as it is; `row` is the copy shown on screen until it has been sent.
  */
@@ -212,6 +242,8 @@ export type CommandPayload = {
   openShift: OpenShiftPayload;
   closeShift: CloseShiftPayload;
   checkout: CheckoutCommandPayload;
+  retailSale: RetailSalePayload;
+  transfer: TransferPayload;
   record: RecordPayload;
 };
 

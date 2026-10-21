@@ -355,16 +355,13 @@ export default function TableScreen() {
   /** Moving an order needs both tables as kh-pos has them, so nothing may be waiting to be sent. */
   async function startTransfer() {
     if (!table?.order) return;
-    if (!engine.getState().online) {
-      Alert.alert(t('offline.needsConnection'));
-      return;
-    }
     if (table.pendingSync || table.order.localOnly) {
       Alert.alert(t('transfer.syncFirst'));
       return;
     }
     try {
-      setTransferTables((await data.tables()).data);
+      // Offline this is the saved list of tables: the sheet then offers only free tables and the whole order.
+      setTransferTables((await data.tables()).data.map((x) => applyOutbox(x, state.commands)));
     } catch (e) {
       showError(e);
     }
@@ -373,6 +370,15 @@ export default function TableScreen() {
   async function doTransfer(body: TransferBody, destination: RestaurantTable) {
     setBusy(true);
     try {
+      if (!engine.getState().online && table?.order) {
+        await engine.enqueue(
+          command('transfer', { orderId: body.orderId, destinationTableId: destination.id, destinationName: destination.table_name, transferDiscount: body.transferDiscount, order: table.order }),
+        );
+        setTransferTables(null);
+        Alert.alert(t('transfer.savedOffline', { name: destination.table_name }));
+        router.back(); // the order is on the other table now
+        return;
+      }
       await api.transferTable(body);
       setTransferTables(null);
       Alert.alert(t('transfer.done', { name: destination.table_name }));
@@ -665,7 +671,7 @@ export default function TableScreen() {
           onComplete={(p) => void completeCheckout(p)}
         />
       ) : null}
-      {transferTables ? <TransferSheet table={table} tables={transferTables} busy={busy} onClose={() => setTransferTables(null)} onTransfer={(b, d) => void doTransfer(b, d)} /> : null}
+      {transferTables ? <TransferSheet table={table} tables={transferTables} busy={busy} offline={!state.online} onClose={() => setTransferTables(null)} onTransfer={(b, d) => void doTransfer(b, d)} /> : null}
       <ReceiptSheet
         receipt={receipt}
         onClose={() => {

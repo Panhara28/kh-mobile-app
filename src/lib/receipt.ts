@@ -77,6 +77,38 @@ export function receiptFromCheckout(input: {
   };
 }
 
+/** Receipt for a Retail POS sale paid on this phone (no table; the invoice number comes from kh-pos when it is sent). */
+export function receiptFromRetail(input: {
+  orderId: string;
+  cart: { name: string; qty: number; price: number }[];
+  cashier: string | null;
+  methods: Map<string, string>;
+  payments: CheckoutPayment[];
+  total: number;
+  exchangeRate: number;
+  currency: CurrencyCode;
+  paidAt: string;
+  offline: boolean;
+}): Receipt {
+  const payments = input.payments.map((p) => ({ method: methodName(input.methods, p.paymentMethod), currency: p.currency, amount: p.amount, amountUsd: p.amountUsd }));
+  return {
+    orderId: input.orderId,
+    invoiceNo: '',
+    tableName: null,
+    cashier: input.cashier,
+    paidAt: input.paidAt,
+    guests: null,
+    lines: input.cart.map((l) => ({ title: l.name, qty: l.qty, price: l.price, total: Math.round(l.price * l.qty * 100) / 100, extras: [] })),
+    total: input.total,
+    discount: 0,
+    payments,
+    change: changeOf(payments, input.total),
+    exchangeRate: input.exchangeRate,
+    currency: input.currency,
+    offline: input.offline,
+  };
+}
+
 /** Receipt from kh-pos' copy of a finished order. */
 export function receiptFromDetail(d: OrderDetailResult, opts: { names: Map<string, ModifierItem>; methods: Map<string, string>; exchangeRate: number; currency: CurrencyCode }): Receipt {
   const info = d.orderInfo;

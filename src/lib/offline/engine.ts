@@ -1,5 +1,7 @@
 import { ApiError, type KhPosApi, type MenuProduct, type OrderLine } from '../api';
 import { planAndProduce } from '../production';
+import { retailOrderBody } from '../retail';
+import { buildTransfer, selectAll } from '../transfer';
 import { addExtras, addToTable, kitchenMoves, mergeTarget, pendingQty, serveMoves, statusQty } from '../order';
 import type {
   AddLinePayload,
@@ -13,6 +15,8 @@ import type {
   OutboxCommand,
   RemoveLinePayload,
   ResendPayload,
+  RetailSalePayload,
+  TransferPayload,
   SetDiscountPayload,
   SetGuestsPayload,
   SetNotePayload,
@@ -44,6 +48,10 @@ export type EngineApi = Pick<
   | 'openShift'
   | 'closeShift'
   | 'checkout'
+  | 'orderDetail'
+  | 'stockToTransfer'
+  | 'createRetailOrder'
+  | 'transferTable'
   | 'removeLine'
   | 'setGuests'
   | 'sendToKitchen'
@@ -297,6 +305,10 @@ export class SyncEngine {
         return this.replayCloseShift(cmd as OutboxCommand<'closeShift'>);
       case 'checkout':
         return this.replayCheckout(cmd as OutboxCommand<'checkout'>);
+      case 'transfer':
+        return this.replayTransfer(cmd as OutboxCommand<'transfer'>);
+      case 'retailSale':
+        return this.replayRetailSale(cmd as OutboxCommand<'retailSale'>);
       case 'record':
         return this.replayRecord(cmd as OutboxCommand<'record'>);
       case 'resend':
@@ -434,6 +446,57 @@ export class SyncEngine {
     if (!order || (order.orderStatus && order.orderStatus !== 'DRAFT')) return;
     this.posCache.posInfo ??= await this.api.posInfo(p.warehouseId);
     await this.api.checkout(order.orderId, { slotId: this.posCache.posInfo.posSlotId, payments: p.payments });
+  }
+
+  /**
+   * Moves the whole order to the destination table. Works from kh-pos' own order and tables: an order already on the
+   * destination is done; a destination that is taken now, or an order that is no longer on the table, is refused
+   * (failed with the reason) rather than merged or split by surprise.
+   */
+  private async replayTransfer(cmd: OutboxCommand<'transfer'>): Promise<void> {
+    const p: TransferPayload = cmd.payload;
+    const destination = await this.api.table(p.destinationTableId);
+    if (destination.order?.orderId === p.orderId) return; // an earlier try got through
+    const source = await this.api.table(cmd.tableId);
+    if (source.order?.orderId !== p.orderId) throw new Error('The order is no longer on this table.');
+    if (destination.status === 'order_taken' || destination.order) throw new Error(`Table ${p.destinationName} has an order now. Move it from KH POS, or choose another table.`);
+    const body = buildTransfer({
+      orderId: p.orderId,
+      sourceTableId: cmd.tableId,
+      destinationTableId: p.destinationTableId,
+      lines: source.order.items ?? [],
+      selection: selectAll(source.order),
+      transferDiscount: p.transferDiscount,
+    });
+    if (!body) throw new Error('Nothing to move.');
+    await this.api.transferTable(body);
+  }
+
+  /**
+   * A Retail POS sale: opens the order (with the id made on the phone) and pays it. Safe to repeat: an order that is
+   * already paid is done, one that is open only gets paid, and opening it again hits the same id.
+   */
+  private async replayRetailSale(cmd: OutboxCommand<'retailSale'>): Promise<void> {
+    const p: RetailSalePayload = cmd.payload;
+    const existing = await this.api.orderDetail(p.orderId).catch((e) => {
+      if (e instanceof ApiError && e.kind === 'network') throw e;
+      return null; // kh-pos has no such order yet
+    });
+    this.posCache.posInfo ??= await this.api.posInfo(p.warehouseId);
+    const info = this.posCache.posInfo;
+    if (existing) {
+      if (existing.orderInfo.orderStatus && existing.orderInfo.orderStatus !== 'DRAFT') return; // already paid
+    } else {
+      const short = (await this.api.stockToTransfer(p.cart.map((l) => ({ variantId: l.variantId, toFindQty: l.qty })))).filter((x) => x.slot && x.slot.posSlot === false);
+      if (short.length > 0) throw new Error('Some products are not in the POS slot. Move the stock to the POS slot, then Retry.');
+      const invoiceNo = await this.api.nextInvoiceNumber();
+      try {
+        await this.api.createRetailOrder(retailOrderBody({ warehouseId: p.warehouseId, slotId: info.posSlotId, customerId: info.posCustomerId, invoiceNo, orderId: p.orderId }, p.cart));
+      } catch (e) {
+        if (!(e instanceof ApiError && /duplicate/i.test(e.message) && /primary/i.test(e.message))) throw e; // an earlier try opened it
+      }
+    }
+    await this.api.checkout(p.orderId, { slotId: info.posSlotId, payments: p.payments });
   }
 
   private async replayPromotion(cmd: OutboxCommand<'setPromotion'>): Promise<void> {

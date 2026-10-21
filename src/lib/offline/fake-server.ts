@@ -21,6 +21,12 @@ export class FakeServer {
   requests: { method: string; path: string; body?: unknown }[] = [];
   /** A message the next record request is refused with (kh-pos says no), once. */
   refuseRequestWith: string | null = null;
+  /** Retail sales (orders without a table) by order id. */
+  retailOrders: Record<string, { status: 'DRAFT' | 'COMPLETED'; invoiceNo: number; items: number; payments: number }> = {};
+  /** Products are not in the POS slot (kh-pos' stock picking list asks for a move). */
+  stockShort = false;
+  /** Destination tables of the transfers received. */
+  transfers: string[] = [];
 
   constructor(tableIds: string[] = ['t1']) {
     for (const id of tableIds) this.tables[id] = { id, table_name: id.toUpperCase(), setting_capacity: 4, section: null, status: 'available', order: null };
@@ -168,8 +174,45 @@ export class FakeServer {
         if (!s || s.status === 'CLOSE') throw new ApiError('server', 400, 'Cannot close the closed shift');
         s.status = 'CLOSE';
       }),
+    transferTable: async (input) =>
+      this.write('transferTable', () => {
+        const from = this.tables[input.sourceTableId]!;
+        const to = this.tables[input.destinationTableId]!;
+        if (to.order) throw new ApiError('server', 400, 'merge not supported by the fake');
+        to.order = from.order;
+        to.status = 'order_taken';
+        from.order = null;
+        from.status = 'cleaning';
+        this.transfers.push(input.destinationTableId);
+      }),
+    createRetailOrder: async (body) =>
+      this.write('createRetailOrder', () => {
+        const b = body as { orderId?: string; invoiceNo: number; items: unknown[] };
+        const orderId = b.orderId ?? `retail-${Object.keys(this.retailOrders).length + 1}`;
+        if (this.retailOrders[orderId]) throw new ApiError('server', 500, `Duplicate entry '${orderId}' for key 'customer_order.PRIMARY'`);
+        this.retailOrders[orderId] = { status: 'DRAFT', invoiceNo: b.invoiceNo, items: b.items.length, payments: 0 };
+        return orderId;
+      }),
+    orderDetail: async (orderId) => {
+      this.gate(`orderDetail ${orderId}`);
+      const o = this.retailOrders[orderId];
+      if (!o) throw new ApiError('server', 404, 'Order not found');
+      return { orderInfo: { orderId, invoiceNo: o.invoiceNo, orderStatus: o.status }, orderDetail: [], payments: [] } as unknown as Awaited<ReturnType<EngineApi['orderDetail']>>;
+    },
+    stockToTransfer: async () => {
+      this.gate('stockToTransfer');
+      return this.stockShort ? [{ slot: { posSlot: false } }] : [];
+    },
     checkout: async (orderId, input) =>
       this.write('checkout', () => {
+        const r = this.retailOrders[orderId];
+        if (r) {
+          if (r.status === 'COMPLETED') throw new ApiError('server', 400, 'Order not found or already checked out');
+          r.status = 'COMPLETED';
+          r.payments = input.payments.length;
+          this.checkouts.push({ orderId, slotId: input.slotId, payments: input.payments.length });
+          return;
+        }
         const t = Object.values(this.tables).find((x) => x.order?.orderId === orderId);
         if (!t?.order || t.order.orderStatus === 'COMPLETED') throw new ApiError('server', 400, 'Order not found or already checked out');
         this.checkouts.push({ orderId, slotId: input.slotId, payments: input.payments.length });

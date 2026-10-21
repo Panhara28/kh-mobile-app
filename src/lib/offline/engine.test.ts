@@ -273,3 +273,99 @@ describe('SyncEngine', () => {
     expect(engine.getState().pending).toBe(0);
   });
 });
+
+describe('Retail sale offline', () => {
+  const cartLine = { lineId: 'R1', variantId: 'v9', productId: 'p9', name: 'Soap', price: 3, barcode: '123', qty: 2 };
+  const sale = (orderId = 'order-r1'): NewCommand => ({
+    id: `c${++n}`,
+    userId: USER,
+    kind: 'retailSale',
+    tableId: '',
+    createdAt: 1,
+    payload: { orderId, warehouseId: 'w1', cart: [cartLine], payments: [], receipt: {} as never },
+  });
+
+  it('opens and pays the sale when kh-pos is back', async () => {
+    const { server, engine } = setup();
+    await queue(engine, sale());
+    await engine.flush();
+    expect(server.retailOrders['order-r1']).toMatchObject({ status: 'COMPLETED', items: 1 });
+    expect(server.checkouts).toHaveLength(1);
+    expect(engine.getState().pending).toBe(0);
+  });
+
+  it('does not sell twice when the answer to the payment is lost', async () => {
+    const { server, engine } = setup();
+    await queue(engine, sale());
+    server.dropAnswerOnce = true; // lost after createRetailOrder
+    await engine.flush();
+    server.dropAnswerOnce = true; // lost after checkout
+    await engine.flush();
+    await engine.flush();
+    expect(Object.keys(server.retailOrders)).toEqual(['order-r1']);
+    expect(server.checkouts).toHaveLength(1);
+    expect(engine.getState().pending).toBe(0);
+    expect(engine.getState().failed).toBe(0);
+  });
+
+  it('keeps the sale as failed, with the reason, when the stock is not in the POS slot', async () => {
+    const { server, engine } = setup();
+    server.stockShort = true;
+    await queue(engine, sale());
+    await engine.flush();
+    expect(engine.getState().failed).toBe(1);
+    expect(Object.keys(server.retailOrders)).toEqual([]);
+    server.stockShort = false;
+    await engine.retry(engine.getState().commands[0]!.id);
+    await engine.flush();
+    expect(server.retailOrders['order-r1']!.status).toBe('COMPLETED');
+  });
+});
+
+describe('Table transfer offline', () => {
+  const transfer = (to = 't2', orderId = 'order-t1'): NewCommand => ({
+    id: `c${++n}`,
+    userId: USER,
+    kind: 'transfer',
+    tableId: 't1',
+    createdAt: 1,
+    payload: { orderId, destinationTableId: to, destinationName: to.toUpperCase(), transferDiscount: true, order: { orderId, invoiceNo: 1, totalAmount: '2', items: [] } },
+  });
+
+  it('moves the whole order to the free table when kh-pos is back, and the overlay shows it there at once', async () => {
+    const { server, engine } = setup(['t1', 't2']);
+    await seedOrder(server);
+    await queue(engine, transfer());
+    const shown = engine.getState().commands.map((c) => c);
+    const t2 = applyOutbox(server.tables.t2!, shown);
+    expect(t2.order?.orderId).toBe('order-t1');
+    expect(applyOutbox(server.tables.t1!, shown).order).toBeNull();
+    await engine.flush();
+    expect(server.transfers).toEqual(['t2']);
+    expect(server.tables.t2!.order?.orderId).toBe('order-t1');
+    expect(engine.getState().pending).toBe(0);
+  });
+
+  it('is done when the order is already on the destination (the answer was lost)', async () => {
+    const { server, engine } = setup(['t1', 't2']);
+    await seedOrder(server);
+    await queue(engine, transfer());
+    server.dropAnswerOnce = true;
+    await engine.flush();
+    await engine.flush();
+    expect(server.transfers).toEqual(['t2']);
+    expect(engine.getState().failed).toBe(0);
+    expect(engine.getState().pending).toBe(0);
+  });
+
+  it('refuses to merge when somebody took the destination meanwhile', async () => {
+    const { server, engine } = setup(['t1', 't2']);
+    await seedOrder(server);
+    await server.api.createOrder({ warehouseId: 'w1', tableId: 't2', posInfo: { posSlotId: 's', posCustomerId: 'c' }, invoiceNo: 2, line: { id: 'X1', variantId: 'v2', qty: 1, price: 2 } });
+    await queue(engine, transfer());
+    await engine.flush();
+    expect(engine.getState().failed).toBe(1);
+    expect(engine.getState().commands[0]!.error).toMatch(/has an order now/);
+    expect(server.transfers).toEqual([]);
+  });
+});

@@ -10,6 +10,7 @@ import type {
   SetOptionPayload,
   SetPromotionPayload,
   SetStatusPayload,
+  TransferPayload,
 } from './types';
 
 /** Id of the order a table gets on screen before kh-pos has opened it. */
@@ -144,7 +145,7 @@ function addLocalLine(order: NonNullable<RestaurantTable['order']>, p: AddLinePa
  * receives the changes. Failed commands are not applied.
  */
 export function applyOutbox(table: RestaurantTable, commands: OutboxCommand[]): RestaurantTable {
-  const mine = commands.filter((c) => c.tableId === table.id && c.status === 'pending');
+  const mine = commands.filter((c) => c.status === 'pending' && (c.tableId === table.id || (c.kind === 'transfer' && (c.payload as TransferPayload).destinationTableId === table.id)));
   if (mine.length === 0) return table;
 
   const t = JSON.parse(JSON.stringify(table)) as RestaurantTable;
@@ -224,6 +225,16 @@ export function applyOutbox(table: RestaurantTable, commands: OutboxCommand[]): 
       case 'setPromotion': {
         const line = lineById(t.order, (c.payload as SetPromotionPayload).orderDetailId);
         if (line) setPromotionLocal(line, c.payload as SetPromotionPayload);
+        break;
+      }
+      case 'transfer': {
+        if (c.tableId === t.id) {
+          t.order = null; // the order left this table
+          t.status = 'cleaning';
+        } else {
+          t.order = JSON.parse(JSON.stringify((c.payload as TransferPayload).order)); // and arrived on this one
+          t.status = 'order_taken';
+        }
         break;
       }
       case 'checkout':

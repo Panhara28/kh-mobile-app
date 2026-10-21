@@ -42,8 +42,9 @@ export function matchBarcode(products: RetailProduct[], code: string): RetailPro
 }
 
 /** The body that opens the sale's order in kh-pos: no table, every line at its price. */
-export function retailOrderBody(input: { warehouseId: string; slotId: string; customerId: string; invoiceNo: number }, cart: RetailLine[]) {
+export function retailOrderBody(input: { warehouseId: string; slotId: string; customerId: string; invoiceNo: number; orderId?: string }, cart: RetailLine[]) {
   return {
+    ...(input.orderId ? { orderId: input.orderId } : {}),
     warehouseId: input.warehouseId,
     slotId: input.slotId,
     customerId: input.customerId,

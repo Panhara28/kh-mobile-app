@@ -30,7 +30,11 @@ export class OfflineData {
   private menuRefreshedAt = 0;
   private downUntil = 0;
   /** Called with the menu after it has been saved (the app uses it to keep the photos, see provider.tsx). */
-  onMenuSaved: ((menu: MenuProduct[]) => void) | null = null;
+  private onMenuSaved: ((menu: MenuProduct[]) => void) | null = null;
+
+  setOnMenuSaved(fn: ((menu: MenuProduct[]) => void) | null): void {
+    this.onMenuSaved = fn;
+  }
 
   constructor(
     private readonly api: KhPosApi,

@@ -506,6 +506,16 @@ export class KhPosApi {
     return n;
   }
 
+  /**
+   * Opens a sale without a table. With `orderId` (made on the phone) a retried request meets the same primary key and
+   * kh-pos refuses it instead of opening a second order. Returns the order id.
+   */
+  async createRetailOrder(body: Record<string, unknown>): Promise<string> {
+    const json = await this.request<{ result?: string }>('POST', '/api/pos/order', body);
+    if (!json.result) throw new ApiError('server', undefined, 'No order id returned');
+    return json.result;
+  }
+
   /** Opens the table's order with its first line. Returns the order id. */
   async createOrder(input: { warehouseId: string; tableId: string; posInfo: PosInfo; invoiceNo: number; line: NewLine }): Promise<string> {
     const json = await this.request<{ result?: string }>('POST', '/api/pos/order', {

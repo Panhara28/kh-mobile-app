@@ -220,6 +220,8 @@
     "cmdOpenShift": "Open the shift",
     "cmdCloseShift": "Close the shift",
     "cmdCheckout": "Pay and complete the order",
+    "cmdRetailSale": "Retail sale (open and pay)",
+    "cmdTransfer": "Move the order to {{name}}",
     "needsConnection": "This needs a connection to the KH POS server. Try again when you are back online.",
     "cmdRecord_create": "Add {{name}}",
     "cmdRecord_update": "Save changes to {{name}}",
@@ -472,7 +474,9 @@
     "discountNo": "Full price",
     "move": "Move {{count}} portions",
     "done": "Moved to {{name}}.",
-    "syncFirst": "Some changes on this table have not reached KH POS yet. Wait until they are sent, then move it."
+    "syncFirst": "Some changes on this table have not reached KH POS yet. Wait until they are sent, then move it.",
+    "offlineNote": "No connection: the whole order moves to a free table and is sent later. Moving part of it, or onto a table with an order, needs a connection.",
+    "savedOffline": "Saved on this phone. The order moves to {{name}} when KH POS can be reached."
   },
   "tableSetup": {
     "title": "Table setup",

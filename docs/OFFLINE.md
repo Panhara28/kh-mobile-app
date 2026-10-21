@@ -58,12 +58,18 @@ More changes are kept on the phone and sent later. A change with several calls (
 
 Offline you pick a product (from the saved product search), a quantity and the slot for the new stock, and Produce is kept on the phone. **The parts are not decided on the phone.** When the change is sent, kh-pos is asked for the plan (which parts, and from which slots and lots) with the stock it has *then*, and only if every part is available is the production made; otherwise the change is kept as failed with the reason ("Not enough stock to produce 5: Flour") and nothing is made. It uses up parts and makes stock, so it is send once (a lost answer is never repeated by itself). With "restrict product lot" on, production still needs a connection. The product search needs to have been opened online once.
 
+## Retail POS and table transfer offline (round 6)
+
+| Where | Offline | Rule |
+|---|---|---|
+| Retail POS | Search, scan, cart, Charge and pay | The products are the copy saved the last time Retail was opened online (all products, by name or barcode). The paid sale is kept on the phone with a receipt marked offline (no invoice number yet). When kh-pos is reached the phone checks the stock in the POS slot, asks for the invoice number, opens the order **with the order id made on the phone** and pays it. A lost answer never sells twice: an order that is already paid is done, one that is open is only paid. If a product is not in the POS slot the sale is kept as failed ("Move the stock to the POS slot, then Retry"). **Needs a kh-pos with the `orderId` change (branch `feat/mobile-offline-support`)**; an older kh-pos ignores the id and a retry after a lost answer could open a second order |
+| Table transfer | The **whole order** to a table the saved list shows as free | Only for a table with nothing waiting to be sent. The order shows on the other table at once. When sent, kh-pos' own order and tables are read again: an order already on the destination is done; a destination that has an order now, or an order that left the table, is kept as failed with the reason (nothing is merged or split by surprise). Moving part of an order, or onto a table with an order, still needs the server |
+
 ## What still needs the server
 
 - **Adding a user, resetting a password, adding or deleting a branch:** a password must not sit in the phone's queue and these change who can log in.
 - **Production with "restrict product lot" on:** the lots to scan come from kh-pos. (Without it, production works offline: see below.)
 - **Editing a replenishment:** changing the lines changes the picking list, which is worked out by kh-pos.
-- **Retail POS charging:** the stock, the invoice number and the payment come from kh-pos.
 - **Uploading pictures and Excel files**, and **logging in on a phone for the first time.**
 - **Reports** show their last saved copy offline (they are read-only).
 - **Printing to the print server** needs the printer PC on the same network, not the internet, so it works offline; it is not a kh-pos change.

@@ -14,17 +14,21 @@ const statusTone = { available: 'outline', order_taken: 'default', cleaning: 'in
 /**
  * Moves an order (all of it, or chosen portions by status) to another table, like the kh-pos web
  * "Transfer table": pick the destination, pick what moves, and whether discounts go with it.
+ * Offline it only moves the whole order to a free table (see TransferPayload).
  */
 export function TransferSheet({
   table,
   tables,
   busy,
+  offline = false,
   onClose,
   onTransfer,
 }: {
   table: RestaurantTable;
   tables: RestaurantTable[];
   busy: boolean;
+  /** No connection: only the whole order, onto a table that is free. */
+  offline?: boolean;
   onClose: () => void;
   onTransfer: (body: TransferBody, destination: RestaurantTable) => void;
 }) {
@@ -55,8 +59,9 @@ export function TransferSheet({
           {!dest ? (
             <>
               <Text style={styles.muted}>{t('transfer.pick')}</Text>
+              {offline ? <Text style={styles.muted}>{t('transfer.offlineNote')}</Text> : null}
               {tables
-                .filter((x) => x.id !== table.id)
+                .filter((x) => x.id !== table.id && (!offline || (x.status !== 'order_taken' && !x.order)))
                 .map((x) => (
                   <Pressable key={x.id} onPress={() => setDest(x)} accessibilityRole="button" style={({ pressed }) => [pressed && styles.pressed]}>
                     <Card style={styles.card}>
@@ -73,9 +78,9 @@ export function TransferSheet({
             <>
               <View style={styles.row}>
                 <Text style={styles.muted}>{t('transfer.chosen', { count })}</Text>
-                <Button title={t('transfer.all')} variant="outline" size="sm" onPress={() => setSelection(selectAll(order))} />
+                {offline ? null : <Button title={t('transfer.all')} variant="outline" size="sm" onPress={() => setSelection(selectAll(order))} />}
               </View>
-              {lines.map((line) => (
+              {(offline ? [] : lines).map((line) => (
                 <Card key={line.orderDetailId} style={styles.card}>
                   <Text style={styles.heading}>{splitTitle(line.title).name}</Text>
                   {movable(line).map((m) => (

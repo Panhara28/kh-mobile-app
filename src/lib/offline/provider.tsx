@@ -51,15 +51,13 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   // Product photos are asked for once while kh-pos is reachable so the phone's image cache has them offline (best effort).
   useEffect(() => {
     if (!data) return;
-    data.onMenuSaved = (menu) => {
+    data.setOnMenuSaved((menu) => {
       for (const p of menu) {
         const url = api.imageUrl(p.images?.[0]?.url);
         if (url) void Image.prefetch(url).catch(() => undefined);
       }
-    };
-    return () => {
-      data.onMenuSaved = null;
-    };
+    });
+    return () => data.setOnMenuSaved(null);
   }, [data, api]);
   const state = useSyncExternalStore(engine?.subscribe ?? noopSubscribe, engine?.getState ?? getEmpty);
 

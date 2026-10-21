@@ -8,8 +8,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { CheckoutPayment, PaymentMethod } from '@/lib/api';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
+import type { NewCommand, RetailSalePayload } from '@/lib/offline/types';
 import { useOnlineOnly } from '@/lib/offline/use-online-only';
-import { methodNames, receiptFromDetail, type Receipt } from '@/lib/receipt';
+import { fetchAllPages } from '@/lib/catalog';
+import { methodNames, receiptFromDetail, receiptFromRetail, type Receipt } from '@/lib/receipt';
+import { toKhPosTime } from '@/lib/time';
 import { addToCart, cartCount, cartTotal, matchBarcode, retailOrderBody, setQty, type RetailLine, type RetailProduct } from '@/lib/retail';
 import { useSession } from '@/lib/session';
 import type { ProductListItem } from '@/lib/products';
@@ -22,6 +25,17 @@ import { ScreenHeader } from '@/ui/screen-header';
 import { colors, font, radius, space } from '@/ui/theme';
 
 type Found = Omit<ProductListItem, 'productVariants'> & { productVariants?: { id: string; name: string; price: number | null; barcode?: string | null }[] };
+
+/** The outbox entry for a sale paid offline. */
+function saleCommand(userId: string, payload: RetailSalePayload): NewCommand<'retailSale'> {
+  return { id: Crypto.randomUUID(), userId, kind: 'retailSale', tableId: '', createdAt: Date.now(), payload };
+}
+
+/** The saved products matching what was typed: part of the name, or the barcode. */
+function searchSaved(all: RetailProduct[], text: string): RetailProduct[] {
+  const needle = text.trim().toLowerCase();
+  return (needle ? all.filter((p) => p.name.toLowerCase().includes(needle) || p.barcode.includes(needle)) : all).slice(0, 30);
+}
 
 function toProducts(rows: Found[]): RetailProduct[] {
   return rows.flatMap((p) =>
@@ -38,12 +52,13 @@ function toProducts(rows: Found[]): RetailProduct[] {
 /**
  * Retail POS: sell products without a table. Search or scan a barcode, adjust the cart, then Charge:
  * the sale is opened in kh-pos, paid with the same payment screen as a table, and a receipt shown.
- * It needs kh-pos (the stock and invoice number come from it), so Charge asks to be online.
+ * Offline, the products come from the copy saved while online and the paid sale is kept on the phone: kh-pos opens
+ * and pays it when it can be reached (checking the stock and giving the invoice number then; see replayRetailSale).
  */
 export default function RetailScreen() {
   const { t } = useTranslation();
-  const { api } = useSession();
-  const { data } = useOffline();
+  const { api, user } = useSession();
+  const { data, engine, state } = useOffline();
   const guard = useOnlineOnly();
   const insets = useSafeAreaInsets();
   const { warehouseId, currency, exchangeRate } = useBranch();
@@ -56,33 +71,48 @@ export default function RetailScreen() {
   const [scanning, setScanning] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const [busy, setBusy] = useState(false);
-  const [pay, setPay] = useState<{ orderId: string; slotId: string } | null>(null);
+  const [pay, setPay] = useState<{ orderId: string; slotId: string; offline?: boolean } | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const lastScan = useRef({ code: '', at: 0 });
+  const catalog = useRef<RetailProduct[]>([]);
 
   useFocusEffect(
     useCallback(() => {
       data.paymentMethods().then((r) => setMethods(r.data), () => undefined);
+      // Every product, saved while online so the search and the barcode scan work offline.
+      data
+        .cachedRead('retailcatalog', '', async () =>
+          toProducts(await fetchAllPages<Found>(async (offset, limit) => {
+            const r = await api.call<{ result?: { data: Found[]; total?: number } }>('GET', `/api/product-v2?limit=${limit}&offset=${offset}`);
+            return { data: r.result?.data ?? [], total: r.result?.total ?? 0 };
+          })),
+        )
+        .then((r) => void (catalog.current = r.data), () => undefined);
       void reloadShift();
-    }, [data, reloadShift]),
+    }, [api, data, reloadShift]),
   );
 
   // search as the cashier types
   useEffect(() => {
     let cancelled = false;
     const h = setTimeout(() => {
+      const fromSaved = () => !cancelled && setFound(searchSaved(catalog.current, text));
+      if (!state.online) {
+        fromSaved();
+        return;
+      }
       const q = new URLSearchParams({ limit: '30', offset: '0' });
       if (text.trim()) q.set('searchTitle', text.trim());
       api
         .call<{ result?: { data: Found[] } }>('GET', `/api/product-v2?${q.toString()}`)
         .then((r) => !cancelled && setFound(toProducts(r.result?.data ?? [])))
-        .catch(() => !cancelled && setFound([]));
+        .catch(fromSaved);
     }, 300);
     return () => {
       cancelled = true;
       clearTimeout(h);
     };
-  }, [api, text]);
+  }, [api, text, state.online]);
 
   const add = (p: RetailProduct) => setCart((c) => addToCart(c, p, () => Crypto.randomUUID()));
 
@@ -97,7 +127,7 @@ export default function RetailScreen() {
         const r = await api.call<{ result?: { data: Found[] } }>('GET', `/api/product-v2?limit=30&offset=0&searchTitle=${encodeURIComponent(code)}`);
         match = matchBarcode(toProducts(r.result?.data ?? []), code);
       } catch {
-        match = null;
+        match = matchBarcode(catalog.current, code); // offline: the saved products
       }
     }
     if (match) add(match);
@@ -122,6 +152,11 @@ export default function RetailScreen() {
         { text: t('common.cancel'), style: 'cancel' },
         { text: t('checkout.openShift'), onPress: () => router.push('/shift') },
       ]);
+      return;
+    }
+    if (!engine.getState().online) {
+      // Offline: pay now, kh-pos opens and charges the sale when it can be reached.
+      setPay({ orderId: Crypto.randomUUID(), slotId: '', offline: true });
       return;
     }
     guard(async () => {
@@ -149,12 +184,32 @@ export default function RetailScreen() {
   async function cancelPay() {
     const p = pay;
     setPay(null);
-    if (p) await api.deleteOrder(p.orderId).catch(() => undefined);
+    if (p && !p.offline) await api.deleteOrder(p.orderId).catch(() => undefined);
   }
 
   async function complete(payments: CheckoutPayment[]) {
     const p = pay;
     if (!p) return;
+    if (p.offline) {
+      const receipt = receiptFromRetail({
+        orderId: p.orderId,
+        cart,
+        cashier: user?.fullname || user?.username || null,
+        methods: methodNames(methods),
+        payments,
+        total,
+        exchangeRate,
+        currency,
+        paidAt: toKhPosTime(new Date()),
+        offline: true,
+      });
+      await engine.enqueue(saleCommand(user?.id ?? '', { orderId: p.orderId, warehouseId, cart, payments, receipt }));
+      setPay(null);
+      setCart([]);
+      Alert.alert(t('checkout.savedOffline'));
+      setReceipt(receipt);
+      return;
+    }
     setBusy(true);
     try {
       await api.checkout(p.orderId, { slotId: p.slotId, payments });
