@@ -7,7 +7,7 @@ import type { KhPosApi } from '@/lib/api';
 import { fetchAllPages } from '@/lib/catalog';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { RESULT_MARK } from '@/lib/offline/steps';
 import { useRecordWriter } from '@/lib/offline/use-record';
 import type { BranchRow } from '@/lib/org';
 import type { CompositeOption } from '@/lib/production';
@@ -25,7 +25,6 @@ import { colors, font, radius, space } from '../theme';
 export function RepFormScreen({ api, warehouseId, initial, initialPicking, onSaved, onCancel }: { api: KhPosApi; warehouseId: string; initial: RepForm; initialPicking: PickRow[]; onSaved: () => void; onCancel: () => void }) {
   const { t } = useTranslation();
   const { data, state } = useOffline();
-  const guard = useOnlineOnly();
   const writer = useRecordWriter();
   const insets = useSafeAreaInsets();
   const [form, setForm] = useState<RepForm>(initial);
@@ -111,26 +110,44 @@ export function RepFormScreen({ api, warehouseId, initial, initialPicking, onSav
       })();
       return;
     }
-    guard(async () => {
+    void (async () => {
       setBusy(true);
       try {
         const body = repSaveBody(form);
-        if (editing) {
-          if (picks.length > 0) await api.call('PUT', `/api/replenishment/${encodeURIComponent(form.id)}/stock-picking-list`, pickBody(picks));
-          await api.call('PUT', '/api/replenishment', body);
-          Alert.alert(t('rep.updated'));
-        } else {
-          const r = await api.call<{ result?: string }>('POST', '/api/replenishment', body);
-          if (r.result) await api.call('PUT', `/api/replenishment/${encodeURIComponent(r.result)}/stock-picking-list`, pickBody(picks));
-          Alert.alert(t('rep.created'));
-        }
+        const label = `${t('rep.createTitle')}: ${branches.find((b) => b.id === form.toWarehouseId)?.name ?? ''}`.trim();
+        // written to the phone first; the picking list is worked out by kh-pos, so it is set only when kh-pos can be reached
+        // (an order saved without one gets one when it is opened)
+        const withPicks = state.online && picks.length > 0;
+        const how = editing
+          ? await writer({
+              entity: 'replenishment',
+              op: 'update',
+              recordId: form.id,
+              method: 'PUT',
+              path: '/api/replenishment',
+              body,
+              steps: [...(withPicks ? [{ method: 'PUT' as const, path: `/api/replenishment/${encodeURIComponent(form.id)}/stock-picking-list`, body: pickBody(picks) }] : []), { method: 'PUT' as const, path: '/api/replenishment', body }],
+              label,
+            })
+          : await writer({
+              entity: 'replenishment',
+              op: 'create',
+              recordId: `new:${Date.now()}`,
+              method: 'POST',
+              path: '/api/replenishment',
+              body,
+              steps: [{ method: 'POST' as const, path: '/api/replenishment', body }, ...(withPicks ? [{ method: 'PUT' as const, path: `/api/replenishment/${RESULT_MARK}/stock-picking-list`, body: pickBody(picks) }] : [])],
+              once: true,
+              label,
+            });
+        Alert.alert(how === 'queued' ? t('offline.savedOffline') : editing ? t('rep.updated') : t('rep.created'));
         onSaved();
       } catch (e) {
         Alert.alert(t('rep.saveFailed'), e instanceof Error ? e.message : undefined);
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   return (

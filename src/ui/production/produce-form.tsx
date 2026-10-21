@@ -110,7 +110,8 @@ export function ProduceForm({
     setBusy(true);
     try {
       if (online) {
-        await api.call('POST', '/api/composition', productionBody(form, parts));
+        // written to the phone first; it uses up parts and makes stock, so it is sent only once
+        await writer({ entity: 'production', op: 'action', recordId: `${form.variantId}:${Date.now()}`, method: 'POST', path: '/api/composition', body: productionBody(form, parts), once: true, label: title || t('more.production') });
         setScanning(false);
         Alert.alert(t('production.done'));
       } else {

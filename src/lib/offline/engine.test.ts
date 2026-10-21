@@ -491,3 +491,34 @@ describe('A queued change that carries a password', () => {
     expect(engine.getState().commands[0]!.error).toMatch(/can no longer be read/);
   });
 });
+
+describe('A change with several calls', () => {
+  it('uses the id answered by the first call in the second, and carries on from the second if it is interrupted', async () => {
+    const { server, engine } = setup();
+    server.answers['POST /api/replenishment'] = { result: 'REP-1' };
+    await queue(engine, {
+      id: 'm1',
+      userId: USER,
+      kind: 'record',
+      tableId: 'record:replenishment',
+      createdAt: 1,
+      payload: {
+        entity: 'replenishment',
+        op: 'create',
+        recordId: 'new:1',
+        method: 'POST',
+        path: '/api/replenishment',
+        once: true,
+        label: 'R',
+        steps: [
+          { method: 'POST', path: '/api/replenishment', body: { lines: 1 } },
+          { method: 'PUT', path: '/api/replenishment/{{result}}/stock-picking-list', body: { id: '{{result}}' } },
+        ],
+      },
+    });
+    await engine.flush();
+    expect(server.requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /api/replenishment', 'PUT /api/replenishment/REP-1/stock-picking-list']);
+    expect(server.requests[1]!.body).toEqual({ id: 'REP-1' });
+    expect(engine.getState().commands).toEqual([]);
+  });
+});

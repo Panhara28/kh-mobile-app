@@ -19,6 +19,8 @@ export class FakeServer {
   tables: Record<string, RestaurantTable> = {};
   /** Setup changes received (method, path, body), for the record commands. */
   requests: { method: string; path: string; body?: unknown }[] = [];
+  /** What a record request answers, by `METHOD path` (default `{}`). */
+  answers: Record<string, unknown> = {};
   /** A message the next record request is refused with (kh-pos says no), once. */
   refuseRequestWith: string | null = null;
   /** Retail sales (orders without a table) by order id. */
@@ -73,7 +75,7 @@ export class FakeServer {
           throw new ApiError('server', 400, message);
         }
         this.requests.push({ method, path, body });
-        return {};
+        return this.answers[`${method} ${path}`] ?? {};
       })) as EngineApi['call'],
     table: async (id) => {
       this.gate(`table ${id}`);

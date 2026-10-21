@@ -206,6 +206,8 @@ export interface RecordPayload {
   steps?: { method: RecordPayload['method']; path: string; body?: unknown }[];
   /** How many of the `steps` have been sent. */
   done?: number;
+  /** The `result` of the last call that gave one, for a later call that uses `{{result}}` (kept so a retry carries on). */
+  resultId?: string;
   /**
    * For a change that carries a secret (a password): the `body` and `steps` sealed with a key held in the phone's secure
    * storage (see secret.ts), so the SQLite file never holds them in the clear. `body` and `steps` are then left out.

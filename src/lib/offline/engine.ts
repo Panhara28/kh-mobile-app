@@ -2,6 +2,7 @@ import { ApiError, type KhPosApi, type MenuProduct, type OrderLine } from '../ap
 import { planAndProduce } from '../production';
 import { retailOrderBody } from '../retail';
 import type { SecretBox } from './secret';
+import { resultOf, withResult } from './steps';
 import { buildTransfer, selectAll } from '../transfer';
 import { addExtras, addToTable, kitchenMoves, mergeTarget, pendingQty, serveMoves, statusQty } from '../order';
 import type {
@@ -429,11 +430,13 @@ export class SyncEngine {
       return;
     }
     const steps = p.steps && p.steps.length > 0 ? p.steps : [{ method: p.method, path: p.path, body: p.body }];
+    let resultId = p.resultId;
     for (let i = p.done ?? 0; i < steps.length; i++) {
-      const step = steps[i]!;
+      const step = withResult(steps[i]!, resultId);
       try {
         const answer = (await this.api.call(step.method, step.path, step.body)) as Record<string, unknown> | undefined;
         if (p.mustBeTrue && answer && answer[p.mustBeTrue] === false) throw new Error('kh-pos did not accept it');
+        resultId = resultOf(answer) ?? resultId;
       } catch (e) {
         // an add that already got through (the answer was lost) answers "already exists": that call is done
         if (!(p.op === 'create' && i === 0 && /duplicate entry[^]*PRIMARY|already exist/i.test(messageOf(e)))) {
@@ -445,7 +448,7 @@ export class SyncEngine {
       if (steps.length > 1) {
         // carry on from the next call if this one is interrupted
         // (only the counter is saved: a sealed body stays sealed)
-        cmd.payload = { ...cmd.payload, done: i + 1 };
+        cmd.payload = { ...cmd.payload, done: i + 1, resultId };
         await this.store.outboxUpdate(cmd.id, { payload: cmd.payload });
       }
     }
