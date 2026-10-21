@@ -1,5 +1,5 @@
 import type { KhPosApi } from '../api';
-import { detailAddresses, pagedAddresses, reportAddresses, warmModules } from './warm-modules';
+import { detailAddresses, sheetAddresses, pagedAddresses, reportAddresses, warmModules } from './warm-modules';
 
 const ctx = { userId: 'u1', warehouseId: 'w1', isMain: true };
 
@@ -31,6 +31,16 @@ describe('module sync', () => {
     expect(detailAddresses('/api/replenishment?limit=30&offset=0', { result: { data: rows } })[0]).toBe('/api/replenishment/r0');
     expect(detailAddresses('/api/product-v2?limit=30&offset=30', { result: { data: rows } })).toEqual([]);
     expect(detailAddresses('/api/back-log-order?limit=30&offset=0', { result: { data: rows } })).toEqual([]);
+  });
+
+  it('keeps the sheets of discounts, modifiers and users, and the movements and prices of the first products' variants', () => {
+    expect(sheetAddresses('/api/discount', [{ id: 'd1' }])).toEqual(['/api/discount/applies?id=d1']);
+    expect(sheetAddresses('/api/modifier', [{ modifierId: 'm1' }])).toEqual(['/api/modifier/m1']);
+    expect(sheetAddresses('/api/user', [{ id: 'u9' }])).toEqual(['/api/user/bind-user/group?userId=u9', '/api/user/bind-user?userId=u9']);
+    expect(sheetAddresses('/api/category', [{ id: 'c1' }])).toEqual([]);
+    const d = detailAddresses('/api/product-v2?limit=30&offset=0', { result: { data: [{ id: 'p1', productVariants: [{ id: 'v1' }] }] } });
+    expect(d).toContain('/api/product-v2/variant-transaction?variant_id=v1');
+    expect(d).toContain('/api/supplier/product-price?productVariantId=v1&limit=100&offset=0');
   });
 
   it('includes the Board dashboard and the Retail catalog', () => {

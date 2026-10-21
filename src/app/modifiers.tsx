@@ -248,7 +248,7 @@ function AppliesToModal({ api, modifier, canEdit, onClose }: { api: KhPosApi; mo
 
   const load = useCallback(async () => {
     try {
-      const r = await api.call<{ result?: BoundProduct[] }>('GET', `/api/modifier/${encodeURIComponent(modifier.modifierId)}`);
+      const r = await api.getOrSaved<{ result?: BoundProduct[] }>(`/api/modifier/${encodeURIComponent(modifier.modifierId)}`);
       setRows(boundProducts(r.result ?? []));
     } catch (e) {
       setError(e);

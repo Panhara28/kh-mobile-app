@@ -161,4 +161,26 @@ describe('saved answers (offline)', () => {
     expect(calls.length).toBe(before); // no request went out
     await expect(api.fromSavedCopies(() => api.call('GET', '/api/never-read'))).rejects.toMatchObject({ kind: 'network' });
   });
+
+  it('answers a read from the saved copy when kh-pos cannot be reached (getOrSaved), and a product search from the saved catalog', async () => {
+    const saved = new Map<string, { value: unknown; savedAt: number }>();
+    const products = [
+      { id: 'p1', title: 'Green Tea', productVariants: [{ name: 'Std', barcode: '111', sku: 1 }] },
+      { id: 'p2', title: 'Coffee', productVariants: [{ name: 'Iced', barcode: '222', sku: 2 }] },
+    ];
+    saved.set('/api/product-v2?limit=100&offset=0', { value: { success: true, result: { data: products, total: 2 } }, savedAt: 777 });
+    const { fn } = fakeFetch(() => new Error('offline'));
+    const api = new KhPosApi('http://kh', () => 'tok', fn);
+    api.setUrlCache({ save: () => undefined, load: async (path) => saved.get(path) ?? null });
+    const exact = await api.getOrSaved<{ result: { data: unknown[] } }>('/api/product-v2?limit=100&offset=0');
+    expect(exact.result.data).toHaveLength(2);
+    const byTitle = await api.getOrSaved<{ result: { data: { id: string }[]; total: number } }>('/api/product-v2?limit=30&offset=0&searchTitle=tea');
+    expect(byTitle.result.data.map((p) => p.id)).toEqual(['p1']);
+    const byVariant = await api.getOrSaved<{ result: { data: { id: string }[] } }>('/api/product-v2?limit=30&offset=0&searchTitle=iced');
+    expect(byVariant.result.data.map((p) => p.id)).toEqual(['p2']);
+    const byBarcode = await api.getOrSaved<{ result: { data: { id: string }[] } }>('/api/product-v2?limit=30&offset=0&barcode=111');
+    expect(byBarcode.result.data.map((p) => p.id)).toEqual(['p1']);
+    await expect(api.getOrSaved('/api/never-read')).rejects.toMatchObject({ kind: 'network' });
+    await expect(api.getOrSaved('/api/product-v2?limit=30&offset=0&searchTitle=tea&categoryId=c1')).rejects.toMatchObject({ kind: 'network' });
+  });
 });

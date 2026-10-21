@@ -33,7 +33,7 @@ export function VariantPicker({ api, onPick, onClose }: { api: KhPosApi; onPick:
       const q = new URLSearchParams({ limit: '30', offset: '0' });
       if (text.trim()) q.set('searchTitle', text.trim());
       api
-        .call<{ result?: { data: (Omit<ProductListItem, 'productVariants'> & { productVariants?: { id: string; name: string; price: number | null; barcode?: string | null; purchasePrice?: number | null }[] })[] } }>('GET', `/api/product-v2?${q.toString()}`)
+        .getOrSaved<{ result?: { data: (Omit<ProductListItem, 'productVariants'> & { productVariants?: { id: string; name: string; price: number | null; barcode?: string | null; purchasePrice?: number | null }[] })[] } }>(`/api/product-v2?${q.toString()}`)
         .then((r) => {
           if (cancelled) return;
           setError(null);

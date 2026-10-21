@@ -43,7 +43,7 @@ export function TransactionsModal({ api, variantId, title, onClose }: { api: KhP
 
   useEffect(() => {
     api
-      .call<{ result?: MovementRow[] }>('GET', `/api/product-v2/variant-transaction?variant_id=${encodeURIComponent(variantId)}`)
+      .getOrSaved<{ result?: MovementRow[] }>(`/api/product-v2/variant-transaction?variant_id=${encodeURIComponent(variantId)}`)
       .then((r) => setRows(r.result ?? []), (e) => setError(e));
   }, [api, variantId]);
 
@@ -91,7 +91,7 @@ export function SupplierPriceModal({ api, data, variantId, title, currency, canE
 
   const load = useCallback(async () => {
     try {
-      const r = await api.call<{ result?: { data: SupplierPriceRow[] } }>('GET', `/api/supplier/product-price?productVariantId=${encodeURIComponent(variantId)}&limit=100&offset=0`);
+      const r = await api.getOrSaved<{ result?: { data: SupplierPriceRow[] } }>(`/api/supplier/product-price?productVariantId=${encodeURIComponent(variantId)}&limit=100&offset=0`);
       setRows(r.result?.data ?? []);
     } catch (e) {
       setError(e);

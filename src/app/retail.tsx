@@ -104,7 +104,7 @@ export default function RetailScreen() {
       const q = new URLSearchParams({ limit: '30', offset: '0' });
       if (text.trim()) q.set('searchTitle', text.trim());
       api
-        .call<{ result?: { data: Found[] } }>('GET', `/api/product-v2?${q.toString()}`)
+        .getOrSaved<{ result?: { data: Found[] } }>(`/api/product-v2?${q.toString()}`)
         .then((r) => !cancelled && setFound(toProducts(r.result?.data ?? [])))
         .catch(fromSaved);
     }, 300);
@@ -124,7 +124,7 @@ export default function RetailScreen() {
     let match = matchBarcode(found, code);
     if (!match) {
       try {
-        const r = await api.call<{ result?: { data: Found[] } }>('GET', `/api/product-v2?limit=30&offset=0&searchTitle=${encodeURIComponent(code)}`);
+        const r = await api.getOrSaved<{ result?: { data: Found[] } }>(`/api/product-v2?limit=30&offset=0&searchTitle=${encodeURIComponent(code)}`);
         match = matchBarcode(toProducts(r.result?.data ?? []), code);
       } catch {
         match = matchBarcode(catalog.current, code); // offline: the saved products

@@ -41,7 +41,7 @@ export function OrderTypeSheet({
     let cancelled = false;
     const h = setTimeout(() => {
       api
-        .call<{ result?: { data: CustomerRow[] } }>('GET', `/api/auth/customer?limit=20&offset=0&type=delivery${phone ? `&phone=${encodeURIComponent(phoneQuery(phone))}` : ''}`)
+        .getOrSaved<{ result?: { data: CustomerRow[] } }>(`/api/auth/customer?limit=20&offset=0&type=delivery${phone ? `&phone=${encodeURIComponent(phoneQuery(phone))}` : ''}`)
         .then((r) => !cancelled && setResults(r.result?.data ?? []))
         .catch(() => !cancelled && setResults([]));
     }, 300);

@@ -365,10 +365,62 @@ export class KhPosApi {
     }
   }
 
+  /**
+   * The saved answer of an address. A product search (by title or barcode) that was never asked is worked out from the
+   * saved catalog pages (`/api/product-v2?limit=100&offset=N`), the way the server would answer it.
+   */
+  private async savedAnswer(path: string): Promise<{ value: unknown; savedAt: number } | null> {
+    if (!this.urlCache) return null;
+    return (await this.urlCache.load(path)) ?? (await this.searchSavedProducts(path));
+  }
+
+  private async searchSavedProducts(path: string): Promise<{ value: unknown; savedAt: number } | null> {
+    const m = /^\/api\/product-v2\?(.*)$/.exec(path);
+    if (!m || !this.urlCache) return null;
+    const q = new URLSearchParams(m[1]);
+    const text = (q.get('searchTitle') ?? '').trim().toLowerCase();
+    const barcode = (q.get('barcode') ?? '').trim();
+    if ((!text && !barcode) || q.get('supplierId') || q.get('categoryId')) return null; // other filters need the server
+    type Variant = { name?: string | null; barcode?: string | null; sku?: string | number | null };
+    const items: { title?: string | null; productVariants?: Variant[] }[] = [];
+    let oldest: number | null = null;
+    for (let page = 0; page < 50; page++) {
+      const hit = await this.urlCache.load(`/api/product-v2?limit=100&offset=${page * 100}`);
+      if (!hit) break;
+      const data = ((hit.value as { result?: { data?: typeof items } })?.result?.data ?? []) as typeof items;
+      items.push(...data);
+      oldest = oldest === null ? hit.savedAt : Math.min(oldest, hit.savedAt);
+      if (data.length < 100) break;
+    }
+    if (items.length === 0 || oldest === null) return null;
+    const has = (s: unknown) => String(s ?? '').toLowerCase().includes(text);
+    const rows = items.filter((p) =>
+      barcode ? (p.productVariants ?? []).some((v) => String(v.barcode ?? '').trim() === barcode) : has(p.title) || (p.productVariants ?? []).some((v) => has(v.name) || has(v.barcode) || has(v.sku)),
+    );
+    const offset = Number(q.get('offset') ?? 0);
+    const limit = Number(q.get('limit') ?? 30);
+    return { value: { success: true, result: { data: rows.slice(offset, offset + limit), total: rows.length } }, savedAt: oldest };
+  }
+
+  /**
+   * Like `call` for a GET, but when kh-pos can't be reached it answers from the copy saved the last time that address was
+   * read (and a product search from the saved catalog). For pickers and searches that are not read through the data cache.
+   */
+  async getOrSaved<T = Record<string, unknown>>(path: string): Promise<T> {
+    try {
+      return await this.request<T>('GET', path);
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.kind !== 'network') throw e;
+      const hit = await this.savedAnswer(path);
+      if (!hit) throw e;
+      return hit.value as T;
+    }
+  }
+
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     if (!this.baseUrl) throw new ApiError('notConfigured', undefined, 'No server address (EXPO_PUBLIC_KHPOS_URL)');
     if (method === 'GET' && this.savedCopyDepth > 0 && this.urlCache) {
-      const hit = await this.urlCache.load(path);
+      const hit = await this.savedAnswer(path);
       if (!hit) throw new ApiError('network', undefined, 'No saved copy of this');
       this.savedCopiesServed++;
       this.oldestServed = this.oldestServed === null ? hit.savedAt : Math.min(this.oldestServed, hit.savedAt);

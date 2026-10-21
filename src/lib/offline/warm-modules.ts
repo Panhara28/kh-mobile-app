@@ -113,20 +113,47 @@ export function detailAddresses(address: string, answer: unknown): string[] {
   const result = (answer as { result?: unknown } | null)?.result;
   const rows = (Array.isArray(result) ? result : (result as { data?: unknown[] } | undefined)?.data ?? []) as { id?: string }[];
   const ids = rows.slice(0, DETAILS_PER_LIST).map((r) => r.id).filter((id): id is string => !!id);
-  if (address.startsWith('/api/product-v2?') && address.includes('offset=0')) return ids.map((id) => `/api/product-v2/${encodeURIComponent(id)}`);
+  if (address.startsWith('/api/product-v2?') && address.includes('offset=0')) {
+    const variants = (rows as { productVariants?: { id?: string }[] }[])
+      .slice(0, DETAILS_PER_LIST)
+      .flatMap((p) => (p.productVariants ?? []).map((v) => v.id))
+      .filter((v): v is string => !!v)
+      .slice(0, 40)
+      .map(encodeURIComponent);
+    return [
+      ...ids.map((id) => `/api/product-v2/${encodeURIComponent(id)}`),
+      ...variants.flatMap((v) => [`/api/product-v2/variant-transaction?variant_id=${v}`, `/api/supplier/product-price?productVariantId=${v}&limit=100&offset=0`]),
+    ];
+  }
   if (address.startsWith('/api/purchase-order?') && address.includes('offset=0')) return ids.map((id) => `/api/purchase-order/detail/${encodeURIComponent(id)}`);
   if (address.startsWith('/api/replenishment?') && address.includes('offset=0')) return ids.map((id) => `/api/replenishment/${encodeURIComponent(id)}`);
   return [];
 }
 
-/** A module list read to the end the way fetchAllPages does it (limit=100, offset step 100). */
-async function readAll(api: KhPosApi, path: string, alive: () => boolean): Promise<void> {
+/** A module list read to the end the way fetchAllPages does it (limit=100, offset step 100); gives the rows read. */
+async function readAll(api: KhPosApi, path: string, alive: () => boolean): Promise<Record<string, unknown>[]> {
   const joiner = path.includes('?') ? '&' : '?';
+  const rows: Record<string, unknown>[] = [];
   for (let offset = 0, page = 0; page < 50 && alive(); page++, offset += 100) {
-    const r = await api.call<{ result?: { data?: unknown[]; total?: number } }>('GET', `${path}${joiner}limit=100&offset=${offset}`);
-    const got = r.result?.data?.length ?? 0;
-    if (got < 100 || offset + got >= Number(r.result?.total ?? 0)) break;
+    const r = await api.call<{ result?: { data?: Record<string, unknown>[]; total?: number } }>('GET', `${path}${joiner}limit=100&offset=${offset}`);
+    const data = r.result?.data ?? [];
+    rows.push(...data);
+    if (data.length < 100 || offset + data.length >= Number(r.result?.total ?? 0)) break;
   }
+  return rows;
+}
+
+/** How many records of a full list have their sheets (applies-to, bound products, bound branches) kept. */
+const SHEETS_PER_LIST = 30;
+
+/** The sheet addresses of the records of a full list: what a discount applies on, a modifier's products, a user's branches. */
+export function sheetAddresses(path: string, rows: Record<string, unknown>[]): string[] {
+  const id = (r: Record<string, unknown>, key: string) => (typeof r[key] === 'string' ? encodeURIComponent(r[key] as string) : null);
+  const some = rows.slice(0, SHEETS_PER_LIST);
+  if (path === '/api/discount') return some.flatMap((r) => (id(r, 'id') ? [`/api/discount/applies?id=${id(r, 'id')}`] : []));
+  if (path === '/api/modifier') return some.flatMap((r) => (id(r, 'modifierId') ? [`/api/modifier/${id(r, 'modifierId')}`] : []));
+  if (path === '/api/user') return some.flatMap((r) => (id(r, 'id') ? [`/api/user/bind-user/group?userId=${id(r, 'id')}`, `/api/user/bind-user?userId=${id(r, 'id')}`] : []));
+  return [];
 }
 
 /**
@@ -138,7 +165,13 @@ export async function warmModules(api: KhPosApi, c: WarmContext, alive: () => bo
   for (const path of FULL_LISTS) {
     if (!alive()) return;
     try {
-      await readAll(api, path, alive);
+      const rows = await readAll(api, path, alive);
+      for (const sheet of sheetAddresses(path, rows)) {
+        if (!alive()) return;
+        await api.call('GET', sheet).catch((e) => {
+          if (isUnreachable(e)) throw e;
+        });
+      }
     } catch (e) {
       if (isUnreachable(e)) return;
     }
@@ -157,11 +190,13 @@ export async function warmModules(api: KhPosApi, c: WarmContext, alive: () => bo
       if (isUnreachable(e)) return;
     }
   }
-  // the delivery customers list asks with its type last
-  try {
-    await api.call('GET', '/api/auth/customer?limit=100&offset=0&type=delivery');
-  } catch {
-    // not available
+  // the delivery customers list asks with its type last; the order type sheet asks for 20
+  for (const address of ['/api/auth/customer?limit=100&offset=0&type=delivery', '/api/auth/customer?limit=20&offset=0&type=delivery']) {
+    try {
+      await api.call('GET', address);
+    } catch {
+      // not available
+    }
   }
 }
 

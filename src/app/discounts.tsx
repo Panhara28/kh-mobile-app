@@ -215,7 +215,7 @@ function AppliesModal({ api, discount, canEdit, onClose }: { api: KhPosApi; disc
   const read = useCallback(
     async (setFirstTab: boolean) => {
       try {
-        const r = await api.call<{ result?: AppliesRow[] }>('GET', `/api/discount/applies?id=${encodeURIComponent(discount.id)}`);
+        const r = await api.getOrSaved<{ result?: AppliesRow[] }>(`/api/discount/applies?id=${encodeURIComponent(discount.id)}`);
         const s = appliesState(r.result ?? []);
         setState(s);
         if (setFirstTab) setTab(s.tab);
