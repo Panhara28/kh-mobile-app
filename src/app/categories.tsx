@@ -153,14 +153,15 @@ export default function CategoriesScreen() {
         text: t(status === 'enable' ? 'plist.enable' : 'plist.disable'),
         style: status === 'disable' ? 'destructive' : 'default',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('POST', '/api/category/product-toggle', toggleBody(c.id, status));
+              const how = await writer({ entity: 'category-sale', op: 'action', recordId: `toggle:${c.id}`, method: 'POST', path: '/api/category/product-toggle', body: toggleBody(c.id, status), label: c.title });
+              if (how === 'queued') Alert.alert(t('offline.savedOffline'));
               await load();
             } catch (err) {
               Alert.alert(t('categories.saleFailed'), err instanceof Error ? err.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }

@@ -6,7 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { fetchAllPages, type CategoryRow } from '@/lib/catalog';
 import { can } from '@/lib/line';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { emptyPromo, newPromoItem, promoBody, promoForm, validatePromo, type MatchType, type PromoForm, type PromoItem, type PromoRow } from '@/lib/promotion-sets';
 import { useSession } from '@/lib/session';
 import { Button, Card, Chip, Input } from '@/ui/components';
@@ -24,7 +24,7 @@ export default function PromotionSetScreen() {
   const { id, isNew } = useLocalSearchParams<{ id: string; isNew?: string }>();
   const { api, user } = useSession();
   const { data } = useOffline();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const insets = useSafeAreaInsets();
 
   const [existing, setExisting] = useState<PromoRow | undefined>();
@@ -73,17 +73,19 @@ export default function PromotionSetScreen() {
     setProblem(bad);
     if (bad) return;
     const body = promoBody(f, user?.currentWarehouseId ?? null, existing);
-    guard(async () => {
+    void (async () => {
       setBusy(true);
       try {
-        await api.call(isNew ? 'POST' : 'PUT', '/api/promotion-set', body);
+        // sent at once, or kept on the phone and sent when kh-pos can be reached
+        const how = await writer({ entity: 'promotion-set', op: isNew ? 'create' : 'update', recordId: isNew ? `new:${f.title.trim()}` : id, method: isNew ? 'POST' : 'PUT', path: '/api/promotion-set', body, once: !!isNew, label: f.title.trim() });
+        if (how === 'queued') Alert.alert(t('offline.savedOffline'));
         router.back();
       } catch (e) {
         Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   return (
@@ -159,7 +161,7 @@ export default function PromotionSetScreen() {
               onPress={() =>
                 Alert.alert(t('promo.deleteConfirm'), undefined, [
                   { text: t('common.cancel'), style: 'cancel' },
-                  { text: t('admin.delete'), style: 'destructive', onPress: () => guard(async () => { try { await api.call('DELETE', '/api/promotion-set', { id }); router.back(); } catch (e) { Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined); } }) },
+                  { text: t('admin.delete'), style: 'destructive', onPress: () => void (async () => { try { const how = await writer({ entity: 'promotion-set', op: 'delete', recordId: id, method: 'DELETE', path: '/api/promotion-set', body: { id }, label: t('promo.title') }); if (how === 'queued') Alert.alert(t('offline.savedOffline')); router.back(); } catch (e) { Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined); } })() },
                 ])
               }
             />

@@ -7,7 +7,7 @@ import { fetchAllPages, type CategoryRow, type SupplierRow } from '@/lib/catalog
 import { can } from '@/lib/line';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import type { BranchRow } from '@/lib/org';
 import {
   canManageProducts,
@@ -53,7 +53,7 @@ export default function ProductsScreen() {
   const { api, user } = useSession();
   const { data, state } = useOffline();
   const { currency, warehouseId } = useBranch();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
 
   const [search, setSearch] = useState('');
   const [text, setText] = useState('');
@@ -133,14 +133,16 @@ export default function ProductsScreen() {
         text: t('admin.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('DELETE', '/api/product-v2', { id: p.id });
+              // sent at once, or kept on the phone and sent when kh-pos can be reached
+              const how = await writer({ entity: 'product', op: 'delete', recordId: p.id, method: 'DELETE', path: '/api/product-v2', body: { id: p.id }, label: p.title ?? '' });
+              if (how === 'queued') Alert.alert(t('offline.savedOffline'));
               await load(0);
             } catch (e) {
               Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }
@@ -151,14 +153,13 @@ export default function ProductsScreen() {
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: ok,
-        onPress: () =>
-          guard(() => {
-            apply();
-            call().then(() => load(0), () => {
-              undo();
-              Alert.alert(t('errors.server'));
-            });
-          }),
+        onPress: () => {
+          apply();
+          call().then(() => load(0), () => {
+            undo();
+            Alert.alert(t('errors.server'));
+          });
+        },
       },
     ]);
   }
@@ -216,7 +217,7 @@ export default function ProductsScreen() {
                     on ? t('plist.show') : t('plist.hide'),
                     () => setVisible((s) => ({ ...s, [v.id]: on })),
                     () => setVisible((s) => ({ ...s, [v.id]: !on })),
-                    () => api.call('PUT', '/api/product-v2/warehouse-visibilty/product-variant', { productVariantId: v.id, isVisible: on }),
+                    () => writer({ entity: 'product-switch', op: 'action', recordId: `visible:${v.id}`, method: 'PUT', path: '/api/product-v2/warehouse-visibilty/product-variant', body: { productVariantId: v.id, isVisible: on }, label: variantTitle(v) }),
                   )
                 }
               />
@@ -228,13 +229,11 @@ export default function ProductsScreen() {
                   key={k}
                   label={t(k === 'isPopular' ? 'pform.popular' : k === 'isNew' ? 'pform.new' : 'plist.bestSeller')}
                   selected={tag[k]}
-                  onPress={() =>
-                    guard(() => {
-                      const before = tag;
-                      setTags((s) => ({ ...s, [v.id]: { ...tag, [k]: !tag[k] } }));
-                      api.call('PUT', '/api/product-v2/warehouse-visibilty/product-variant-badges', { productVariantId: v.id, [k]: !tag[k] }).catch(() => setTags((s) => ({ ...s, [v.id]: before })));
-                    })
-                  }
+                  onPress={() => {
+                    const before = tag;
+                    setTags((s) => ({ ...s, [v.id]: { ...tag, [k]: !tag[k] } }));
+                    writer({ entity: 'product-switch', op: 'action', recordId: `badge:${v.id}:${k}`, method: 'PUT', path: '/api/product-v2/warehouse-visibilty/product-variant-badges', body: { productVariantId: v.id, [k]: !tag[k] }, label: variantTitle(v) }).catch(() => setTags((s) => ({ ...s, [v.id]: before })));
+                  }}
                 />
               ))}
             </View>
@@ -286,7 +285,7 @@ export default function ProductsScreen() {
                   on ? t('plist.enable') : t('plist.disable'),
                   () => setForSale((s) => ({ ...s, [p.id]: on })),
                   () => setForSale((s) => ({ ...s, [p.id]: !on })),
-                  () => api.call('PUT', '/api/product-v2/warehouse-visibilty/product', { productId: p.id, isForSale: on }),
+                  () => writer({ entity: 'product-switch', op: 'action', recordId: `sale:${p.id}`, method: 'PUT', path: '/api/product-v2/warehouse-visibilty/product', body: { productId: p.id, isForSale: on }, label: p.title ?? '' }),
                 )
               }
             />
