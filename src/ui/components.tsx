@@ -23,6 +23,7 @@ export function Button({
   left,
   style,
   accessibilityLabel,
+  testID,
 }: {
   title: string;
   onPress: () => void;
@@ -33,11 +34,14 @@ export function Button({
   left?: ReactNode;
   style?: ViewStyle;
   accessibilityLabel?: string;
+  /** A fixed name for automated phone tests (see e2e/), the same in every language. */
+  testID?: string;
 }) {
   const inactive = disabled || loading;
   const v = variants[variant];
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
       accessibilityState={{ disabled: !!inactive, busy: !!loading }}

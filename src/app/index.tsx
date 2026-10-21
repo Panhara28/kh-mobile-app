@@ -76,6 +76,7 @@ export default function Login() {
             </View>
             <View style={styles.form}>
               <Field
+                testID="login-username"
                 label={t('login.username')}
                 placeholder={t('login.usernamePlaceholder')}
                 value={username}
@@ -94,6 +95,7 @@ export default function Login() {
               />
               <Field
                 ref={passwordRef}
+                testID="login-password"
                 label={t('login.password')}
                 placeholder={t('login.passwordPlaceholder')}
                 value={password}
@@ -127,6 +129,7 @@ export default function Login() {
                 </View>
               ) : null}
               <Button
+                testID="login-submit"
                 title={t('login.submit')}
                 size="lg"
                 loading={busy}

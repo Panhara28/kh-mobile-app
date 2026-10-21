@@ -47,6 +47,7 @@ export default function MoreScreen() {
                 {items.map((m) => (
                   <Pressable
                     key={m.id}
+                    testID={`module-${m.id}`}
                     accessibilityRole="button"
                     accessibilityLabel={t(m.titleKey)}
                     onPress={() => router.push(m.route as Href)}

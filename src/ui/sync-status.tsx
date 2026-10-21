@@ -37,6 +37,7 @@ export function SyncBadge() {
   return (
     <>
       <Pressable
+        testID={`sync-pill-${tone}`}
         onPress={() => setOpen(true)}
         accessibilityRole="button"
         accessibilityLabel={`${t('offline.title')}: ${label}`}
@@ -173,22 +174,22 @@ export function SyncSheet({ visible, onClose }: { visible: boolean; onClose: () 
                 ? t('offline.savedMenu', { count: saved.menuItems, time: saved.menuAt ? clock(new Date(saved.menuAt)) : '' })
                 : `${t('offline.menuLabel')}: ${t('offline.savedNone')}`}
             </Text>
-            <Text style={styles.section}>{t('offline.modulesTitle')}</Text>
+            <Text testID="modules-title" style={styles.section}>{t('offline.modulesTitle')}</Text>
             {moduleSync.running ? (
               <>
-                <Text style={styles.rowMeta}>{t('offline.modulesRunning', { done: moduleSync.done, total: moduleSync.total })}</Text>
+                <Text testID="modules-running" style={styles.rowMeta}>{t('offline.modulesRunning', { done: moduleSync.done, total: moduleSync.total })}</Text>
                 <View style={styles.bar}>
                   <View style={[styles.barFill, { width: `${Math.min(100, Math.round((moduleSync.done / Math.max(1, moduleSync.total)) * 100))}%` }]} />
                 </View>
               </>
             ) : moduleSync.finishedAt ? (
-              <Text style={styles.rowMeta}>{t('offline.modulesDone', { time: clock(new Date(moduleSync.finishedAt)) })}</Text>
+              <Text testID="modules-done" style={styles.rowMeta}>{t('offline.modulesDone', { time: clock(new Date(moduleSync.finishedAt)) })}</Text>
             ) : (
-              <Text style={styles.rowMeta}>{t('offline.modulesNone')}</Text>
+              <Text testID="modules-none" style={styles.rowMeta}>{t('offline.modulesNone')}</Text>
             )}
             {moduleSync.problems.length > 0 ? (
               <>
-                <Text style={[styles.rowMeta, styles.rowError]}>{t('offline.modulesProblems', { count: moduleSync.problems.length })}</Text>
+                <Text testID="modules-problems" style={[styles.rowMeta, styles.rowError]}>{t('offline.modulesProblems', { count: moduleSync.problems.length })}</Text>
                 {moduleSync.problems.slice(0, 12).map((p) => (
                   <Text key={p.address} style={styles.rowMeta} selectable>
                     {p.address.length > 70 ? `${p.address.slice(0, 70)}…` : p.address} — {p.reason}

@@ -1,21 +1,25 @@
-# Waits (up to 6 minutes) for the background sync to save every module, then shows what could not be saved.
+# Waits (up to 6 minutes) for the background sync to save every module, then checks that nothing "could not be saved".
 # The phone must be ONLINE with the kh-pos server running. Run after 00-login.
 appId: ${APP_ID}
 ---
 - launchApp:
     stopApp: false
 - openLink: "${LINK_BASE}more"
-- tapOn:
-    text: "Online.*"
-    optional: true
-- assertVisible: "Modules saved for offline"
 - extendedWaitUntil:
-    visible: "All modules saved.*"
+    visible:
+      id: "sync-pill-.*"
+    timeout: 30000
+- tapOn:
+    id: "sync-pill-.*"
+- extendedWaitUntil:
+    visible:
+      id: "modules-title"
+    timeout: 10000
+- extendedWaitUntil:
+    visible:
+      id: "modules-done"
     timeout: 360000
-- scrollUntilVisible:
-    element:
-      text: "Modules saved for offline"
-    optional: true
 - takeScreenshot: "sync-all-saved"
 # A list "N could not be saved" fails this check: open the screenshot to see which address and why.
-- assertNotVisible: ".* could not be saved.*"
+- assertNotVisible:
+    id: "modules-problems"

@@ -1,5 +1,5 @@
 # Logs in (only when the login screen is showing). Needs: APP_ID, LINK_BASE, KH_USER, KH_PASS (see e2e/README.md).
-# The app must be in English (Profile > language) because the steps read the English words on the screen.
+# Works in any app language: the steps use fixed test IDs, not the words on the screen.
 appId: ${APP_ID}
 ---
 - launchApp:
@@ -7,15 +7,20 @@ appId: ${APP_ID}
 - openLink: "${LINK_BASE}"
 - runFlow:
     when:
-      visible: "Enter username"
+      visible:
+        id: "login-username"
     commands:
-      - tapOn: "Enter username"
+      - tapOn:
+          id: "login-username"
       - inputText: ${KH_USER}
-      - tapOn: "Enter password"
+      - tapOn:
+          id: "login-password"
       - inputText: ${KH_PASS}
       - hideKeyboard
-      - tapOn: "Login"
+      - tapOn:
+          id: "login-submit"
 - extendedWaitUntil:
-    visible: "Online"
+    visible:
+      id: "sync-pill-.*"
     timeout: 60000
 - takeScreenshot: "logged-in"
