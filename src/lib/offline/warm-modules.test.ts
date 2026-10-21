@@ -33,7 +33,7 @@ describe('module sync', () => {
     expect(detailAddresses('/api/back-log-order?limit=30&offset=0', { result: { data: rows } })).toEqual([]);
   });
 
-  it('keeps the sheets of discounts, modifiers and users, and the movements and prices of the first products' variants', () => {
+  it('keeps the sheets of discounts, modifiers and users, and the movements and prices of the first product variants', () => {
     expect(sheetAddresses('/api/discount', [{ id: 'd1' }])).toEqual(['/api/discount/applies?id=d1']);
     expect(sheetAddresses('/api/modifier', [{ modifierId: 'm1' }])).toEqual(['/api/modifier/m1']);
     expect(sheetAddresses('/api/user', [{ id: 'u9' }])).toEqual(['/api/user/bind-user/group?userId=u9', '/api/user/bind-user?userId=u9']);
