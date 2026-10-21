@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { KhPosApi } from '@/lib/api';
 import { customerBody, emptyCustomer, phoneQuery, validateCustomer, type CustomerForm, type CustomerRow, type ServedType } from '@/lib/customers';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { Button, Card, Field, Segmented } from './components';
 import { NumberField } from './form-fields';
 import { colors, font, radius, space } from './theme';
@@ -34,6 +35,7 @@ export function OrderTypeSheet({
   const [adding, setAdding] = useState<CustomerForm | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const writer = useRecordWriter();
 
   // search customers as the number is typed
   useEffect(() => {
@@ -60,7 +62,14 @@ export function OrderTypeSheet({
     }
     setSaving(true);
     try {
-      await api.call('POST', '/api/auth/customer', customerBody(adding));
+      // sent at once, or kept on the phone and sent once when kh-pos can be reached
+      const how = await writer({ entity: 'delivery', op: 'create', recordId: `new:${adding.phone}:${Date.now()}`, method: 'POST', path: '/api/auth/customer', body: customerBody(adding), once: true, label: adding.customerName.trim() || adding.phone });
+      if (how === 'queued') {
+        // the order type needs the customer kh-pos makes: choose it again once the customer has been sent
+        Alert.alert(t('offline.savedOffline'));
+        setAdding(null);
+        return;
+      }
       const found = await api.call<{ result?: { data: CustomerRow[] } }>('GET', `/api/auth/customer?limit=5&offset=0&phone=${encodeURIComponent(phoneQuery(adding.phone))}`);
       const created = found.result?.data?.[0] ?? null;
       setChosen(created);

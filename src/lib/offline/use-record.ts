@@ -10,16 +10,17 @@ import { overlayRecords, recordCommand, type RecordRequest, type WithSyncFlag } 
 /**
  * Saves a setup change (add, edit, delete): sent at once when kh-pos is reachable, otherwise kept on the phone and
  * sent later, in order. Resolves 'done' or 'queued'. When kh-pos refuses the change while online the error is thrown
- * to the caller, as for any other save.
+ * to the caller, as for any other save. `onAnswer` gets kh-pos' answer to the last call when it was sent at once.
  */
 export function useRecordWriter() {
   const { api, user } = useSession();
   const { engine } = useOffline();
   return useCallback(
-    async (req: RecordRequest): Promise<'done' | 'queued'> => {
+    async (req: RecordRequest, onAnswer?: (answer: Record<string, unknown> | undefined) => void): Promise<'done' | 'queued'> => {
       // a body with a password is sealed before it is written to the phone's database
       const sealed = req.secret ? await phoneSecretBox.seal(JSON.stringify({ body: req.body, steps: req.steps })) : undefined;
       const cmd = recordCommand(user?.id ?? '', req, Crypto.randomUUID(), Date.now(), sealed);
+      let lastAnswer: Record<string, unknown> | undefined;
       const send = async () => {
         if (req.produce) {
           await planAndProduce((method, path, body) => api.call(method, path, body), req.produce);
@@ -32,9 +33,13 @@ export function useRecordWriter() {
           const answer = (await api.call(step.method, step.path, step.body)) as Record<string, unknown> | undefined;
           if (req.mustBeTrue && answer && answer[req.mustBeTrue] === false) throw new Error('kh-pos did not accept it');
           resultId = resultOf(answer) ?? resultId;
+          lastAnswer = answer;
         }
       };
-      return req.once ? engine.runOnce(cmd, send) : engine.run(cmd, send);
+      const how = await (req.once ? engine.runOnce(cmd, send) : engine.run(cmd, send));
+      // what kh-pos answered, when the change was sent at once (a form that picks the new record needs its id)
+      if (how === 'done') onAnswer?.(lastAnswer);
+      return how;
     },
     [api, engine, user?.id],
   );

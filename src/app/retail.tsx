@@ -13,7 +13,7 @@ import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import { fetchAllPages } from '@/lib/catalog';
 import { methodNames, receiptFromDetail, receiptFromRetail, type Receipt } from '@/lib/receipt';
 import { toKhPosTime } from '@/lib/time';
-import { addToCart, cartCount, cartTotal, matchBarcode, retailOrderBody, setQty, type RetailLine, type RetailProduct } from '@/lib/retail';
+import { addToCart, cartCount, cartTotal, matchBarcode, setQty, type RetailLine, type RetailProduct } from '@/lib/retail';
 import { useSession } from '@/lib/session';
 import type { ProductListItem } from '@/lib/products';
 import { useBranch } from '@/lib/use-branch';
@@ -162,16 +162,13 @@ export default function RetailScreen() {
     guard(async () => {
       setBusy(true);
       try {
-        const info = await api.posInfo(warehouseId);
+        // the stock is checked before the customer pays (the sale is opened and paid in one go afterwards)
         const need = (await api.stockToTransfer(cart.map((l) => ({ variantId: l.variantId, toFindQty: l.qty })))).filter((x) => x.slot && x.slot.posSlot === false);
         if (need.length > 0) {
           Alert.alert(t('checkout.needStock'));
           return;
         }
-        const invoiceNo = await api.nextInvoiceNumber();
-        const orderId = (await api.call<{ result?: string }>('POST', '/api/pos/order', retailOrderBody({ warehouseId, slotId: info.posSlotId, customerId: info.posCustomerId, invoiceNo }, cart))).result;
-        if (!orderId) throw new Error('No order id returned');
-        setPay({ orderId, slotId: info.posSlotId });
+        setPay({ orderId: Crypto.randomUUID(), slotId: '' });
       } catch (e) {
         Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
       } finally {
@@ -180,45 +177,41 @@ export default function RetailScreen() {
     });
   }
 
-  /** The cashier backed out of payment: the opened order is removed so it is not left behind. */
-  async function cancelPay() {
-    const p = pay;
+  /** The cashier backed out of payment: nothing was opened in kh-pos, so there is nothing to remove. */
+  function cancelPay() {
     setPay(null);
-    if (p && !p.offline) await api.deleteOrder(p.orderId).catch(() => undefined);
   }
 
   async function complete(payments: CheckoutPayment[]) {
     const p = pay;
     if (!p) return;
-    if (p.offline) {
-      const receipt = receiptFromRetail({
-        orderId: p.orderId,
-        cart,
-        cashier: user?.fullname || user?.username || null,
-        methods: methodNames(methods),
-        payments,
-        total,
-        exchangeRate,
-        currency,
-        paidAt: toKhPosTime(new Date()),
-        offline: true,
-      });
-      await engine.enqueue(saleCommand(user?.id ?? '', { orderId: p.orderId, warehouseId, cart, payments, receipt }));
-      setPay(null);
-      setCart([]);
-      Alert.alert(t('checkout.savedOffline'));
-      setReceipt(receipt);
-      return;
-    }
+    const base = {
+      orderId: p.orderId,
+      cart,
+      cashier: user?.fullname || user?.username || null,
+      methods: methodNames(methods),
+      payments,
+      total,
+      exchangeRate,
+      currency,
+      paidAt: toKhPosTime(new Date()),
+    };
+    const cmd = saleCommand(user?.id ?? '', { orderId: p.orderId, warehouseId, cart, payments, receipt: receiptFromRetail({ ...base, offline: true }) });
     setBusy(true);
     try {
-      await api.checkout(p.orderId, { slotId: p.slotId, payments });
+      // written to the phone first; opened and paid in kh-pos at once, or kept and sent when kh-pos can be reached
+      const how = await engine.run(cmd, () => engine.replayNow(cmd));
       setPay(null);
       setCart([]);
+      if (how === 'queued') {
+        Alert.alert(t('checkout.savedOffline'));
+        setReceipt(receiptFromRetail({ ...base, offline: true }));
+        return;
+      }
       try {
         setReceipt(receiptFromDetail(await api.orderDetail(p.orderId), { names: new Map(), methods: methodNames(methods), exchangeRate, currency }));
       } catch {
-        Alert.alert(t('retail.paid'));
+        setReceipt(receiptFromRetail({ ...base, offline: false })); // paid, but kh-pos' copy couldn't be read: show what was paid
       }
     } catch (e) {
       Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
@@ -313,7 +306,7 @@ export default function RetailScreen() {
         </View>
       </Modal>
 
-      {pay ? <CheckoutSheet total={total} currency={currency} exchangeRate={exchangeRate} methods={methods} busy={busy} onClose={() => void cancelPay()} onComplete={(p) => void complete(p)} /> : null}
+      {pay ? <CheckoutSheet total={total} currency={currency} exchangeRate={exchangeRate} methods={methods} busy={busy} onClose={cancelPay} onComplete={(p) => void complete(p)} /> : null}
       <ReceiptSheet receipt={receipt} onClose={() => setReceipt(null)} />
     </SafeAreaView>
   );

@@ -165,6 +165,11 @@ export class SyncEngine {
 
   // ---- changes ----
 
+  /** Sends a command at once with the same code that replays it (for `run`, which has already written it to the database). */
+  replayNow(cmd: NewCommand): Promise<void> {
+    return this.replay({ ...cmd, status: 'sending', attempts: 0 } as OutboxCommand);
+  }
+
   /** Commands being sent right now by this process (so a crash can tell its own leftovers from live sends). */
   private inFlight = new Set<string>();
 
