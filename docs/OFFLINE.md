@@ -50,8 +50,8 @@ More changes are kept on the phone and sent later. A change with several calls (
 | Supplier prices | Change a price, delete; **add** is sent once | a changed price shows at once; a new price appears after it has been sent |
 | Returns | Put back in stock | send once; kh-pos refusing it shows as failed |
 | Products (the full product form) | Add, edit | one call with ids made on the phone; pictures must already be uploaded; a new product shows in the product list after it has been sent |
-| Branches | Edit only | adding a branch holds an account password, deleting is too serious, so both need the server |
-| Users | Edit, delete | not adding a user or resetting a password: a password must not be kept in the phone's queue. Changing the branches a person is bound to is sent once, and only when that list was loaded online |
+| Branches | Add (sealed account password), edit, delete | add and delete are sent once; the branch account's password is sealed on the phone |
+| Users | Add (sealed password), edit, delete, reset password | the password is sealed on the phone; changing the branches a person is bound to is sent once, and only when that list was loaded online |
 | Roles (Accessibility) | Change a role's permissions; a new role is sent once | the role shows its new permissions at once |
 
 ## Production offline (round 5)
