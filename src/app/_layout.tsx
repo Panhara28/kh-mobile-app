@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { LogBox, StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { initI18n } from '@/i18n';
+import { restoreLanguage } from '@/i18n/saved-language';
 import { OfflineProvider } from '@/lib/offline/provider';
 import { SessionProvider, useSession } from '@/lib/session';
 import { Button } from '@/ui/components';
@@ -13,6 +14,7 @@ import { LoadingState } from '@/ui/states';
 import { colors, font, space } from '@/ui/theme';
 
 initI18n();
+void restoreLanguage();
 
 // Expo Go (development only) warns that it cannot reach the PC when the phone is offline, over the screen being tested
 LogBox.ignoreLogs(['Cannot connect to Expo CLI', 'Error happened from the WebSocket']);

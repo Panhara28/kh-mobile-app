@@ -1,3 +1,4 @@
+import { chooseLanguage } from '@/i18n/saved-language';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -134,7 +135,7 @@ export default function AccountScreen() {
               { value: 'en', label: 'English' },
             ]}
             value={language}
-            onChange={(l) => void i18n.changeLanguage(l)}
+            onChange={(l) => void chooseLanguage(l)}
           />
         </Card>
 
