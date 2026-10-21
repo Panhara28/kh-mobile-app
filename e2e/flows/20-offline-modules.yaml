@@ -6,10 +6,18 @@ appId: ${APP_ID}
 - launchApp:
     stopApp: false
 - openLink: "${LINK_BASE}more"
+- runFlow:
+    when:
+      visible:
+        id: "sync-close"
+    commands:
+      - tapOn:
+          id: "sync-close"
+# opening the app starts the background sync again: wait until it has finished (the pill is green) before going offline
 - extendedWaitUntil:
     visible:
-      id: "sync-pill-.*"
-    timeout: 30000
+      id: "sync-pill-ok"
+    timeout: 300000
 - setAirplaneMode: enabled
 - extendedWaitUntil:
     visible:

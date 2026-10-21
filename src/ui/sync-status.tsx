@@ -132,7 +132,7 @@ export function SyncSheet({ visible, onClose }: { visible: boolean; onClose: () 
         <View style={[styles.sheet, { paddingBottom: insets.bottom + space.lg }]}>
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>{t('offline.title')}</Text>
-            <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('offline.close')}>
+            <Pressable testID="sync-close" onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('offline.close')}>
               <Text style={styles.close}>✕</Text>
             </Pressable>
           </View>

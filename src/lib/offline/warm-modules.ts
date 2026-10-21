@@ -87,10 +87,12 @@ export function reportAddresses(c: WarmContext): string[] {
     if (!r) continue;
     const day = { startDate: r.start.slice(0, 10), endDate: r.end.slice(0, 10) };
     const q = dateQuery(r);
+    // the raw sales lines of 30 days are about 10 MB (over what the phone keeps), so the Dashboard keeps today, yesterday and 7 days
+    const dashboardSales = preset === 'month' ? [] : [`/api/report/sale?${q}`];
     out.push(
       `/api/report/warehouse/sale?${q}`, // the Board dashboard
       ...(c.warehouseId ? [branchSaleQuery({ warehouseId: c.warehouseId, start: r.start, end: r.end })] : []), // and this branch's sales on it
-      `/api/report/sale?${q}`,
+      ...dashboardSales,
       `/api/report/metrics?${q}`,
       `/api/report/hot-hour?${q}`,
       `/api/report/end-of-day?${eodQuery(r, c.warehouseId)}`,

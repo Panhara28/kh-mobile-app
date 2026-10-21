@@ -23,3 +23,5 @@ appId: ${APP_ID}
 # A list "N could not be saved" fails this check: open the screenshot to see which address and why.
 - assertNotVisible:
     id: "modules-problems"
+- tapOn:
+    id: "sync-close"

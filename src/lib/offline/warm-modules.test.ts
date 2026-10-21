@@ -105,4 +105,9 @@ describe('module sync', () => {
     expect(problems[0]![1]).toBe('server 500 The operation was aborted');
     expect(reasonOf(new Error('x'))).toBe('x');
   });
+
+  it('does not ask for the 30-day sales lines (about 10 MB, over what the phone keeps) but keeps the shorter periods', () => {
+    const sales = reportAddresses(ctx).filter((x) => x.startsWith('/api/report/sale?'));
+    expect(sales).toHaveLength(3); // today, yesterday, 7 days
+  });
 });
