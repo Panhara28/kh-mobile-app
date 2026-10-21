@@ -15,7 +15,7 @@ import { methodNames, receiptFromCheckout, receiptFromDetail, type Receipt } fro
 import { toKhPosTime } from '@/lib/time';
 import { useShift } from '@/lib/use-shift';
 import { can } from '@/lib/line';
-import type { TransferBody } from '@/lib/transfer';
+import { selectAll, selectedCount, type TransferBody } from '@/lib/transfer';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button } from '@/ui/components';
@@ -370,19 +370,30 @@ export default function TableScreen() {
   }
 
   async function doTransfer(body: TransferBody, destination: RestaurantTable) {
+    const order = table?.order;
+    if (!order) return;
     setBusy(true);
     try {
-      if (!engine.getState().online && table?.order) {
-        await engine.enqueue(
-          command('transfer', { orderId: body.orderId, destinationTableId: destination.id, destinationName: destination.table_name, transferDiscount: body.transferDiscount, order: table.order }),
+      // the whole order onto a free table can be shown on the other table at once; anything else (part of an order, a
+      // table that has an order) is kept and sent as it is. Either way it is written to the phone first.
+      const moved = body.orderItems.reduce((a, i) => a + i.orderItemStatuses.reduce((b, st) => b + st.quantity, 0), 0);
+      const whole = moved === selectedCount(selectAll(order)) && destination.status !== 'order_taken' && !destination.order;
+      let how: 'done' | 'queued';
+      if (whole) {
+        how = await engine.run(
+          command('transfer', { orderId: body.orderId, destinationTableId: destination.id, destinationName: destination.table_name, transferDiscount: body.transferDiscount, order }),
+          () => api.transferTable(body),
         );
-        setTransferTables(null);
+      } else {
+        if (!engine.getState().online) setTransferTables(null);
+        how = await writer({ entity: 'table-transfer', op: 'action', recordId: `transfer:${body.orderId}:${Date.now()}`, method: 'POST', path: '/api/transfer-table', body, once: true, label: `${t('transfer.button')}: ${destination.table_name}` });
+      }
+      setTransferTables(null);
+      if (how === 'queued') {
         Alert.alert(t('transfer.savedOffline', { name: destination.table_name }));
-        router.back(); // the order is on the other table now
+        if (whole) router.back(); // the order is on the other table now
         return;
       }
-      await api.transferTable(body);
-      setTransferTables(null);
       Alert.alert(t('transfer.done', { name: destination.table_name }));
       await load();
       if (!(await data.table(id).then((r) => r.data.order).catch(() => null))) router.back(); // the whole order moved
@@ -675,7 +686,7 @@ export default function TableScreen() {
           onComplete={(p) => void completeCheckout(p)}
         />
       ) : null}
-      {transferTables ? <TransferSheet table={table} tables={transferTables} busy={busy} offline={!state.online} onClose={() => setTransferTables(null)} onTransfer={(b, d) => void doTransfer(b, d)} /> : null}
+      {transferTables ? <TransferSheet table={table} tables={transferTables} busy={busy} onClose={() => setTransferTables(null)} onTransfer={(b, d) => void doTransfer(b, d)} /> : null}
       <ReceiptSheet
         receipt={receipt}
         onClose={() => {
