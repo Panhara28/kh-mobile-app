@@ -6,9 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as XLSX from 'xlsx';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import type { Cell } from '@/lib/product-import';
-import { useSession } from '@/lib/session';
 import { fileProblem, parseUserSheet, UPLOAD_PASSWORD, USER_REQUIRED_HEADERS, userRowWarnings, userUploadBody, type UserExcelRow } from '@/lib/user-import';
 import { Button, Card } from '@/ui/components';
 import { ScreenHeader } from '@/ui/screen-header';
@@ -21,8 +20,7 @@ import { colors, font, radius, space } from '@/ui/theme';
  */
 export default function UserImportScreen() {
   const { t } = useTranslation();
-  const { api } = useSession();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const [file, setFile] = useState<string | null>(null);
   const [rows, setRows] = useState<UserExcelRow[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
@@ -55,20 +53,21 @@ export default function UserImportScreen() {
   }
 
   function upload() {
-    guard(async () => {
+    void (async () => {
       setBusy(true);
       try {
-        await api.call('POST', '/api/upload-excel/user', userUploadBody(rows));
+        // the rows give new users a password: sealed on the phone if they have to wait for kh-pos
+        const how = await writer({ entity: 'user-import', op: 'action', recordId: `import:${Date.now()}`, method: 'POST', path: '/api/upload-excel/user', body: userUploadBody(rows), secret: true, once: true, label: `${t('uimport.button')} (${rows.length})` });
         setDone(true);
         const count = rows.length;
         setRows([]);
-        Alert.alert(t('uimport.done', { count }), undefined, [{ text: 'OK', onPress: () => router.back() }]);
+        Alert.alert(how === 'queued' ? t('offline.savedOffline') : t('uimport.done', { count }), undefined, [{ text: 'OK', onPress: () => router.back() }]);
       } catch (e) {
         Alert.alert(t('uimport.failed'), e instanceof Error ? e.message : undefined);
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   const warnings = userRowWarnings(rows);

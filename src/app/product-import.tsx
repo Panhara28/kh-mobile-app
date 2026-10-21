@@ -6,9 +6,8 @@ import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as XLSX from 'xlsx';
 import { formatMoney } from '@/lib/money';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { OPTIONAL_HEADERS, parseSheet, REQUIRED_HEADERS, rowWarnings, uploadBody, type Cell, type ExcelRow } from '@/lib/product-import';
-import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
 import { Button, Card } from '@/ui/components';
 import { ScreenHeader } from '@/ui/screen-header';
@@ -21,8 +20,7 @@ import { colors, font, radius, space } from '@/ui/theme';
  */
 export default function ProductImportScreen() {
   const { t } = useTranslation();
-  const { api } = useSession();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const { currency } = useBranch();
   const [file, setFile] = useState<string | null>(null);
   const [rows, setRows] = useState<ExcelRow[]>([]);
@@ -51,19 +49,21 @@ export default function ProductImportScreen() {
   }
 
   function upload() {
-    guard(async () => {
+    void (async () => {
       setBusy(true);
       try {
-        await api.call('POST', '/api/upload-excel', uploadBody(rows));
+        // the sheet was read on the phone: its rows are sent at once, or kept on the phone and sent once when kh-pos can be reached
+        const how = await writer({ entity: 'product-import', op: 'action', recordId: `import:${Date.now()}`, method: 'POST', path: '/api/upload-excel', body: uploadBody(rows), once: true, label: `${t('import.title')} (${rows.length})` });
         setDone(true);
+        const count = rows.length;
         setRows([]);
-        Alert.alert(t('import.done', { count: rows.length }));
+        Alert.alert(how === 'queued' ? t('offline.savedOffline') : t('import.done', { count }));
       } catch (e) {
         Alert.alert(t('import.failed'), e instanceof Error ? e.message : undefined);
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   const warnings = rowWarnings(rows);
