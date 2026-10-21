@@ -1,5 +1,5 @@
 import type { KhPosApi } from '../api';
-import { pagedAddresses, warmModules } from './warm-modules';
+import { pagedAddresses, reportAddresses, warmModules } from './warm-modules';
 
 const ctx = { userId: 'u1', warehouseId: 'w1', isMain: true };
 
@@ -11,6 +11,15 @@ describe('module sync', () => {
     expect(a).toContain('/api/product-v2/group?offset=0&limit=20&warehouseIds=w1');
     expect(a).toContain('/api/shift?openedBy=u1&limit=30&offset=0');
     expect(a.some((x) => x.startsWith('/api/pos/order?') && x.includes('status=DRAFT'))).toBe(true);
+    expect(new Set(a).size).toBe(a.length);
+  });
+
+  it('reads every report for today, yesterday, the week and the month, as the report screens ask', () => {
+    const a = reportAddresses(ctx);
+    expect(a).toContain('/api/reports/expiry');
+    expect(a.filter((x) => x.startsWith('/api/report/order/guest?'))).toHaveLength(4);
+    expect(a.filter((x) => x.startsWith('/api/report/end-of-day?'))).toHaveLength(4);
+    expect(a.some((x) => x.startsWith('/api/report/sale-by-category?') && x.includes('groupBy=product') && x.includes('warehouseId=w1'))).toBe(true);
     expect(new Set(a).size).toBe(a.length);
   });
 

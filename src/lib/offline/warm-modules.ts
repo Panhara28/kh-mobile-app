@@ -1,6 +1,13 @@
 import type { KhPosApi } from '../api';
 import { bookingQuery } from '../accounting';
-import { rangeFor } from '../dates';
+import { rangeFor, type RangePreset } from '../dates';
+import { eodQuery } from '../end-of-day';
+import { guestQuery } from '../guest-report';
+import { dateQuery } from '../reports';
+import { itemsQuery } from '../sale-items';
+import { saleQuery } from '../sale-report';
+import { stockQuery } from '../stock-report';
+import { voidQuery } from '../void-report';
 import { slotQuery } from '../org';
 import { orderQuery } from '../orders';
 import { listQuery } from '../product-list';
@@ -64,6 +71,36 @@ export function pagedAddresses(c: WarmContext): string[] {
   ];
 }
 
+/** The periods the date pickers of the reports start from. */
+const REPORT_PERIODS: RangePreset[] = ['today', 'yesterday', 'week', 'month'];
+
+/**
+ * Every report for the usual periods, as the report screens ask for them (first screen, own branch, no extra filters).
+ * The period of a report is part of its address, so each is read for today, yesterday, the week and the month.
+ */
+export function reportAddresses(c: WarmContext): string[] {
+  const out = ['/api/reports/expiry'];
+  for (const preset of REPORT_PERIODS) {
+    const r = rangeFor(preset);
+    if (!r) continue;
+    const day = { startDate: r.start.slice(0, 10), endDate: r.end.slice(0, 10) };
+    const q = dateQuery(r);
+    out.push(
+      `/api/report/sale?${q}`,
+      `/api/report/metrics?${q}`,
+      `/api/report/hot-hour?${q}`,
+      `/api/report/end-of-day?${eodQuery(r, c.warehouseId)}`,
+      `/api/report/sale/receipt?${itemsQuery(r)}`,
+      `/api/report/order/void?${voidQuery(r)}`,
+      `/api/report/order/guest?${guestQuery(r)}`,
+      `/api/report/stock?${stockQuery({ range: r, warehouseIds: c.warehouseId ? [c.warehouseId] : [], categoryIds: [], productId: '' })}`,
+      `/api/report/sale-by-category?${saleQuery({ ...day, warehouseIds: [c.warehouseId], userIds: [], categoryIds: [], productId: '', groupBy: 'product' })}`,
+      `/api/report/sale-by-category?${new URLSearchParams({ ...day, warehouseId: c.warehouseId, groupBy: 'product' }).toString()}`,
+    );
+  }
+  return out;
+}
+
 /** A module list read to the end the way fetchAllPages does it (limit=100, offset step 100). */
 async function readAll(api: KhPosApi, path: string, alive: () => boolean): Promise<void> {
   const joiner = path.includes('?') ? '&' : '?';
@@ -88,7 +125,7 @@ export async function warmModules(api: KhPosApi, c: WarmContext, alive: () => bo
       if (isUnreachable(e)) return;
     }
   }
-  for (const address of pagedAddresses(c)) {
+  for (const address of [...pagedAddresses(c), ...reportAddresses(c)]) {
     if (!alive()) return;
     try {
       await api.call('GET', address);
