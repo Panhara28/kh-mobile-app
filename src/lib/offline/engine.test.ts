@@ -572,3 +572,24 @@ describe('A queued change with a picture picked on the phone', () => {
     expect(engine.getState().commands).toEqual([]);
   });
 });
+
+describe('An idle app notices that kh-pos has gone', () => {
+  it('asks kh-pos every 20 seconds while online with nothing waiting, and turns Offline when it does not answer', async () => {
+    let clock = 1_000_000;
+    const server = new FakeServer();
+    const engine = new SyncEngine(server.api, new MemoryStore(), () => clock);
+    engine.setUser(USER);
+    await engine.tick(); // the first check
+    expect(engine.getState().online).toBe(true);
+    server.online = false;
+    clock += 5_000;
+    await engine.tick(); // too soon: no question asked
+    expect(engine.getState().online).toBe(true);
+    clock += 20_000;
+    await engine.tick();
+    expect(engine.getState().online).toBe(false);
+    server.online = true;
+    await engine.tick(); // offline: asked every time
+    expect(engine.getState().online).toBe(true);
+  });
+});

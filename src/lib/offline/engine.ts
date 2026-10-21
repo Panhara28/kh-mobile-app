@@ -83,6 +83,8 @@ const ID_MAP_KEY = 'idmap';
 /** The message of a change whose answer was lost: the staff must check kh-pos before doing it again. */
 export const UNCONFIRMED = 'Could not confirm whether kh-pos received this. Check there before doing it again.';
 const PROBE_MS = 8_000;
+/** While online with nothing waiting, ask kh-pos this often whether it is still there (so the pill does not say Online for a dropped connection). */
+const IDLE_PING_MS = 20_000;
 
 export const INTERRUPTED = 'The app was closed while this was being sent. Check in KH POS whether it went through, then Retry or Discard.';
 
@@ -190,6 +192,7 @@ export class SyncEngine {
 
   /** Commands being sent right now by this process (so a crash can tell its own leftovers from live sends). */
   private inFlight = new Set<string>();
+  private lastPing = 0;
 
   /**
    * Makes a change. It is written to the phone's database first (write-ahead); then, when kh-pos is reachable and no
@@ -718,7 +721,10 @@ export class SyncEngine {
   async tick(): Promise<void> {
     if (!this.uid) return;
     await this.refresh();
-    if (this.state.online && this.state.pending === 0) return;
+    if (this.state.online && this.state.pending === 0) {
+      if (this.now() - this.lastPing < IDLE_PING_MS) return;
+    }
+    this.lastPing = this.now();
     const ok = await this.api.ping();
     this.setOnline(ok);
     if (ok && this.state.pending > 0) await this.flush();
