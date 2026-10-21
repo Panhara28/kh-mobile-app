@@ -1,8 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { AppState, Image } from 'react-native';
 import { useSession } from '../session';
 import { OfflineData } from './data';
 import { SyncEngine, type EngineState } from './engine';
+import { warmModules } from './warm-modules';
 import { getStore } from './store';
 import type { LocalStore } from './types';
 
@@ -21,6 +22,8 @@ const noopSubscribe = () => () => undefined;
 const EMPTY: EngineState = { online: true, syncing: false, commands: [], pending: 0, failed: 0, lastSyncedAt: null, syncVersion: 0 };
 const getEmpty = () => EMPTY;
 const WARM_EVERY_MS = 10 * 60_000;
+/** Longest answer kept by address (characters of JSON). */
+const MAX_SAVED_ANSWER = 2_000_000;
 
 /**
  * Offline support for the signed-in staff member (see offline/types.ts): opens the phone's
@@ -73,15 +76,49 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     };
   }, [engine, data, uid, wh]);
 
+  // Every answer to a GET is kept on the phone by address, so a screen can be rebuilt from them when kh-pos can't be reached.
+  useEffect(() => {
+    if (!store || !uid) return;
+    const key = (path: string) => `url:${uid}:${wh}:${path}`;
+    api.setUrlCache({
+      save: (path, value) => {
+        try {
+          if (JSON.stringify(value).length > MAX_SAVED_ANSWER) return; // a huge answer (a 10 000 order summary) is not kept
+          void store.setCache(key(path), value).catch(() => undefined);
+        } catch {
+          // best effort
+        }
+      },
+      load: async (path) => {
+        const c = await store.getCache<unknown>(key(path)).catch(() => null);
+        return c ? { value: c.value, savedAt: c.savedAt } : null;
+      },
+    });
+    return () => api.setUrlCache(null);
+  }, [api, store, uid, wh]);
+
+  // Keep the modules in step in the background (see warm-modules.ts), one pass at a time.
+  const modulesBusy = useRef(false);
+  const isMain = !!user?.warehouse?.isMain;
+  const syncModules = useCallback(async () => {
+    if (!uid || !wh || modulesBusy.current) return;
+    modulesBusy.current = true;
+    try {
+      await warmModules(api, { userId: uid, warehouseId: wh, isMain }, () => engine?.getState().online ?? false);
+    } finally {
+      modulesBusy.current = false;
+    }
+  }, [api, engine, uid, wh, isMain]);
+
   // Keep a copy of the menu, tables and settings for offline use; refresh when kh-pos is back.
   const online = state.online;
   useEffect(() => {
     if (!data || !uid || !wh || !online) return;
     data.resetDown();
-    void data.warm(wh);
-    const h = setInterval(() => void data.warm(wh), WARM_EVERY_MS);
+    void data.warm(wh).then(() => syncModules());
+    const h = setInterval(() => void data.warm(wh).then(() => syncModules()), WARM_EVERY_MS);
     return () => clearInterval(h);
-  }, [data, uid, wh, online]);
+  }, [data, uid, wh, online, syncModules]);
 
   // Coming back to the app: look for kh-pos straight away.
   useEffect(() => {
@@ -89,10 +126,10 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     const sub = AppState.addEventListener('change', (s) => {
       if (s !== 'active') return;
       data.resetDown();
-      void engine.tick().then(() => (engine.getState().online && wh ? data.warm(wh) : undefined));
+      void engine.tick().then(() => (engine.getState().online && wh ? data.warm(wh).then(() => syncModules()) : undefined));
     });
     return () => sub.remove();
-  }, [engine, data, uid, wh]);
+  }, [engine, data, uid, wh, syncModules]);
 
   const syncNow = useCallback(async () => {
     if (!engine || !data) return;

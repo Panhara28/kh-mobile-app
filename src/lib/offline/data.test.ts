@@ -153,3 +153,35 @@ describe('the saved product catalog', () => {
     await expect(other.data.catalog('w1', { includeNotForSale: true })).rejects.toThrow();
   });
 });
+
+describe('OfflineData rebuilds a screen from saved answers', () => {
+  it('shows data for a read that was never made on its own, when the saved answers of its addresses exist', async () => {
+    let up = true;
+    const answers: Record<string, unknown> = { '/api/discount?limit=100&offset=0': { result: { data: [{ id: 'd1' }], total: 1 } } };
+    const api = {
+      savedCopiesServed: 0,
+      fromSavedCopies: async (fn: () => Promise<unknown>) => ({ value: await fn(), savedAt: 5 }),
+      call: async (_m: string, path: string) => {
+        if (up) return answers[path];
+        if (!up && api.inCopies) return answers[path] ?? Promise.reject(new ApiError('network', undefined, 'no copy'));
+        return down();
+      },
+      inCopies: false,
+    };
+    api.fromSavedCopies = async (fn) => {
+      api.inCopies = true;
+      try {
+        return { value: await fn(), savedAt: 5 };
+      } finally {
+        api.inCopies = false;
+      }
+    };
+    const { data } = setup(api as unknown as Partial<KhPosApi>);
+    up = false;
+    const r = await data.cachedRead('discounts-page', 'w1', async () => (await api.call('GET', '/api/discount?limit=100&offset=0')) as { result: { data: { id: string }[] } });
+    expect(r.stale).toBe(true);
+    expect(r.savedAt).toBe(5);
+    expect(r.data.result.data[0]!.id).toBe('d1');
+    await expect(data.cachedRead('x', '', async () => api.call('GET', '/api/other'))).rejects.toMatchObject({ kind: 'network' });
+  });
+});

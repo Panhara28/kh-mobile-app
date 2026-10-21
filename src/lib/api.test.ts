@@ -129,3 +129,36 @@ describe('ping', () => {
     expect(calls[0]!.headers.Authorization).toBeUndefined();
   });
 });
+
+describe('saved answers (offline)', () => {
+  function withCache() {
+    const saved = new Map<string, { value: unknown; savedAt: number }>();
+    let up = true;
+    const { fn, calls } = fakeFetch((c) => (up ? { json: { success: true, result: { path: c.url.replace('http://kh', '') } } } : new Error('offline')));
+    const api = new KhPosApi('http://kh', () => 'tok', fn);
+    api.setUrlCache({
+      save: (path, value) => void saved.set(path, { value, savedAt: 1000 }),
+      load: async (path) => saved.get(path) ?? null,
+    });
+    return { api, saved, calls, down: () => (up = false) };
+  }
+
+  it('keeps the answer of every GET by address, and nothing else', async () => {
+    const { api, saved } = withCache();
+    await api.call('GET', '/api/category?limit=100&offset=0');
+    await api.call('POST', '/api/category', { title: 'x' });
+    expect([...saved.keys()]).toEqual(['/api/category?limit=100&offset=0']);
+  });
+
+  it('rebuilds a read from the saved answers when asked, and fails like an unreachable server for an address with no copy', async () => {
+    const { api, calls, down } = withCache();
+    await api.call('GET', '/api/category?limit=100&offset=0');
+    down();
+    const before = calls.length;
+    const r = await api.fromSavedCopies(() => api.call<{ result: { path: string } }>('GET', '/api/category?limit=100&offset=0'));
+    expect(r.value.result.path).toBe('/api/category?limit=100&offset=0');
+    expect(r.savedAt).toBe(1000);
+    expect(calls.length).toBe(before); // no request went out
+    await expect(api.fromSavedCopies(() => api.call('GET', '/api/never-read'))).rejects.toMatchObject({ kind: 'network' });
+  });
+});

@@ -20,6 +20,12 @@ export type ApiErrorKind =
   | 'forbidden'
   | 'server'; // anything else
 
+/** The saved answers of GET requests, by address (see KhPosApi.fromSavedCopies). */
+export interface UrlCache {
+  save(path: string, value: unknown): void;
+  load(path: string): Promise<{ value: unknown; savedAt: number } | null>;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly kind: ApiErrorKind,
@@ -331,8 +337,43 @@ export class KhPosApi {
     return this.getToken();
   }
 
+  // ---- saved answers (offline) ----
+  private urlCache: UrlCache | null = null;
+  private savedCopyDepth = 0;
+  private oldestServed: number | null = null;
+  /** How many GETs were answered from a saved copy so far (so the caller can tell its own call from another one). */
+  savedCopiesServed = 0;
+
+  /** Where the answer to every GET is kept, so it can be shown again when kh-pos can't be reached. */
+  setUrlCache(cache: UrlCache | null): void {
+    this.urlCache = cache;
+  }
+
+  /**
+   * Runs `fn` with every GET answered from the copy saved the last time that same address was read (an address with no
+   * copy fails like an unreachable server). Used when kh-pos can't be reached, to build a screen's data from what the
+   * phone has. `savedAt` is when the oldest copy used was taken.
+   */
+  async fromSavedCopies<T>(fn: () => Promise<T>): Promise<{ value: T; savedAt: number | null }> {
+    this.savedCopyDepth++;
+    this.oldestServed = null;
+    try {
+      const value = await fn();
+      return { value, savedAt: this.oldestServed };
+    } finally {
+      this.savedCopyDepth--;
+    }
+  }
+
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     if (!this.baseUrl) throw new ApiError('notConfigured', undefined, 'No server address (EXPO_PUBLIC_KHPOS_URL)');
+    if (method === 'GET' && this.savedCopyDepth > 0 && this.urlCache) {
+      const hit = await this.urlCache.load(path);
+      if (!hit) throw new ApiError('network', undefined, 'No saved copy of this');
+      this.savedCopiesServed++;
+      this.oldestServed = this.oldestServed === null ? hit.savedAt : Math.min(this.oldestServed, hit.savedAt);
+      return hit.value as T;
+    }
     const headers: Record<string, string> = { ...getDeviceHeaders() };
     // kh-pos parses a body only when Content-Type is exactly "application/json", and fails on
     // GET requests that declare JSON without a body: send the header only with a body.
@@ -367,7 +408,9 @@ export class KhPosApi {
     if (res.status === 403) throw new ApiError('forbidden', 403, message);
     if (!res.ok || json.success === false) throw new ApiError('server', res.status, message);
     // the login answer is the one place a token is wanted; everywhere else other people's tokens are dropped
-    return (path === '/api/auth/login' ? json : stripSecrets(json)) as T;
+    const answer = (path === '/api/auth/login' ? json : stripSecrets(json)) as T;
+    if (method === 'GET' && this.urlCache && path !== '/api/auth/login') this.urlCache.save(path, answer);
+    return answer;
   }
 
   /**

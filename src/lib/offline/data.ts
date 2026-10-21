@@ -59,7 +59,10 @@ export class OfflineData {
   private async live<T>(call: () => Promise<T>): Promise<T> {
     if (Date.now() < this.downUntil) throw new ApiError('network', undefined, 'Server unreachable (recently)');
     try {
+      const servedBefore = this.api.savedCopiesServed ?? 0;
       const result = await call();
+      // answered from saved copies (another read was rebuilding offline meanwhile): says nothing about kh-pos
+      if ((this.api.savedCopiesServed ?? 0) !== servedBefore) return result;
       this.downUntil = 0;
       this.reachability(true);
       return result;
@@ -79,6 +82,10 @@ export class OfflineData {
       return { data, stale: false, savedAt: null };
     } catch (e) {
       if (!(e instanceof ApiError) || e.kind !== 'network') throw e;
+      // The same screen read again from the saved answers of its addresses: these are kept fresh in the background for
+      // every module, so a screen that was never opened (or opened with other filters) can still be shown.
+      const rebuilt = await this.api.fromSavedCopies?.(fetcher).catch(() => null);
+      if (rebuilt) return { data: rebuilt.value, stale: true, savedAt: rebuilt.savedAt ?? Date.now() };
       const saved = await this.store.getCache<T>(key);
       if (!saved) throw e;
       return { data: saved.value, stale: true, savedAt: saved.savedAt };

@@ -70,6 +70,14 @@ Offline you pick a product (from the saved product search), a quantity and the s
 - **Orders:** every list read online is also added to a set of the last 300 orders kept on the phone, and the details of the first 20 are saved. Offline, any date range, status, invoice number or phone can be answered from that set (a shift or a cinema ticket code cannot, so those filters are not applied) and the summary cards cover only those saved orders. An order older than the saved set, or whose details were never opened or prefetched, needs the server. Undo, delete, return and print count still need the server.
 - **Stock finding and transfer:** the picking lists of the first 15 draft orders are saved when the list is read online. Offline, a list opens from that copy and "Transfer all" / "Convert" are kept and sent once when the server is back (a move that is waiting is not offered again).
 
+## Background sync of every module (round 8)
+
+Nothing has to be opened first any more. While kh-pos can be reached the phone reads, in the background and one request after another, the first screen of every module (`lib/offline/warm-modules.ts`): Products, Categories, Suppliers, Branches, Discounts, Modifiers, Promotion sets, Users, Chart of accounts, Delivery customers, Purchase orders, Replenishment, Returns, Backlog, Stock movements, Production history, Supplier prices, Product groups, Slots, Shifts, Orders (today and the latest), Stock finding drafts, Booking (this month), Printers and Roles. It runs when the app starts, when kh-pos is back, when the app returns to the foreground and every 10 minutes. A module the staff member may not open (403) is skipped.
+
+How a screen uses it: every GET answer is kept on the phone by its address (`KhPosApi.setUrlCache`, up to 2 MB each). When kh-pos can't be reached a screen is first rebuilt from those saved answers (`KhPosApi.fromSavedCopies`, shown with the "saved copy" banner and the age of the oldest answer used), and only if that is not possible from the copy saved by the screen itself. So a module opened with the same first screen, or one that was ever read with the same filters, shows data offline.
+
+**Limits:** only the first pages are synced (three of 30 for most lists), so scrolling further, other filters, searches, and the details of one record (a product, a purchase order) show offline only if they were read before. Reports are not synced in the background (they depend on the date range); the Orders list keeps its own set of recent orders. The first sync needs the phone to stay online for a minute or two after login.
+
 ## What still needs the server
 
 - **Adding a user, resetting a password, adding or deleting a branch:** a password must not sit in the phone's queue and these change who can log in.
