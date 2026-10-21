@@ -183,3 +183,33 @@ export function buildReturns(orderId: string, lines: OrderLine[], chosen: Record
   }
   return out;
 }
+
+const RECENT_ORDERS = 300;
+
+/** The saved recent orders with newly read ones added (same order replaced), newest first, kept to a few hundred. */
+export function mergeRecentOrders(saved: OrderRow[], fresh: OrderRow[]): OrderRow[] {
+  const byId = new Map(saved.map((o) => [o.orderId, o]));
+  for (const o of fresh) byId.set(o.orderId, o);
+  return [...byId.values()].sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))).slice(0, RECENT_ORDERS);
+}
+
+/**
+ * The order list answered from the saved recent orders, for when kh-pos can't be reached: the same status, invoice
+ * number, phone and date filters as the server query. A shift or a cinema ticket code can't be worked out from a row,
+ * so those are not applied.
+ */
+export function filterOrdersLocal(all: OrderRow[], f: OrderFilter): { totalRows: number; orders: OrderRow[] } {
+  const invoice = f.invoiceNo?.trim();
+  const phone = f.customerPhone?.trim();
+  const rows = all.filter((o) => {
+    if (f.status && o.orderStatus !== f.status) return false;
+    if (invoice && !String(o.invoiceNo).includes(invoice)) return false;
+    if (phone && !(o.customerLoader?.phone ?? '').includes(phone)) return false;
+    const at = o.createdAt ?? '';
+    if (f.startDate && at < f.startDate) return false;
+    if (f.endDate && at > f.endDate) return false;
+    return true;
+  });
+  const offset = f.offset ?? 0;
+  return { totalRows: rows.length, orders: rows.slice(offset, offset + (f.limit ?? 30)) };
+}

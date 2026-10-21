@@ -1,6 +1,6 @@
 import type { OrderLine } from './api';
 import { dayText, parseDay, rangeFor } from './dates';
-import { LIST_STATUSES, hasActiveFilters, itemCount, orderActions, orderWhen, searchFilter, servedTypeKey, whoFor, buildReturns, invoiceDigits, orderQuery, refundFor, returnableQty, returnedQty, statusTone, summarize, type OrderRow } from './orders';
+import { LIST_STATUSES, filterOrdersLocal, mergeRecentOrders, hasActiveFilters, itemCount, orderActions, orderWhen, searchFilter, servedTypeKey, whoFor, buildReturns, invoiceDigits, orderQuery, refundFor, returnableQty, returnedQty, statusTone, summarize, type OrderRow } from './orders';
 
 const line = (over: Partial<OrderLine> = {}): OrderLine => ({ orderDetailId: 'L1', variantId: 'v', title: 'Dish', qty: 4, price: '2', totalAmount: '8', ...over });
 const row = (over: Partial<OrderRow>): OrderRow => ({ orderId: 'o', invoiceNo: 1, orderStatus: 'COMPLETED', createdAt: null, totalAmount: '10', ...over });
@@ -107,5 +107,37 @@ describe('customer order page', () => {
     expect(orderActions({ orderStatus: 'DRAFT', tableNumber: 't1' })).toEqual(['print', 'view', 'open']);
     expect(orderActions({ orderStatus: 'DRAFT' })).toEqual(['print', 'view']);
     expect(orderActions({ orderStatus: 'COMPLETED' })).toEqual(['print', 'view', 'reverse']);
+  });
+});
+
+describe('saved recent orders (offline list)', () => {
+  const row = (orderId: string, invoiceNo: number, createdAt: string, orderStatus = 'COMPLETED', phone?: string): OrderRow => ({
+    orderId,
+    invoiceNo,
+    orderStatus,
+    createdAt,
+    totalAmount: '1',
+    customerLoader: phone ? { phone } : null,
+  });
+  const saved = [row('a', 101, '2026-10-20 09:00:00'), row('b', 102, '2026-10-21 10:00:00', 'DRAFT'), row('c', 103, '2026-10-21 11:00:00', 'COMPLETED', '012345')];
+
+  it('keeps the newest orders and replaces one that was read again', () => {
+    const merged = mergeRecentOrders(saved, [row('b', 102, '2026-10-21 10:00:00', 'COMPLETED'), row('d', 104, '2026-10-21 12:00:00')]);
+    expect(merged.map((o) => o.orderId)).toEqual(['d', 'c', 'b', 'a']);
+    expect(merged.find((o) => o.orderId === 'b')!.orderStatus).toBe('COMPLETED');
+  });
+
+  it('answers a date range, a status, an invoice number and a phone from the saved rows', () => {
+    const today = { startDate: '2026-10-21 00:00:00', endDate: '2026-10-21 23:59:59' };
+    expect(filterOrdersLocal(saved, today).orders.map((o) => o.orderId)).toEqual(['b', 'c']);
+    expect(filterOrdersLocal(saved, { ...today, status: 'DRAFT' }).orders.map((o) => o.orderId)).toEqual(['b']);
+    expect(filterOrdersLocal(saved, { invoiceNo: '103' }).orders.map((o) => o.orderId)).toEqual(['c']);
+    expect(filterOrdersLocal(saved, { customerPhone: '0123' }).orders.map((o) => o.orderId)).toEqual(['c']);
+  });
+
+  it('pages the answer', () => {
+    const r = filterOrdersLocal(saved, { limit: 2, offset: 2 });
+    expect(r.totalRows).toBe(3);
+    expect(r.orders).toHaveLength(1);
   });
 });

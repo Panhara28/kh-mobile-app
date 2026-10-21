@@ -111,7 +111,7 @@ export default function OrdersScreen() {
       const id = ++request.current;
       const f = filter(offset);
       try {
-        const r = await data.cachedRead('orders', JSON.stringify(f), () => api.orders(f));
+        const r = await data.orders(f);
         if (id !== request.current) return;
         setOrders((prev) => (offset === 0 ? r.data.orders : [...prev, ...r.data.orders.filter((o) => !prev.some((p) => p.orderId === o.orderId))]));
         setTotal(r.data.totalRows);
@@ -128,7 +128,7 @@ export default function OrdersScreen() {
   useEffect(() => {
     let cancelled = false;
     const f: OrderFilter = { limit: SUMMARY_LIMIT, offset: 0, ...(range ? { startDate: range.start, endDate: range.end } : {}) };
-    data.cachedRead('orders-summary', JSON.stringify(f), () => api.orders(f)).then(
+    data.orders(f).then(
       (r) => !cancelled && setAll(r.data.orders),
       () => !cancelled && setAll([]),
     );
