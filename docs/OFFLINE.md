@@ -105,3 +105,7 @@ Every change the app makes (not Cinema, which is not on the phone) goes through 
 - An add that is sent twice because the answer was lost can create a duplicate for modules where kh-pos makes the id (Category, Delivery, Supplier).
 - Stock figures on screen are the copy saved earlier; a stock out larger than what the saved copy shows is refused on the phone, and one that kh-pos refuses later shows as failed in the sync list.
 - Logging out keeps the queue on the phone; it is sent after the next login of the same person.
+
+## Automated phone tests
+
+`e2e/` has Maestro flows that run on a phone over USB (see `e2e/README.md`): login, the background sync (fails if anything "could not be saved"), and every module opened offline (fails on the network error). On 2026-10-21 all three passed on an OPPO A16 in Expo Go with 36 modules (Bookings and Chart of accounts are hidden for the test account).
