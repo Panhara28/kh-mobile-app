@@ -67,7 +67,27 @@ describe('module sync', () => {
   it('stops when kh-pos cannot be reached', async () => {
     let n = 0;
     const api = { call: async () => { n++; throw Object.assign(new Error('down'), { kind: 'network' }); } } as unknown as KhPosApi;
-    await warmModules(api, ctx);
-    expect(n).toBe(1);
+    const complete = await warmModules(api, ctx);
+    expect(complete).toBe(false);
+    expect(n).toBeLessThanOrEqual(4); // the few requests already in flight, then it stops
+  });
+
+  it('reports its progress up to done = total and says when the whole pass was done', async () => {
+    const api = { call: async () => ({ result: { data: [], total: 0 } }) } as unknown as KhPosApi;
+    const seen: { done: number; total: number }[] = [];
+    const complete = await warmModules(api, ctx, () => true, (p) => seen.push(p));
+    expect(complete).toBe(true);
+    const last = seen[seen.length - 1]!;
+    expect(last.done).toBe(last.total);
+    expect(last.total).toBeGreaterThan(80);
+    expect(seen.every((p) => p.done <= p.total)).toBe(true);
+  });
+
+  it('stops without finishing when told it is no longer alive', async () => {
+    let calls = 0;
+    const api = { call: async () => { calls++; return { result: { data: [], total: 0 } }; } } as unknown as KhPosApi;
+    const complete = await warmModules(api, ctx, () => calls < 5);
+    expect(complete).toBe(false);
+    expect(calls).toBeLessThan(20);
   });
 });

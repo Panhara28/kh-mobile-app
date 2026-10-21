@@ -14,7 +14,19 @@ interface OfflineValue {
   store: LocalStore;
   /** "Sync now": checks for kh-pos, sends what is waiting and refreshes the saved menu and tables. */
   syncNow(): Promise<void>;
+  /** The background saving of every module (see warm-modules.ts). */
+  moduleSync: ModuleSync;
 }
+
+export interface ModuleSync {
+  running: boolean;
+  done: number;
+  total: number;
+  /** When the last complete pass ended (ms since epoch), or null if none yet on this phone. */
+  finishedAt: number | null;
+}
+
+const NO_MODULE_SYNC: ModuleSync = { running: false, done: 0, total: 0, finishedAt: null };
 
 const OfflineContext = createContext<OfflineValue | null>(null);
 
@@ -100,15 +112,39 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   // Keep the modules in step in the background (see warm-modules.ts), one pass at a time.
   const modulesBusy = useRef(false);
   const isMain = !!user?.warehouse?.isMain;
+  const [moduleSync, setModuleSync] = useState<ModuleSync>(NO_MODULE_SYNC);
+  const doneKey = `modulesync:${uid}:${wh}`;
+  // when the last complete pass ended, kept so it is still known after the app is closed
+  useEffect(() => {
+    if (!store || !uid) return;
+    let alive = true;
+    void store.getCache<number>(doneKey).then((c) => alive && setModuleSync((m) => ({ ...m, finishedAt: c?.value ?? null })));
+    return () => {
+      alive = false;
+    };
+  }, [store, uid, doneKey]);
   const syncModules = useCallback(async () => {
     if (!uid || !wh || modulesBusy.current) return;
     modulesBusy.current = true;
+    setModuleSync((m) => ({ ...m, running: true, done: 0, total: 0 }));
     try {
-      await warmModules(api, { userId: uid, warehouseId: wh, isMain }, () => engine?.getState().online ?? false);
+      const complete = await warmModules(
+        api,
+        { userId: uid, warehouseId: wh, isMain },
+        () => engine?.getState().online ?? false,
+        // not every request: the screen would redraw hundreds of times
+        (p) => (p.done % 5 === 0 || p.done >= p.total) && setModuleSync((m) => ({ ...m, running: true, done: p.done, total: p.total })),
+      );
+      if (complete) {
+        const finishedAt = Date.now();
+        void store?.setCache(doneKey, finishedAt).catch(() => undefined);
+        setModuleSync((m) => ({ ...m, finishedAt }));
+      }
     } finally {
       modulesBusy.current = false;
+      setModuleSync((m) => ({ ...m, running: false }));
     }
-  }, [api, engine, uid, wh, isMain]);
+  }, [api, engine, store, uid, wh, isMain, doneKey]);
 
   // Keep a copy of the menu, tables and settings for offline use; refresh when kh-pos is back.
   const online = state.online;
@@ -144,8 +180,8 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   }, [api, engine, data, wh]);
 
   const value = useMemo<OfflineValue | null>(
-    () => (engine && data && store ? { data, engine, state, store, syncNow } : null),
-    [engine, data, store, state, syncNow],
+    () => (engine && data && store ? { data, engine, state, store, syncNow, moduleSync } : null),
+    [engine, data, store, state, syncNow, moduleSync],
   );
   if (!value) return null; // the phone's database is opening (a moment)
   return <OfflineContext.Provider value={value}>{children}</OfflineContext.Provider>;

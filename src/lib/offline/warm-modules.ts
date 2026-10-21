@@ -156,48 +156,78 @@ export function sheetAddresses(path: string, rows: Record<string, unknown>[]): s
   return [];
 }
 
+/** How far a pass has got. `total` grows as the records of a list are found (their sheets are added). */
+export interface WarmProgress {
+  done: number;
+  total: number;
+}
+
+/** Requests in flight at once: enough to cut the wait a lot, few enough not to load the server. */
+const CONCURRENCY = 4;
+
+const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 /**
- * Reads everything above, one request after another, and quietly skips what fails (a module the staff member is not
+ * Reads everything above, a few requests at a time, and quietly skips what fails (a module the staff member is not
  * allowed to open answers 403, an unused module may answer 404). Stops at once when kh-pos can't be reached or `alive`
- * turns false.
+ * turns false. Tells `onProgress` after every request; resolves true when the whole pass was done.
  */
-export async function warmModules(api: KhPosApi, c: WarmContext, alive: () => boolean = () => true): Promise<void> {
+export async function warmModules(api: KhPosApi, c: WarmContext, alive: () => boolean = () => true, onProgress?: (p: WarmProgress) => void): Promise<boolean> {
+  const queue: (() => Promise<void>)[] = [];
+  let total = 0;
+  let done = 0;
+  let inFlight = 0;
+  let stopped = false;
+  const report = () => onProgress?.({ done, total });
+  const add = (task: () => Promise<void>) => {
+    total++;
+    queue.push(task);
+  };
+  const get = (address: string) => () => api.call('GET', address).then(() => undefined);
+
   for (const path of FULL_LISTS) {
-    if (!alive()) return;
-    try {
+    add(async () => {
       const rows = await readAll(api, path, alive);
-      for (const sheet of sheetAddresses(path, rows)) {
-        if (!alive()) return;
-        await api.call('GET', sheet).catch((e) => {
-          if (isUnreachable(e)) throw e;
-        });
-      }
-    } catch (e) {
-      if (isUnreachable(e)) return;
-    }
+      for (const sheet of sheetAddresses(path, rows)) add(get(sheet));
+    });
   }
   for (const address of [...pagedAddresses(c), ...reportAddresses(c)]) {
-    if (!alive()) return;
-    try {
+    add(async () => {
       const answer = await api.call('GET', address);
-      for (const detail of detailAddresses(address, answer)) {
-        if (!alive()) return;
-        await api.call('GET', detail).catch((e) => {
-          if (isUnreachable(e)) throw e;
-        });
-      }
-    } catch (e) {
-      if (isUnreachable(e)) return;
-    }
+      for (const detail of detailAddresses(address, answer)) add(get(detail));
+    });
   }
   // the delivery customers list asks with its type last; the order type sheet asks for 20
-  for (const address of ['/api/auth/customer?limit=100&offset=0&type=delivery', '/api/auth/customer?limit=20&offset=0&type=delivery']) {
-    try {
-      await api.call('GET', address);
-    } catch {
-      // not available
+  for (const address of ['/api/auth/customer?limit=100&offset=0&type=delivery', '/api/auth/customer?limit=20&offset=0&type=delivery']) add(get(address));
+  report();
+
+  async function worker() {
+    while (!stopped) {
+      const task = queue.shift();
+      if (!task) {
+        if (inFlight === 0) return; // nothing waiting and nothing running that could add more
+        await pause(25);
+        continue;
+      }
+      if (!alive()) {
+        stopped = true;
+        return;
+      }
+      inFlight++;
+      try {
+        await task();
+      } catch (e) {
+        if (isUnreachable(e)) stopped = true; // the rest would fail the same way
+      } finally {
+        inFlight--;
+        done++;
+        report();
+      }
     }
   }
+
+  await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+  return !stopped && done >= total;
 }
 
 const isUnreachable = (e: unknown) => e instanceof Error && (e as { kind?: string }).kind === 'network';
