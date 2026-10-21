@@ -254,7 +254,11 @@ export interface OutboxCommand<K extends CommandKind = CommandKind> {
   kind: K;
   tableId: string;
   payload: CommandPayload[K];
-  status: 'pending' | 'failed';
+  /**
+   * `sending`: written to the phone's database before it is sent while kh-pos is reachable (write-ahead), so a crash or
+   * a lost signal in the middle of a send never loses it. It is removed when kh-pos has answered.
+   */
+  status: 'pending' | 'failed' | 'sending';
   /** Why a failed command failed (kh-pos' message). */
   error?: string | null;
   attempts: number;
@@ -265,7 +269,7 @@ export interface OutboxCommand<K extends CommandKind = CommandKind> {
 }
 
 export type NewCommand<K extends CommandKind = CommandKind> = Omit<OutboxCommand<K>, 'seq' | 'attempts' | 'status' | 'error'> & {
-  status?: 'pending';
+  status?: 'pending' | 'sending';
 };
 
 export interface CachedValue<T> {

@@ -23,7 +23,7 @@ export class MemoryStore implements LocalStore {
 
   async outboxAdd(cmd: NewCommand): Promise<void> {
     if (this.outbox.some((c) => c.id === cmd.id)) return; // same command twice: keep the first
-    this.outbox.push({ ...JSON.parse(JSON.stringify(cmd)), status: 'pending', error: null, attempts: 0, seq: this.nextSeq++ });
+    this.outbox.push({ ...JSON.parse(JSON.stringify(cmd)), status: cmd.status ?? 'pending', error: null, attempts: 0, seq: this.nextSeq++ });
   }
 
   async outboxList(): Promise<OutboxCommand[]> {

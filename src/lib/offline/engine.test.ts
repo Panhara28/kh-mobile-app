@@ -369,3 +369,74 @@ describe('Table transfer offline', () => {
     expect(server.transfers).toEqual([]);
   });
 });
+
+describe('Write-ahead: every change is in the database before it is sent', () => {
+  const rec = (id: string, over: Record<string, unknown> = {}): NewCommand => ({
+    id,
+    userId: USER,
+    kind: 'record',
+    tableId: 'record:x',
+    createdAt: 1,
+    payload: { entity: 'x', op: 'update', recordId: 'r1', method: 'PUT', path: '/api/x', label: 'X', ...over },
+  });
+
+  it('keeps the change in the database while it is being sent, and removes it once kh-pos accepted it', async () => {
+    const { store, engine } = setup();
+    let seen: string[] = [];
+    const how = await engine.run(rec('w1'), async () => {
+      seen = (await store.outboxList()).map((c) => `${c.id}:${c.status}`);
+    });
+    expect(how).toBe('done');
+    expect(seen).toEqual(['w1:sending']);
+    expect(await store.outboxList()).toEqual([]);
+    expect(engine.getState().commands).toEqual([]);
+  });
+
+  it('turns it into a waiting change when the signal is lost mid-send, and sends it later', async () => {
+    const { server, store, engine } = setup();
+    const how = await engine.run(rec('w2'), async () => {
+      throw new ApiError('network', undefined, 'gone');
+    });
+    expect(how).toBe('queued');
+    expect((await store.outboxList()).map((c) => c.status)).toEqual(['pending']);
+    expect(engine.getState().pending).toBe(1);
+    await engine.tick();
+    expect(server.requests).toHaveLength(1);
+    expect(await store.outboxList()).toEqual([]);
+  });
+
+  it('does not keep a change kh-pos refused: the error goes to the caller', async () => {
+    const { store, engine } = setup();
+    await expect(engine.run(rec('w3'), async () => { throw new ApiError('server', 400, 'No'); })).rejects.toThrow('No');
+    expect(await store.outboxList()).toEqual([]);
+  });
+
+  it('keeps a send-once change as "not confirmed" when the answer is lost, instead of dropping it', async () => {
+    const { store, engine } = setup();
+    await expect(engine.runOnce(rec('w4', { once: true }), async () => { throw new ApiError('network', undefined, 'gone'); })).rejects.toThrow(/Check there/);
+    const [c] = await store.outboxList();
+    expect(c).toMatchObject({ id: 'w4', status: 'failed' });
+    expect(c!.error).toMatch(/Could not confirm/);
+  });
+
+  it('after a crash: a change safe to repeat waits again, one that could be done twice is kept for the staff to check', async () => {
+    const { store, engine } = setup();
+    await store.outboxAdd({ ...rec('c-safe'), status: 'sending' });
+    await store.outboxAdd({ ...rec('c-once', { op: 'action', once: true }), status: 'sending' });
+    await store.outboxAdd({ ...rec('c-create', { op: 'create' }), status: 'sending' });
+    await store.outboxAdd({ ...setPending('S1', 2), id: 'c-order', status: 'sending' });
+    await engine.recoverSending();
+    const by = Object.fromEntries((await store.outboxList()).map((c) => [c.id, c.status]));
+    expect(by).toEqual({ 'c-safe': 'pending', 'c-once': 'failed', 'c-create': 'failed', 'c-order': 'pending' });
+  });
+
+  it('does not touch a change this run of the app is sending right now', async () => {
+    const { store, engine } = setup();
+    let during: string | undefined;
+    await engine.run(rec('w5'), async () => {
+      await engine.recoverSending();
+      during = (await store.outboxList())[0]?.status;
+    });
+    expect(during).toBe('sending');
+  });
+});

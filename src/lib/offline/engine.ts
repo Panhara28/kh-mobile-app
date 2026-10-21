@@ -13,6 +13,7 @@ import type {
   NewCommand,
   OpenShiftPayload,
   OutboxCommand,
+  RecordPayload,
   RemoveLinePayload,
   ResendPayload,
   RetailSalePayload,
@@ -80,6 +81,15 @@ const ID_MAP_KEY = 'idmap';
 export const UNCONFIRMED = 'Could not confirm whether kh-pos received this. Check there before doing it again.';
 const PROBE_MS = 8_000;
 
+export const INTERRUPTED = 'The app was closed while this was being sent. Check in KH POS whether it went through, then Retry or Discard.';
+
+/** Can this be sent again after an interruption without doing it twice? (Table, shift, checkout, retail and transfer changes are written to be repeated.) */
+function isSafeToRepeat(c: OutboxCommand): boolean {
+  if (c.kind !== 'record') return true;
+  const p = c.payload as RecordPayload;
+  return (p.op === 'update' || p.op === 'delete') && !p.once && !p.produce;
+}
+
 const isNetwork = (e: unknown) => e instanceof ApiError && e.kind === 'network';
 const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -133,7 +143,8 @@ export class SyncEngine {
   async refresh(): Promise<void> {
     const uid = this.uid;
     const all = await this.store.outboxList();
-    const commands = uid ? all.filter((c) => c.userId === uid) : [];
+    // a change being sent right now is not shown: it is either about to be gone or about to be waiting
+    const commands = uid ? all.filter((c) => c.userId === uid && c.status !== 'sending') : [];
     this.update({
       commands,
       pending: commands.filter((c) => c.status === 'pending').length,
@@ -150,47 +161,98 @@ export class SyncEngine {
 
   // ---- changes ----
 
+  /** Commands being sent right now by this process (so a crash can tell its own leftovers from live sends). */
+  private inFlight = new Set<string>();
+
   /**
-   * Makes a change. `tryOnline` is the normal call to kh-pos; it is used only when kh-pos is
-   * reachable and no earlier change is waiting (so order is kept). Resolves 'done' or 'queued'.
-   * Errors that aren't network errors (kh-pos said no) are thrown to the caller as before.
+   * Makes a change. It is written to the phone's database first (write-ahead); then, when kh-pos is reachable and no
+   * earlier change is waiting (so order is kept), `tryOnline` sends it at once and it is removed. Otherwise it stays as
+   * "pending" and is replayed later. Resolves 'done' or 'queued'. Errors that aren't network errors (kh-pos said no) are
+   * thrown to the caller as before, and the change is not kept.
    */
   async run(cmd: NewCommand, tryOnline: () => Promise<void>): Promise<'done' | 'queued'> {
-    if (this.state.online && this.state.pending === 0 && !this.flushing) {
-      try {
-        await tryOnline();
-        this.setOnline(true);
-        return 'done';
-      } catch (e) {
-        if (!isNetwork(e)) throw e;
-        this.setOnline(false);
-      }
+    const free = this.state.online && this.state.pending === 0 && !this.flushing;
+    await this.store.outboxAdd({ ...cmd, status: free ? 'sending' : 'pending' });
+    if (!free) {
+      await this.refresh();
+      if (this.state.online) void this.flush();
+      return 'queued';
     }
-    await this.enqueue(cmd);
-    return 'queued';
+    this.inFlight.add(cmd.id);
+    try {
+      await tryOnline();
+      await this.store.outboxRemove(cmd.id);
+      this.setOnline(true);
+      await this.refresh();
+      return 'done';
+    } catch (e) {
+      if (isNetwork(e)) {
+        this.setOnline(false);
+        await this.store.outboxUpdate(cmd.id, { status: 'pending' }); // replayed when kh-pos is back
+        await this.refresh();
+        return 'queued';
+      }
+      await this.store.outboxRemove(cmd.id); // kh-pos refused it: shown to the caller, not kept
+      await this.refresh();
+      throw e;
+    } finally {
+      this.inFlight.delete(cmd.id);
+    }
   }
 
   /**
-   * Like `run`, for a change that must not be done twice (stock in, receive ...). It is sent at once only when kh-pos
-   * answers a ping; if the answer to the send itself is lost nobody can tell whether it got through, so it is NOT put in
-   * the outbox: the error says to check first. Offline, it waits like any other change.
+   * Like `run`, for a change that must not be done twice (stock in, receive ...). It is written first too, but sent at
+   * once only when kh-pos answers a ping; if the answer to the send itself is lost nobody can tell whether it got
+   * through, so it is NOT sent again by itself: it stays in the list as failed ("not confirmed") for the staff to check
+   * first. Offline, it waits like any other change.
    */
   async runOnce(cmd: NewCommand, tryOnline: () => Promise<void>): Promise<'done' | 'queued'> {
     const free = this.state.online && this.state.pending === 0 && !this.flushing;
-    if (free && (await this.api.ping().catch(() => false))) {
-      try {
-        await tryOnline();
-        this.setOnline(true);
-        return 'done';
-      } catch (e) {
-        if (!isNetwork(e)) throw e;
+    if (free && !(await this.api.ping().catch(() => false))) {
+      this.setOnline(false);
+      await this.enqueue(cmd);
+      return 'queued';
+    }
+    await this.store.outboxAdd({ ...cmd, status: free ? 'sending' : 'pending' });
+    if (!free) {
+      await this.refresh();
+      if (this.state.online) void this.flush();
+      return 'queued';
+    }
+    this.inFlight.add(cmd.id);
+    try {
+      await tryOnline();
+      await this.store.outboxRemove(cmd.id);
+      this.setOnline(true);
+      await this.refresh();
+      return 'done';
+    } catch (e) {
+      if (isNetwork(e)) {
         this.setOnline(false);
+        await this.store.outboxUpdate(cmd.id, { status: 'failed', error: UNCONFIRMED });
+        await this.refresh();
         throw new Error(UNCONFIRMED);
       }
+      await this.store.outboxRemove(cmd.id);
+      await this.refresh();
+      throw e;
+    } finally {
+      this.inFlight.delete(cmd.id);
     }
-    if (free) this.setOnline(false);
-    await this.enqueue(cmd);
-    return 'queued';
+  }
+
+  /**
+   * Called once when the app starts: a change left "sending" by an earlier run of the app (it was closed or crashed
+   * mid-send). One that is safe to send again goes back to waiting; one that would be done twice if it had got through
+   * is kept as failed ("not confirmed") for the staff to check.
+   */
+  async recoverSending(): Promise<void> {
+    for (const c of await this.store.outboxList()) {
+      if (c.status !== 'sending' || this.inFlight.has(c.id)) continue;
+      if (isSafeToRepeat(c)) await this.store.outboxUpdate(c.id, { status: 'pending' });
+      else await this.store.outboxUpdate(c.id, { status: 'failed', error: INTERRUPTED });
+    }
+    await this.refresh();
   }
 
   async enqueue(cmd: NewCommand): Promise<void> {
@@ -607,7 +669,7 @@ export class SyncEngine {
   /** Starts checking for kh-pos every few seconds while something is waiting or it's offline. */
   start(): void {
     if (this.timer) return;
-    void this.tick();
+    void this.recoverSending().then(() => this.tick());
     this.timer = setInterval(() => void this.tick(), PROBE_MS);
   }
 
