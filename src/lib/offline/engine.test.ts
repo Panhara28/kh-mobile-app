@@ -30,7 +30,7 @@ const add = (lineId: string, variant: string, qty = 1, extra: Partial<AddLinePay
   createdAt: 1_760_000_000_000 + n,
   payload: { lineId, product: dish(variant), qty, options: [], note: '', warehouseId: 'w1', capEnabled: false, ...extra } satisfies AddLinePayload,
 });
-const setPending = (orderDetailId: string, qty: number): NewCommand => ({ id: `c${++n}`, userId: USER, kind: 'setPending', tableId: 't1', createdAt: 1, payload: { orderDetailId, qty } });
+const setPending = (orderDetailId: string, qty: number, base?: number): NewCommand => ({ id: `c${++n}`, userId: USER, kind: 'setPending', tableId: 't1', createdAt: 1, payload: { orderDetailId, qty, base } });
 const send = (): NewCommand => ({ id: `c${++n}`, userId: USER, kind: 'sendToKitchen', tableId: 't1', createdAt: 1, payload: {} });
 const remove = (orderDetailId: string): NewCommand => ({ id: `c${++n}`, userId: USER, kind: 'removeLine', tableId: 't1', createdAt: 1, payload: { orderDetailId } });
 const seedOrder = (server: FakeServer) =>
@@ -251,5 +251,25 @@ describe('SyncEngine', () => {
     await engine.flush();
     expect(engine.getState().failed).toBe(1);
     expect(server.summary()).toEqual(['v1×1(1/0)', 'v2×1(1/0)']);
+  });
+
+  it('keeps what someone else changed meanwhile: the phone sends its difference, not its number', async () => {
+    const { server, engine } = setup();
+    await seedOrder(server); // S1 has 1 pending
+    await queue(engine, setPending('S1', 3, 1)); // the phone saw 1 and raised it by 2
+    await server.api.setPendingQty((await server.api.table('t1')).order!.orderId, 'S1', 5); // another device made it 5
+    await engine.flush();
+    expect(server.summary()).toEqual(['v1×7(7/0)']);
+  });
+
+  it('applies the difference only once when the answer to the change is lost', async () => {
+    const { server, engine } = setup();
+    await seedOrder(server);
+    await queue(engine, setPending('S1', 3, 1));
+    server.dropAnswerOnce = true;
+    await engine.flush();
+    await engine.flush();
+    expect(server.summary()).toEqual(['v1×3(3/0)']);
+    expect(engine.getState().pending).toBe(0);
   });
 });

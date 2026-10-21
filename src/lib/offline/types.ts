@@ -58,6 +58,13 @@ export interface AddLinePayload {
 export interface SetPendingPayload {
   orderDetailId: string;
   qty: number;
+  /**
+   * How many portions the phone showed in this status when the change was made. With it, the change is replayed as the
+   * difference (a change someone else made meanwhile is kept); without it the quantity is set as it is.
+   */
+  base?: number;
+  /** Set by the first replay attempt: the quantity worked out from kh-pos' own count, so a retry sets the same number. */
+  target?: number;
 }
 
 export interface RemoveLinePayload {
@@ -73,6 +80,13 @@ export interface SetStatusPayload {
   orderDetailId: string;
   status: 'pending' | 'cooking' | 'served';
   qty: number;
+  /**
+   * How many portions the phone showed in this status when the change was made. With it, the change is replayed as the
+   * difference (a change someone else made meanwhile is kept); without it the quantity is set as it is.
+   */
+  base?: number;
+  /** Set by the first replay attempt: the quantity worked out from kh-pos' own count, so a retry sets the same number. */
+  target?: number;
 }
 
 /** Prepare (pending → cooking) or Serve (cooking → served) for part or all of a line. */

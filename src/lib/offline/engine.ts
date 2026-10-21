@@ -276,7 +276,7 @@ export class SyncEngine {
       case 'sendToKitchen':
         return this.replaySend(cmd as OutboxCommand<'sendToKitchen'>);
       case 'setStatus':
-        return this.replayOnLine(cmd as OutboxCommand<'setStatus'>, (order, id, p: SetStatusPayload) => this.api.setStatusQty(order, id, p.status, p.qty));
+        return this.replayQty(cmd as OutboxCommand<'setStatus'>, (cmd.payload as SetStatusPayload).status);
       case 'moveStatus':
         return this.replayMove(cmd as OutboxCommand<'moveStatus'>);
       case 'serveAll':
@@ -493,13 +493,28 @@ export class SyncEngine {
     await this.mapId(p.lineId, id);
   }
 
-  private async replaySetPending(cmd: OutboxCommand<'setPending'>): Promise<void> {
+  private replaySetPending(cmd: OutboxCommand<'setPending'>): Promise<void> {
+    return this.replayQty(cmd, 'pending');
+  }
+
+  /**
+   * Sets the portions of a line in one status. When the phone knew the count it saw (`base`), the change is the
+   * difference from it applied to kh-pos' count now, so what someone else did meanwhile is kept; the result is
+   * remembered (`target`) so a retry after a lost answer sets the same number instead of applying the difference again.
+   */
+  private async replayQty(cmd: OutboxCommand<'setPending' | 'setStatus'>, status: 'pending' | 'cooking' | 'served'): Promise<void> {
     const p: SetPendingPayload = cmd.payload;
-    const id = (await this.idMap())[p.orderDetailId] ?? p.orderDetailId;
-    const order = (await this.api.table(cmd.tableId)).order;
-    if (!order) throw new Error('The table has no open order any more.');
-    if (!(order.items ?? []).some((l) => l.orderDetailId === id)) throw new Error('The item is not on the order any more.');
-    await this.api.setPendingQty(order.orderId, id, p.qty);
+    await this.onLine(cmd, p, async (orderId, id, line) => {
+      let qty = p.qty;
+      if (p.base !== undefined) {
+        qty = p.target ?? Math.max(0, statusQty(line, status) + p.qty - p.base);
+        if (p.target === undefined) {
+          cmd.payload = { ...p, target: qty };
+          await this.store.outboxUpdate(cmd.id, { payload: cmd.payload });
+        }
+      }
+      await this.api.setStatusQty(orderId, id, status, qty);
+    });
   }
 
   private async replayRemoveLine(cmd: OutboxCommand<'removeLine'>): Promise<void> {

@@ -8,7 +8,7 @@ import type { CheckoutPayment, MenuProduct, OrderLine, PaymentMethod, PosInfo, R
 import { applyOutbox } from '@/lib/offline/overlay';
 import { useOffline } from '@/lib/offline/provider';
 import type { CommandKind, CommandPayload, NewCommand } from '@/lib/offline/types';
-import { activeLines, addToTable, canCheckout, kitchenMoves, modifierNames, modifierPrice, orderCounts, serveMoves } from '@/lib/order';
+import { activeLines, addToTable, canCheckout, kitchenMoves, modifierNames, modifierPrice, orderCounts, pendingQty, serveMoves, statusQty } from '@/lib/order';
 import { orderTotal } from '@/lib/payment';
 import { methodNames, receiptFromCheckout, receiptFromDetail, type Receipt } from '@/lib/receipt';
 import { toKhPosTime } from '@/lib/time';
@@ -274,7 +274,7 @@ export default function TableScreen() {
   function setPending(line: OrderLine, qty: number) {
     const orderId = table?.order?.orderId;
     if (!orderId) return;
-    void submit(command('setPending', { orderDetailId: line.orderDetailId, qty }), () => api.setPendingQty(orderId, line.orderDetailId, qty));
+    void submit(command('setPending', { orderDetailId: line.orderDetailId, qty, base: pendingQty(line) }), () => api.setPendingQty(orderId, line.orderDetailId, qty));
   }
 
   function remove(line: OrderLine) {
@@ -459,9 +459,14 @@ export default function TableScreen() {
 
   /** Customize Your Order's changes: each is done now, or kept on the phone and sent later. */
   const toOutbox = (cmd: NewCommand, online: () => Promise<void>) => engine.run(cmd, online).then(() => undefined);
+  /** What the screen shows now for a line in one status (the base of an offline quantity change). */
+  const shownQty = (orderDetailId: string, status: 'pending' | 'cooking' | 'served') => {
+    const line = (table?.order?.items ?? []).find((l) => l.orderDetailId === orderDetailId);
+    return line ? statusQty(line, status) : undefined;
+  };
   const lineApi: LineApi = {
     setStatusQty: (orderId, orderDetailId, status, qty) =>
-      toOutbox(command('setStatus', { orderDetailId, status, qty }), () => api.setStatusQty(orderId, orderDetailId, status, qty)),
+      toOutbox(command('setStatus', { orderDetailId, status, qty, base: shownQty(orderDetailId, status) }), () => api.setStatusQty(orderId, orderDetailId, status, qty)),
     moveStatus: async (orderId, moves) => {
       for (const m of moves) {
         await toOutbox(command('moveStatus', { orderDetailId: m.orderDetailId, from: m.fromStatus, to: m.toStatus, qty: m.qty }), () => api.moveStatus(orderId, [m]));

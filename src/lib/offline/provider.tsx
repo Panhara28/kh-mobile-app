@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Image } from 'react-native';
 import { useSession } from '../session';
 import { OfflineData } from './data';
 import { SyncEngine, type EngineState } from './engine';
@@ -48,6 +48,19 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     () => (store && engine ? new OfflineData(api, store, wh, (online) => engine.setOnline(online)) : null),
     [api, store, engine, wh],
   );
+  // Product photos are asked for once while kh-pos is reachable so the phone's image cache has them offline (best effort).
+  useEffect(() => {
+    if (!data) return;
+    data.onMenuSaved = (menu) => {
+      for (const p of menu) {
+        const url = api.imageUrl(p.images?.[0]?.url);
+        if (url) void Image.prefetch(url).catch(() => undefined);
+      }
+    };
+    return () => {
+      data.onMenuSaved = null;
+    };
+  }, [data, api]);
   const state = useSyncExternalStore(engine?.subscribe ?? noopSubscribe, engine?.getState ?? getEmpty);
 
   // Check for kh-pos and send waiting changes while signed in.

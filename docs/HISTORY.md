@@ -152,9 +152,9 @@ Goal: every part of the kh-pos web app reachable from the phone. The **More** ta
 
 - **Not tried on a real phone.** Test with the checklist in the README ("Try offline mode on a phone"). Log in once **with the server running** (log out first if you were logged in before this version) so the phone saves the menu, tables and your login.
 - Invoice number is assigned by kh-pos when an offline order is sent; the phone shows "Not sent yet".
-- Quantity changes are absolute: an offline change overwrites someone else's change made meanwhile.
+- Quantity changes made offline (pending, preparing, served counts) are sent as the difference from what the phone saw, added to kh-pos' count at that moment, so someone else's change meanwhile is kept; the result is worked out once, so a lost answer does not apply it twice.
 - Kitchen tickets print only after sync. A resend can print twice if its answer is lost.
-- Product photos are not saved (initials show offline).
+- Product photos of the menu are asked for once while online so the phone's image cache keeps them (best effort, to check on a phone); photos on other screens and uploads are not kept.
 - A password changed on the server still works offline on a phone that hasn't seen the change; kh-pos tokens never expire (see the README notes).
 - Promotions offline only for dishes whose list was loaded while online.
 - The first login on a phone needs the server.

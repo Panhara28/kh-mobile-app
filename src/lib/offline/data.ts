@@ -29,6 +29,8 @@ export class OfflineData {
   private menuRefresh: Promise<void> | null = null;
   private menuRefreshedAt = 0;
   private downUntil = 0;
+  /** Called with the menu after it has been saved (the app uses it to keep the photos, see provider.tsx). */
+  onMenuSaved: ((menu: MenuProduct[]) => void) | null = null;
 
   constructor(
     private readonly api: KhPosApi,
@@ -230,6 +232,7 @@ export class OfflineData {
       }
       await this.store.setCache(this.key('menu'), all);
       this.menuRefreshedAt = Date.now();
+      this.onMenuSaved?.(all);
     })()
       .catch(() => undefined) // best effort: the next refresh tries again
       .finally(() => {
