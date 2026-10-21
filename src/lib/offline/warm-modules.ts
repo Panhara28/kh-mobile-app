@@ -3,6 +3,7 @@ import { bookingQuery } from '../accounting';
 import { rangeFor, type RangePreset } from '../dates';
 import { eodQuery } from '../end-of-day';
 import { guestQuery } from '../guest-report';
+import { branchSaleQuery } from '../board';
 import { dateQuery } from '../reports';
 import { itemsQuery } from '../sale-items';
 import { saleQuery } from '../sale-report';
@@ -42,6 +43,7 @@ const FULL_LISTS = [
   '/api/promotion-set',
   '/api/user',
   '/api/accounting/chart-of-account',
+  '/api/product-v2', // the Retail POS catalog and the pickers
 ];
 
 /** First pages (30 or 20 a time) of the lists the screens page through, as the screens ask for them. */
@@ -86,6 +88,8 @@ export function reportAddresses(c: WarmContext): string[] {
     const day = { startDate: r.start.slice(0, 10), endDate: r.end.slice(0, 10) };
     const q = dateQuery(r);
     out.push(
+      `/api/report/warehouse/sale?${q}`, // the Board dashboard
+      ...(c.warehouseId ? [branchSaleQuery({ warehouseId: c.warehouseId, start: r.start, end: r.end })] : []), // and this branch's sales on it
       `/api/report/sale?${q}`,
       `/api/report/metrics?${q}`,
       `/api/report/hot-hour?${q}`,
@@ -99,6 +103,20 @@ export function reportAddresses(c: WarmContext): string[] {
     );
   }
   return out;
+}
+
+/** How many records of a list have their details kept (the first ones, which are the ones people open). */
+const DETAILS_PER_LIST = 15;
+
+/** The detail addresses of the first records of a list answer, for the lists whose rows open a detail screen. */
+export function detailAddresses(address: string, answer: unknown): string[] {
+  const result = (answer as { result?: unknown } | null)?.result;
+  const rows = (Array.isArray(result) ? result : (result as { data?: unknown[] } | undefined)?.data ?? []) as { id?: string }[];
+  const ids = rows.slice(0, DETAILS_PER_LIST).map((r) => r.id).filter((id): id is string => !!id);
+  if (address.startsWith('/api/product-v2?') && address.includes('offset=0')) return ids.map((id) => `/api/product-v2/${encodeURIComponent(id)}`);
+  if (address.startsWith('/api/purchase-order?') && address.includes('offset=0')) return ids.map((id) => `/api/purchase-order/detail/${encodeURIComponent(id)}`);
+  if (address.startsWith('/api/replenishment?') && address.includes('offset=0')) return ids.map((id) => `/api/replenishment/${encodeURIComponent(id)}`);
+  return [];
 }
 
 /** A module list read to the end the way fetchAllPages does it (limit=100, offset step 100). */
@@ -128,7 +146,13 @@ export async function warmModules(api: KhPosApi, c: WarmContext, alive: () => bo
   for (const address of [...pagedAddresses(c), ...reportAddresses(c)]) {
     if (!alive()) return;
     try {
-      await api.call('GET', address);
+      const answer = await api.call('GET', address);
+      for (const detail of detailAddresses(address, answer)) {
+        if (!alive()) return;
+        await api.call('GET', detail).catch((e) => {
+          if (isUnreachable(e)) throw e;
+        });
+      }
     } catch (e) {
       if (isUnreachable(e)) return;
     }

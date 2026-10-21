@@ -1,5 +1,5 @@
 import type { KhPosApi } from '../api';
-import { pagedAddresses, reportAddresses, warmModules } from './warm-modules';
+import { detailAddresses, pagedAddresses, reportAddresses, warmModules } from './warm-modules';
 
 const ctx = { userId: 'u1', warehouseId: 'w1', isMain: true };
 
@@ -21,6 +21,20 @@ describe('module sync', () => {
     expect(a.filter((x) => x.startsWith('/api/report/end-of-day?'))).toHaveLength(4);
     expect(a.some((x) => x.startsWith('/api/report/sale-by-category?') && x.includes('groupBy=product') && x.includes('warehouseId=w1'))).toBe(true);
     expect(new Set(a).size).toBe(a.length);
+  });
+
+  it('keeps the details of the first records of the lists that open a detail screen', () => {
+    const rows = Array.from({ length: 20 }, (_, i) => ({ id: `r${i}` }));
+    expect(detailAddresses('/api/product-v2?limit=30&offset=0', { result: { data: rows } })).toHaveLength(15);
+    expect(detailAddresses('/api/product-v2?limit=30&offset=0', { result: { data: rows } })[0]).toBe('/api/product-v2/r0');
+    expect(detailAddresses('/api/purchase-order?limit=30&offset=0&warehouseId=w1', { result: rows })[0]).toBe('/api/purchase-order/detail/r0');
+    expect(detailAddresses('/api/replenishment?limit=30&offset=0', { result: { data: rows } })[0]).toBe('/api/replenishment/r0');
+    expect(detailAddresses('/api/product-v2?limit=30&offset=30', { result: { data: rows } })).toEqual([]);
+    expect(detailAddresses('/api/back-log-order?limit=30&offset=0', { result: { data: rows } })).toEqual([]);
+  });
+
+  it('includes the Board dashboard and the Retail catalog', () => {
+    expect(reportAddresses(ctx).some((x) => x.startsWith('/api/report/warehouse/sale?'))).toBe(true);
   });
 
   it('reads every address once, goes through the lists a hundred at a time, and skips what is refused', async () => {
