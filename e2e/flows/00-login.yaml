@@ -1,4 +1,4 @@
-# Logs in (only when the login screen is showing). Needs: APP_ID, LINK_BASE, USERNAME, PASSWORD (see e2e/README.md).
+# Logs in (only when the login screen is showing). Needs: APP_ID, LINK_BASE, KH_USER, KH_PASS (see e2e/README.md).
 # The app must be in English (Profile > language) because the steps read the English words on the screen.
 appId: ${APP_ID}
 ---
@@ -10,9 +10,9 @@ appId: ${APP_ID}
       visible: "Enter username"
     commands:
       - tapOn: "Enter username"
-      - inputText: ${USERNAME}
+      - inputText: ${KH_USER}
       - tapOn: "Enter password"
-      - inputText: ${PASSWORD}
+      - inputText: ${KH_PASS}
       - hideKeyboard
       - tapOn: "Login"
 - extendedWaitUntil:

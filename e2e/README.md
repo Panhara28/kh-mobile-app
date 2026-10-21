@@ -22,7 +22,7 @@ The APK from the last EAS build does **not** have the newest code; build a new o
 ```powershell
 . .\e2e\env.ps1
 $env:APP_ID = "com.panahra28.khpos"; $env:LINK_BASE = "khpos://"
-$env:USERNAME = "<your test user>"; $env:PASSWORD = "<its password>"   # typed here, never saved in a file
+$env:KH_USER = "<your test user>"; $env:KH_PASS = "<its password>"   # typed here, never saved in a file
 .\e2e\run.ps1            # login, wait for the sync, then the offline check
 ```
 
