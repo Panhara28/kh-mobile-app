@@ -1,0 +1,21 @@
+# Logs in (only when the login screen is showing). Needs: APP_ID, LINK_BASE, USERNAME, PASSWORD (see e2e/README.md).
+# The app must be in English (Profile > language) because the steps read the English words on the screen.
+appId: ${APP_ID}
+---
+- launchApp:
+    stopApp: false
+- openLink: "${LINK_BASE}"
+- runFlow:
+    when:
+      visible: "Enter username"
+    commands:
+      - tapOn: "Enter username"
+      - inputText: ${USERNAME}
+      - tapOn: "Enter password"
+      - inputText: ${PASSWORD}
+      - hideKeyboard
+      - tapOn: "Login"
+- extendedWaitUntil:
+    visible: "Online"
+    timeout: 60000
+- takeScreenshot: "logged-in"
