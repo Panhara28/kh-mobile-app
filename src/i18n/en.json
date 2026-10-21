@@ -203,6 +203,7 @@
     "savedTables": "Tables: {{count}} (saved {{time}})",
     "savedMenu": "Menu: {{count}} dishes (saved {{time}})",
     "modulesTitle": "Modules saved for offline",
+    "modulesProblems": "{{count}} could not be saved (these will not open offline):",
     "modulesRunning": "Saving: {{done}} of {{total}}",
     "modulesDone": "All modules saved (finished {{time}}). It is refreshed every 10 minutes.",
     "modulesNone": "Not saved yet. Keep the app open while online until this shows all saved.",

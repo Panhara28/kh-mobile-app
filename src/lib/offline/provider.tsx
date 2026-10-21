@@ -24,9 +24,11 @@ export interface ModuleSync {
   total: number;
   /** When the last complete pass ended (ms since epoch), or null if none yet on this phone. */
   finishedAt: number | null;
+  /** What the last pass could not save, and why (at most a few dozen). */
+  problems: { address: string; reason: string }[];
 }
 
-const NO_MODULE_SYNC: ModuleSync = { running: false, done: 0, total: 0, finishedAt: null };
+const NO_MODULE_SYNC: ModuleSync = { running: false, done: 0, total: 0, finishedAt: null, problems: [] };
 
 const OfflineContext = createContext<OfflineValue | null>(null);
 
@@ -35,7 +37,7 @@ const EMPTY: EngineState = { online: true, syncing: false, commands: [], pending
 const getEmpty = () => EMPTY;
 const WARM_EVERY_MS = 10 * 60_000;
 /** Longest answer kept by address (characters of JSON). */
-const MAX_SAVED_ANSWER = 2_000_000;
+const MAX_SAVED_ANSWER = 8_000_000;
 
 /**
  * Offline support for the signed-in staff member (see offline/types.ts): opens the phone's
@@ -88,6 +90,11 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     };
   }, [engine, data, uid, wh]);
 
+  const [problems, setProblems] = useState<ModuleSync['problems']>([]);
+  const noteProblem = useCallback((address: string, reason: string) => {
+    setProblems((list) => (list.length >= 40 || list.some((p) => p.address === address) ? list : [...list, { address, reason }]));
+  }, []);
+
   // Every answer to a GET is kept on the phone by address, so a screen can be rebuilt from them when kh-pos can't be reached.
   useEffect(() => {
     if (!store || !uid) return;
@@ -95,7 +102,12 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     api.setUrlCache({
       save: (path, value) => {
         try {
-          if (JSON.stringify(value).length > MAX_SAVED_ANSWER) return; // a huge answer (a 10 000 order summary) is not kept
+          const size = JSON.stringify(value).length;
+          if (size > MAX_SAVED_ANSWER) {
+            // a huge answer (a 10 000 order summary) is not kept; say so in the sync sheet
+            noteProblem(path, `too big to keep (${Math.round(size / 1024)} KB)`);
+            return;
+          }
           void store.setCache(key(path), value).catch(() => undefined);
         } catch {
           // best effort
@@ -107,7 +119,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       },
     });
     return () => api.setUrlCache(null);
-  }, [api, store, uid, wh]);
+  }, [api, store, uid, wh, noteProblem]);
 
   // Keep the modules in step in the background (see warm-modules.ts), one pass at a time.
   const modulesBusy = useRef(false);
@@ -126,6 +138,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   const syncModules = useCallback(async () => {
     if (!uid || !wh || modulesBusy.current) return;
     modulesBusy.current = true;
+    setProblems([]);
     setModuleSync((m) => ({ ...m, running: true, done: 0, total: 0 }));
     try {
       const complete = await warmModules(
@@ -134,6 +147,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
         () => engine?.getState().online ?? false,
         // not every request: the screen would redraw hundreds of times
         (p) => (p.done % 5 === 0 || p.done >= p.total) && setModuleSync((m) => ({ ...m, running: true, done: p.done, total: p.total })),
+        (address, reason) => noteProblem(address, reason),
       );
       if (complete) {
         const finishedAt = Date.now();
@@ -144,7 +158,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       modulesBusy.current = false;
       setModuleSync((m) => ({ ...m, running: false }));
     }
-  }, [api, engine, store, uid, wh, isMain, doneKey]);
+  }, [api, engine, store, uid, wh, isMain, doneKey, noteProblem]);
 
   // Keep a copy of the menu, tables and settings for offline use; refresh when kh-pos is back.
   const online = state.online;
@@ -180,8 +194,8 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   }, [api, engine, data, wh]);
 
   const value = useMemo<OfflineValue | null>(
-    () => (engine && data && store ? { data, engine, state, store, syncNow, moduleSync } : null),
-    [engine, data, store, state, syncNow, moduleSync],
+    () => (engine && data && store ? { data, engine, state, store, syncNow, moduleSync: { ...moduleSync, problems } } : null),
+    [engine, data, store, state, syncNow, moduleSync, problems],
   );
   if (!value) return null; // the phone's database is opening (a moment)
   return <OfflineContext.Provider value={value}>{children}</OfflineContext.Provider>;

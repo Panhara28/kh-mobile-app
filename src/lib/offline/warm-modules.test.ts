@@ -1,5 +1,5 @@
 import type { KhPosApi } from '../api';
-import { detailAddresses, sheetAddresses, pagedAddresses, reportAddresses, warmModules } from './warm-modules';
+import { detailAddresses, reasonOf, sheetAddresses, pagedAddresses, reportAddresses, warmModules } from './warm-modules';
 
 const ctx = { userId: 'u1', warehouseId: 'w1', isMain: true };
 
@@ -89,5 +89,20 @@ describe('module sync', () => {
     const complete = await warmModules(api, ctx, () => calls < 5);
     expect(complete).toBe(false);
     expect(calls).toBeLessThan(20);
+  });
+
+  it('tells which addresses could not be read, and why', async () => {
+    const api = {
+      call: async (_m: string, path: string) => {
+        if (path.startsWith('/api/product-v2/group')) throw Object.assign(new Error('The operation was aborted'), { kind: 'server', status: 500 });
+        return { result: { data: [], total: 0 } };
+      },
+    } as unknown as KhPosApi;
+    const problems: [string, string][] = [];
+    await warmModules(api, ctx, () => true, undefined, (a, r) => problems.push([a, r]));
+    expect(problems.length).toBeGreaterThan(0);
+    expect(problems[0]![0]).toMatch(/^\/api\/product-v2\/group/);
+    expect(problems[0]![1]).toBe('server 500 The operation was aborted');
+    expect(reasonOf(new Error('x'))).toBe('x');
   });
 });

@@ -172,39 +172,46 @@ const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
  * allowed to open answers 403, an unused module may answer 404). Stops at once when kh-pos can't be reached or `alive`
  * turns false. Tells `onProgress` after every request; resolves true when the whole pass was done.
  */
-export async function warmModules(api: KhPosApi, c: WarmContext, alive: () => boolean = () => true, onProgress?: (p: WarmProgress) => void): Promise<boolean> {
-  const queue: (() => Promise<void>)[] = [];
+export async function warmModules(
+  api: KhPosApi,
+  c: WarmContext,
+  alive: () => boolean = () => true,
+  onProgress?: (p: WarmProgress) => void,
+  /** Told about every address that could not be read, and why (so it can be shown instead of guessed at). */
+  onProblem?: (address: string, reason: string) => void,
+): Promise<boolean> {
+  const queue: { label: string; run: () => Promise<void> }[] = [];
   let total = 0;
   let done = 0;
   let inFlight = 0;
   let stopped = false;
   const report = () => onProgress?.({ done, total });
-  const add = (task: () => Promise<void>) => {
+  const add = (label: string, run: () => Promise<void>) => {
     total++;
-    queue.push(task);
+    queue.push({ label, run });
   };
   const get = (address: string) => () => api.call('GET', address).then(() => undefined);
 
   for (const path of FULL_LISTS) {
-    add(async () => {
+    add(path, async () => {
       const rows = await readAll(api, path, alive);
-      for (const sheet of sheetAddresses(path, rows)) add(get(sheet));
+      for (const sheet of sheetAddresses(path, rows)) add(sheet, get(sheet));
     });
   }
   for (const address of [...pagedAddresses(c), ...reportAddresses(c)]) {
-    add(async () => {
+    add(address, async () => {
       const answer = await api.call('GET', address);
-      for (const detail of detailAddresses(address, answer)) add(get(detail));
+      for (const detail of detailAddresses(address, answer)) add(detail, get(detail));
     });
   }
   // the delivery customers list asks with its type last; the order type sheet asks for 20
-  for (const address of ['/api/auth/customer?limit=100&offset=0&type=delivery', '/api/auth/customer?limit=20&offset=0&type=delivery']) add(get(address));
+  for (const address of ['/api/auth/customer?limit=100&offset=0&type=delivery', '/api/auth/customer?limit=20&offset=0&type=delivery']) add(address, get(address));
   report();
 
   async function worker() {
     while (!stopped) {
-      const task = queue.shift();
-      if (!task) {
+      const item = queue.shift();
+      if (!item) {
         if (inFlight === 0) return; // nothing waiting and nothing running that could add more
         await pause(25);
         continue;
@@ -215,9 +222,10 @@ export async function warmModules(api: KhPosApi, c: WarmContext, alive: () => bo
       }
       inFlight++;
       try {
-        await task();
+        await item.run();
       } catch (e) {
         if (isUnreachable(e)) stopped = true; // the rest would fail the same way
+        onProblem?.(item.label, reasonOf(e));
       } finally {
         inFlight--;
         done++;
@@ -228,6 +236,13 @@ export async function warmModules(api: KhPosApi, c: WarmContext, alive: () => bo
 
   await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
   return !stopped && done >= total;
+}
+
+/** Why a read failed, in a few words (shown in the sync sheet). */
+export function reasonOf(e: unknown): string {
+  const err = e as { kind?: string; status?: number; message?: string };
+  const text = [err.kind, err.status ? String(err.status) : '', err.message && err.message !== err.kind ? err.message : ''].filter(Boolean).join(' ');
+  return (text || String(e)).slice(0, 120);
 }
 
 const isUnreachable = (e: unknown) => e instanceof Error && (e as { kind?: string }).kind === 'network';

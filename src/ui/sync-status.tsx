@@ -186,6 +186,16 @@ export function SyncSheet({ visible, onClose }: { visible: boolean; onClose: () 
             ) : (
               <Text style={styles.rowMeta}>{t('offline.modulesNone')}</Text>
             )}
+            {moduleSync.problems.length > 0 ? (
+              <>
+                <Text style={[styles.rowMeta, styles.rowError]}>{t('offline.modulesProblems', { count: moduleSync.problems.length })}</Text>
+                {moduleSync.problems.slice(0, 12).map((p) => (
+                  <Text key={p.address} style={styles.rowMeta} selectable>
+                    {p.address.length > 70 ? `${p.address.slice(0, 70)}…` : p.address} — {p.reason}
+                  </Text>
+                ))}
+              </>
+            ) : null}
             <Text style={styles.rowMeta}>{t('offline.savedHint')}</Text>
           </ScrollView>
 
