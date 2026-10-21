@@ -1,6 +1,7 @@
 import { ApiError, type KhPosApi, type MenuProduct, type OrderLine } from '../api';
 import { planAndProduce } from '../production';
 import { retailOrderBody } from '../retail';
+import type { SecretBox } from './secret';
 import { buildTransfer, selectAll } from '../transfer';
 import { addExtras, addToTable, kitchenMoves, mergeTarget, pendingQty, serveMoves, statusQty } from '../order';
 import type {
@@ -116,6 +117,8 @@ export class SyncEngine {
     private readonly api: EngineApi,
     private readonly store: LocalStore,
     private readonly now: () => number = Date.now,
+    /** Opens the sealed bodies of queued changes that carry a secret. */
+    private readonly secrets?: SecretBox,
   ) {}
 
   private uid: string | null = null;
@@ -405,7 +408,12 @@ export class SyncEngine {
    * staff to see. An add that already got through (the answer was lost) is answered "already exists" and counts as done.
    */
   private async replayRecord(cmd: OutboxCommand<'record'>): Promise<void> {
-    const p = cmd.payload;
+    let p = cmd.payload;
+    if (p.sealed) {
+      if (!this.secrets) throw new Error('This saved change cannot be opened on this phone. Discard it and do it again.');
+      const opened = JSON.parse(await this.secrets.open(p.sealed)) as Pick<RecordPayload, 'body' | 'steps'>;
+      p = { ...p, body: opened.body, steps: opened.steps };
+    }
     if (p.produce) {
       // the plan is made now from kh-pos' stock; a lost answer to the final call could mean it was made, so it is not repeated
       let posted = false;
@@ -436,7 +444,8 @@ export class SyncEngine {
       }
       if (steps.length > 1) {
         // carry on from the next call if this one is interrupted
-        cmd.payload = { ...p, done: i + 1 };
+        // (only the counter is saved: a sealed body stays sealed)
+        cmd.payload = { ...cmd.payload, done: i + 1 };
         await this.store.outboxUpdate(cmd.id, { payload: cmd.payload });
       }
     }

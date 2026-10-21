@@ -1,4 +1,5 @@
 import { ApiError } from '../api';
+import { createSecretBox } from './secret';
 import { SyncEngine } from './engine';
 import { dish, FakeServer } from './fake-server';
 import { MemoryStore } from './memory-store';
@@ -438,5 +439,55 @@ describe('Write-ahead: every change is in the database before it is sent', () =>
       during = (await store.outboxList())[0]?.status;
     });
     expect(during).toBe('sending');
+  });
+});
+
+describe('A queued change that carries a password', () => {
+  const keyBytes = globalThis.crypto.getRandomValues(new Uint8Array(32));
+  const box = createSecretBox({ get: async () => keyBytes, set: async () => undefined }, (n) => globalThis.crypto.getRandomValues(new Uint8Array(n)));
+
+  it('is stored sealed (no password in the SQLite file) and sent in the clear when kh-pos is back', async () => {
+    const server = new FakeServer();
+    const store = new MemoryStore();
+    const engine = new SyncEngine(server.api, store, Date.now, box);
+    engine.setUser(USER);
+    const body = { userId: 'u9', newPassword: 'Sup3r-secret' };
+    const sealed = await box.seal(JSON.stringify({ body, steps: undefined }));
+    engine.setOnline(false);
+    await engine.enqueue({
+      id: 'p1',
+      userId: USER,
+      kind: 'record',
+      tableId: 'record:user',
+      createdAt: 1,
+      payload: { entity: 'user', op: 'action', recordId: 'u9', method: 'POST', path: '/api/user/reset-password', sealed, label: 'Reset password', once: true },
+    });
+    expect(JSON.stringify(await store.outboxList())).not.toContain('Sup3r-secret');
+    server.online = true;
+    await engine.tick();
+    expect(server.requests).toEqual([{ method: 'POST', path: '/api/user/reset-password', body }]);
+    expect(await store.outboxList()).toEqual([]);
+  });
+
+  it('is kept as failed with a clear reason when the key is gone (secure storage reset)', async () => {
+    const server = new FakeServer();
+    const store = new MemoryStore();
+    const other = createSecretBox({ get: async () => globalThis.crypto.getRandomValues(new Uint8Array(32)), set: async () => undefined }, (n) => globalThis.crypto.getRandomValues(new Uint8Array(n)));
+    const engine = new SyncEngine(server.api, store, Date.now, other);
+    engine.setUser(USER);
+    engine.setOnline(false);
+    await engine.enqueue({
+      id: 'p2',
+      userId: USER,
+      kind: 'record',
+      tableId: 'record:user',
+      createdAt: 1,
+      payload: { entity: 'user', op: 'action', recordId: 'u9', method: 'POST', path: '/api/user/reset-password', sealed: await box.seal('{"body":{}}'), label: 'Reset password' },
+    });
+    server.online = true;
+    await engine.tick();
+    expect(server.requests).toEqual([]);
+    expect(engine.getState().commands[0]).toMatchObject({ status: 'failed' });
+    expect(engine.getState().commands[0]!.error).toMatch(/can no longer be read/);
   });
 });

@@ -207,6 +207,11 @@ export interface RecordPayload {
   /** How many of the `steps` have been sent. */
   done?: number;
   /**
+   * For a change that carries a secret (a password): the `body` and `steps` sealed with a key held in the phone's secure
+   * storage (see secret.ts), so the SQLite file never holds them in the clear. `body` and `steps` are then left out.
+   */
+  sealed?: string;
+  /**
    * kh-pos answers a yes or no inside a successful reply (for example `{result: false}`): this is the field to look at.
    * An answer of `false` is a refusal.
    */

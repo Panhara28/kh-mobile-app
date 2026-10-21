@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { planAndProduce } from '../production';
 import { useSession } from '../session';
 import { useOffline } from './provider';
+import { phoneSecretBox } from './phone-secret';
 import { overlayRecords, recordCommand, type RecordRequest, type WithSyncFlag } from './records';
 
 /**
@@ -14,8 +15,10 @@ export function useRecordWriter() {
   const { api, user } = useSession();
   const { engine } = useOffline();
   return useCallback(
-    (req: RecordRequest): Promise<'done' | 'queued'> => {
-      const cmd = recordCommand(user?.id ?? '', req, Crypto.randomUUID());
+    async (req: RecordRequest): Promise<'done' | 'queued'> => {
+      // a body with a password is sealed before it is written to the phone's database
+      const sealed = req.secret ? await phoneSecretBox.seal(JSON.stringify({ body: req.body, steps: req.steps })) : undefined;
+      const cmd = recordCommand(user?.id ?? '', req, Crypto.randomUUID(), Date.now(), sealed);
       const send = async () => {
         if (req.produce) {
           await planAndProduce((method, path, body) => api.call(method, path, body), req.produce);

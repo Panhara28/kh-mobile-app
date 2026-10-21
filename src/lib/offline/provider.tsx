@@ -3,6 +3,7 @@ import { AppState, Image } from 'react-native';
 import { useSession } from '../session';
 import { OfflineData } from './data';
 import { SyncEngine, type EngineState } from './engine';
+import { phoneSecretBox } from './phone-secret';
 import { warmModules } from './warm-modules';
 import { getStore } from './store';
 import type { LocalStore } from './types';
@@ -59,7 +60,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const engine = useMemo(() => (store ? new SyncEngine(api, store) : null), [api, store]);
+  const engine = useMemo(() => (store ? new SyncEngine(api, store, Date.now, phoneSecretBox) : null), [api, store]);
   // Created with the branch already known: screens read through it before this component's effects run.
   const data = useMemo(
     () => (store && engine ? new OfflineData(api, store, wh, (online) => engine.setOnline(online)) : null),
