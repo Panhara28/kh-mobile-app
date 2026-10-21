@@ -1,3 +1,4 @@
+import { useRecordWriter } from '@/lib/offline/use-record';
 import * as Print from 'expo-print';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -43,7 +44,7 @@ export function TransactionsModal({ api, variantId, title, onClose }: { api: KhP
 
   useEffect(() => {
     api
-      .call<{ result?: MovementRow[] }>('GET', `/api/product-v2/variant-transaction?variant_id=${encodeURIComponent(variantId)}`)
+      .getOrSaved<{ result?: MovementRow[] }>(`/api/product-v2/variant-transaction?variant_id=${encodeURIComponent(variantId)}`)
       .then((r) => setRows(r.result ?? []), (e) => setError(e));
   }, [api, variantId]);
 
@@ -82,6 +83,7 @@ export function TransactionsModal({ api, variantId, title, onClose }: { api: KhP
 /** The prices suppliers charge for a variant: see them, add, change (and schedule a later price) or delete. */
 export function SupplierPriceModal({ api, data, variantId, title, currency, canEdit, onClose }: { api: KhPosApi; data: OfflineData; variantId: string; title: string; currency: string; canEdit: boolean; onClose: () => void }) {
   const { t } = useTranslation();
+  const writer = useRecordWriter();
   const [rows, setRows] = useState<SupplierPriceRow[] | null>(null);
   const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
   const [error, setError] = useState<unknown>(null);
@@ -91,7 +93,7 @@ export function SupplierPriceModal({ api, data, variantId, title, currency, canE
 
   const load = useCallback(async () => {
     try {
-      const r = await api.call<{ result?: { data: SupplierPriceRow[] } }>('GET', `/api/supplier/product-price?productVariantId=${encodeURIComponent(variantId)}&limit=100&offset=0`);
+      const r = await api.getOrSaved<{ result?: { data: SupplierPriceRow[] } }>(`/api/supplier/product-price?productVariantId=${encodeURIComponent(variantId)}&limit=100&offset=0`);
       setRows(r.result?.data ?? []);
     } catch (e) {
       setError(e);
@@ -112,8 +114,11 @@ export function SupplierPriceModal({ api, data, variantId, title, currency, canE
     if (bad) return;
     setBusy(true);
     try {
-      if (e.id) await api.call('PUT', '/api/supplier/product-price', supplierPriceUpdateBody(e.id, variantId, e.form));
-      else await api.call('POST', '/api/supplier/product-price', supplierPriceCreateBody(variantId, e.form));
+      // sent at once, or kept on the phone and sent when kh-pos can be reached
+      const how = e.id
+        ? await writer({ entity: 'supplier-price', op: 'update', recordId: e.id, method: 'PUT', path: '/api/supplier/product-price', body: supplierPriceUpdateBody(e.id, variantId, e.form), label: title })
+        : await writer({ entity: 'supplier-price', op: 'create', recordId: `new:${variantId}:${Date.now()}`, method: 'POST', path: '/api/supplier/product-price', body: supplierPriceCreateBody(variantId, e.form), once: true, label: title });
+      if (how === 'queued') Alert.alert(t('offline.savedOffline'));
       setEditing(null);
       await load();
     } catch (err) {
@@ -131,7 +136,8 @@ export function SupplierPriceModal({ api, data, variantId, title, currency, canE
         style: 'destructive',
         onPress: async () => {
           try {
-            await api.call('DELETE', '/api/supplier/product-price', { id: r.id });
+            const how = await writer({ entity: 'supplier-price', op: 'delete', recordId: r.id ?? '', method: 'DELETE', path: '/api/supplier/product-price', body: { id: r.id }, label: title });
+            if (how === 'queued') Alert.alert(t('offline.savedOffline'));
             await load();
           } catch (err) {
             Alert.alert(t('errors.server'), err instanceof Error ? err.message : undefined);

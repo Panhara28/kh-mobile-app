@@ -8,7 +8,7 @@ import { colors, font, space } from './theme';
 export function LoadingState({ label }: { label?: string }) {
   const { t } = useTranslation();
   return (
-    <View style={styles.center}>
+    <View style={styles.center} testID="loading">
       <ActivityIndicator color={colors.primary} />
       <Text style={styles.muted}>{label ?? t('common.loading')}</Text>
     </View>
@@ -30,9 +30,10 @@ export function errorKind(e: unknown): ApiErrorKind {
 
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const { t } = useTranslation();
+  const kind = errorKind(error);
   return (
-    <View style={styles.center}>
-      <Text style={styles.title}>{t(`errors.${errorKind(error)}`)}</Text>
+    <View style={styles.center} testID={`error-${kind}`}>
+      <Text style={styles.title}>{t(`errors.${kind}`)}</Text>
       {onRetry ? <Button title={t('common.retry')} variant="outline" onPress={onRetry} /> : null}
     </View>
   );

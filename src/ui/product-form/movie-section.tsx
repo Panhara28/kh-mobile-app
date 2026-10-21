@@ -7,7 +7,7 @@ import type { KhPosApi } from '@/lib/api';
 import { MOVIE_GENRES, MOVIE_RATINGS, type MovieData } from '@/lib/product-form';
 import { Button, Chip, Input } from '@/ui/components';
 import { TagsField } from '@/ui/form-fields';
-import { uploadBase64 } from './images-section';
+import { pictureValue } from '@/lib/offline/uploads';
 import { NumInput, ToggleRow } from './parts';
 import { colors, font, radius, space } from '@/ui/theme';
 
@@ -36,7 +36,7 @@ export function MovieSection({ api, movie, onChange, guard }: { api: KhPosApi; m
       void (async () => {
         setBusy('poster');
         try {
-          patch({ posterUrl: await uploadBase64(api, b64) });
+          patch({ posterUrl: pictureValue(b64) });
         } catch (e) {
           Alert.alert(t('products.uploadFailed'), e instanceof Error ? e.message : undefined);
         } finally {
@@ -65,7 +65,7 @@ export function MovieSection({ api, movie, onChange, guard }: { api: KhPosApi; m
         try {
           const b64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: 'base64' });
           const ext = (asset.uri.split('.').pop() ?? 'mp4').toLowerCase().slice(0, 4);
-          patch({ trailerUrl: await uploadBase64(api, b64, ext) });
+          patch({ trailerUrl: pictureValue(b64, ext) });
         } catch (e) {
           Alert.alert(t('products.uploadFailed'), e instanceof Error ? e.message : undefined);
         } finally {

@@ -51,7 +51,7 @@ import { Button, Chip, Field } from '@/ui/components';
 import { QrSheet } from '@/ui/qr-sheet';
 import { CleanDummySheet } from './clean-dummy-sheet';
 import { InvoicePreview } from './invoice-preview';
-import { uploadBase64 } from '@/ui/product-form/images-section';
+import { pictureValue } from '@/lib/offline/uploads';
 import { colors, font, radius, space } from '@/ui/theme';
 
 export interface EditorProps {
@@ -124,7 +124,6 @@ function Choice({ label, options, value, onChange, disabled }: { label: string; 
 export function ImageBox({ url, onChange, disabled, label }: { url: string; onChange: (v: string) => void; disabled: boolean; label: string }) {
   const { t } = useTranslation();
   const { api } = useSession();
-  const guard = useOnlineOnly();
   const [busy, setBusy] = useState(false);
 
   async function pick() {
@@ -140,18 +139,18 @@ export function ImageBox({ url, onChange, disabled, label }: { url: string; onCh
       Alert.alert(t('sg.fileTooLarge'));
       return;
     }
-    guard(() => {
+    {
       void (async () => {
         setBusy(true);
         try {
-          onChange(await uploadBase64(api, a.base64!));
+          onChange(pictureValue(a.base64!));
         } catch (e) {
           Alert.alert(t('products.uploadFailed'), e instanceof Error ? e.message : undefined);
         } finally {
           setBusy(false);
         }
       })();
-    });
+    }
   }
 
   return (

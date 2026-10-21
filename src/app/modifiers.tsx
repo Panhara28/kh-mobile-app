@@ -10,7 +10,6 @@ import { addOption, bindBody, boundProducts, canRemoveOption, emptyModifierForm,
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
 import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button, Card, Input } from '@/ui/components';
@@ -239,7 +238,7 @@ function AppliesToModal({ api, modifier, canEdit, onClose }: { api: KhPosApi; mo
   const { t } = useTranslation();
   const { currency } = useBranch();
   const insets = useSafeAreaInsets();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const [rows, setRows] = useState<BoundProduct[] | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [filter, setFilter] = useState('');
@@ -248,7 +247,7 @@ function AppliesToModal({ api, modifier, canEdit, onClose }: { api: KhPosApi; mo
 
   const load = useCallback(async () => {
     try {
-      const r = await api.call<{ result?: BoundProduct[] }>('GET', `/api/modifier/${encodeURIComponent(modifier.modifierId)}`);
+      const r = await api.getOrSaved<{ result?: BoundProduct[] }>(`/api/modifier/${encodeURIComponent(modifier.modifierId)}`);
       setRows(boundProducts(r.result ?? []));
     } catch (e) {
       setError(e);
@@ -267,30 +266,32 @@ function AppliesToModal({ api, modifier, canEdit, onClose }: { api: KhPosApi; mo
       Alert.alert(t('modifiers.alreadyApplied', { name: title }));
       return;
     }
-    guard(async () => {
+    void (async () => {
       setWorking((w) => [...w, productId]);
       try {
-        await api.call('POST', base, bindBody(productId));
+        const how = await writer({ entity: 'modifier-product', op: 'action', recordId: `bind:${modifier.modifierId}:${productId}`, method: 'POST', path: base, body: bindBody(productId), label: title });
+        if (how === 'queued') Alert.alert(t('offline.savedOffline'));
         await load();
       } catch {
         Alert.alert(t('modifiers.applyFailed', { name: title }));
       } finally {
         setWorking((w) => w.filter((x) => x !== productId));
       }
-    });
+    })();
   };
   const unapply = (r: BoundProduct) =>
-    guard(async () => {
+    void (async () => {
       setWorking((w) => [...w, r.product_id]);
       try {
-        await api.call('DELETE', base, bindBody(r.product_id));
+        const how = await writer({ entity: 'modifier-product', op: 'action', recordId: `unbind:${modifier.modifierId}:${r.product_id}`, method: 'DELETE', path: base, body: bindBody(r.product_id), label: r.product?.title ?? '' });
+        if (how === 'queued') Alert.alert(t('offline.savedOffline'));
         await load();
       } catch {
         Alert.alert(t('modifiers.removeFailed', { name: r.product?.title ?? '' }));
       } finally {
         setWorking((w) => w.filter((x) => x !== r.product_id));
       }
-    });
+    })();
 
   const visible = rows ? filterBound(rows, filter) : [];
   return (

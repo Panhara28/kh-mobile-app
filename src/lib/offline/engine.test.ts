@@ -1,4 +1,5 @@
 import { ApiError } from '../api';
+import { createSecretBox } from './secret';
 import { SyncEngine } from './engine';
 import { dish, FakeServer } from './fake-server';
 import { MemoryStore } from './memory-store';
@@ -367,5 +368,228 @@ describe('Table transfer offline', () => {
     expect(engine.getState().failed).toBe(1);
     expect(engine.getState().commands[0]!.error).toMatch(/has an order now/);
     expect(server.transfers).toEqual([]);
+  });
+});
+
+describe('Write-ahead: every change is in the database before it is sent', () => {
+  const rec = (id: string, over: Record<string, unknown> = {}): NewCommand => ({
+    id,
+    userId: USER,
+    kind: 'record',
+    tableId: 'record:x',
+    createdAt: 1,
+    payload: { entity: 'x', op: 'update', recordId: 'r1', method: 'PUT', path: '/api/x', label: 'X', ...over },
+  });
+
+  it('keeps the change in the database while it is being sent, and removes it once kh-pos accepted it', async () => {
+    const { store, engine } = setup();
+    let seen: string[] = [];
+    const how = await engine.run(rec('w1'), async () => {
+      seen = (await store.outboxList()).map((c) => `${c.id}:${c.status}`);
+    });
+    expect(how).toBe('done');
+    expect(seen).toEqual(['w1:sending']);
+    expect(await store.outboxList()).toEqual([]);
+    expect(engine.getState().commands).toEqual([]);
+  });
+
+  it('turns it into a waiting change when the signal is lost mid-send, and sends it later', async () => {
+    const { server, store, engine } = setup();
+    const how = await engine.run(rec('w2'), async () => {
+      throw new ApiError('network', undefined, 'gone');
+    });
+    expect(how).toBe('queued');
+    expect((await store.outboxList()).map((c) => c.status)).toEqual(['pending']);
+    expect(engine.getState().pending).toBe(1);
+    await engine.tick();
+    expect(server.requests).toHaveLength(1);
+    expect(await store.outboxList()).toEqual([]);
+  });
+
+  it('does not keep a change kh-pos refused: the error goes to the caller', async () => {
+    const { store, engine } = setup();
+    await expect(engine.run(rec('w3'), async () => { throw new ApiError('server', 400, 'No'); })).rejects.toThrow('No');
+    expect(await store.outboxList()).toEqual([]);
+  });
+
+  it('keeps a send-once change as "not confirmed" when the answer is lost, instead of dropping it', async () => {
+    const { store, engine } = setup();
+    await expect(engine.runOnce(rec('w4', { once: true }), async () => { throw new ApiError('network', undefined, 'gone'); })).rejects.toThrow(/Check there/);
+    const [c] = await store.outboxList();
+    expect(c).toMatchObject({ id: 'w4', status: 'failed' });
+    expect(c!.error).toMatch(/Could not confirm/);
+  });
+
+  it('after a crash: a change safe to repeat waits again, one that could be done twice is kept for the staff to check', async () => {
+    const { store, engine } = setup();
+    await store.outboxAdd({ ...rec('c-safe'), status: 'sending' });
+    await store.outboxAdd({ ...rec('c-once', { op: 'action', once: true }), status: 'sending' });
+    await store.outboxAdd({ ...rec('c-create', { op: 'create' }), status: 'sending' });
+    await store.outboxAdd({ ...setPending('S1', 2), id: 'c-order', status: 'sending' });
+    await engine.recoverSending();
+    const by = Object.fromEntries((await store.outboxList()).map((c) => [c.id, c.status]));
+    expect(by).toEqual({ 'c-safe': 'pending', 'c-once': 'failed', 'c-create': 'failed', 'c-order': 'pending' });
+  });
+
+  it('does not touch a change this run of the app is sending right now', async () => {
+    const { store, engine } = setup();
+    let during: string | undefined;
+    await engine.run(rec('w5'), async () => {
+      await engine.recoverSending();
+      during = (await store.outboxList())[0]?.status;
+    });
+    expect(during).toBe('sending');
+  });
+});
+
+describe('A queued change that carries a password', () => {
+  const keyBytes = globalThis.crypto.getRandomValues(new Uint8Array(32));
+  const box = createSecretBox({ get: async () => keyBytes, set: async () => undefined }, (n) => globalThis.crypto.getRandomValues(new Uint8Array(n)));
+
+  it('is stored sealed (no password in the SQLite file) and sent in the clear when kh-pos is back', async () => {
+    const server = new FakeServer();
+    const store = new MemoryStore();
+    const engine = new SyncEngine(server.api, store, Date.now, box);
+    engine.setUser(USER);
+    const body = { userId: 'u9', newPassword: 'Sup3r-secret' };
+    const sealed = await box.seal(JSON.stringify({ body, steps: undefined }));
+    engine.setOnline(false);
+    await engine.enqueue({
+      id: 'p1',
+      userId: USER,
+      kind: 'record',
+      tableId: 'record:user',
+      createdAt: 1,
+      payload: { entity: 'user', op: 'action', recordId: 'u9', method: 'POST', path: '/api/user/reset-password', sealed, label: 'Reset password', once: true },
+    });
+    expect(JSON.stringify(await store.outboxList())).not.toContain('Sup3r-secret');
+    server.online = true;
+    await engine.tick();
+    expect(server.requests).toEqual([{ method: 'POST', path: '/api/user/reset-password', body }]);
+    expect(await store.outboxList()).toEqual([]);
+  });
+
+  it('is kept as failed with a clear reason when the key is gone (secure storage reset)', async () => {
+    const server = new FakeServer();
+    const store = new MemoryStore();
+    const other = createSecretBox({ get: async () => globalThis.crypto.getRandomValues(new Uint8Array(32)), set: async () => undefined }, (n) => globalThis.crypto.getRandomValues(new Uint8Array(n)));
+    const engine = new SyncEngine(server.api, store, Date.now, other);
+    engine.setUser(USER);
+    engine.setOnline(false);
+    await engine.enqueue({
+      id: 'p2',
+      userId: USER,
+      kind: 'record',
+      tableId: 'record:user',
+      createdAt: 1,
+      payload: { entity: 'user', op: 'action', recordId: 'u9', method: 'POST', path: '/api/user/reset-password', sealed: await box.seal('{"body":{}}'), label: 'Reset password' },
+    });
+    server.online = true;
+    await engine.tick();
+    expect(server.requests).toEqual([]);
+    expect(engine.getState().commands[0]).toMatchObject({ status: 'failed' });
+    expect(engine.getState().commands[0]!.error).toMatch(/can no longer be read/);
+  });
+});
+
+describe('A change with several calls', () => {
+  it('uses the id answered by the first call in the second, and carries on from the second if it is interrupted', async () => {
+    const { server, engine } = setup();
+    server.answers['POST /api/replenishment'] = { result: 'REP-1' };
+    await queue(engine, {
+      id: 'm1',
+      userId: USER,
+      kind: 'record',
+      tableId: 'record:replenishment',
+      createdAt: 1,
+      payload: {
+        entity: 'replenishment',
+        op: 'create',
+        recordId: 'new:1',
+        method: 'POST',
+        path: '/api/replenishment',
+        once: true,
+        label: 'R',
+        steps: [
+          { method: 'POST', path: '/api/replenishment', body: { lines: 1 } },
+          { method: 'PUT', path: '/api/replenishment/{{result}}/stock-picking-list', body: { id: '{{result}}' } },
+        ],
+      },
+    });
+    await engine.flush();
+    expect(server.requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /api/replenishment', 'PUT /api/replenishment/REP-1/stock-picking-list']);
+    expect(server.requests[1]!.body).toEqual({ id: 'REP-1' });
+    expect(engine.getState().commands).toEqual([]);
+  });
+});
+
+describe('A queued change with a picture picked on the phone', () => {
+  it('uploads the picture first, sends the change with its address, and does not upload it twice on a retry', async () => {
+    const { server, engine } = setup();
+    server.answers['POST /api/upload'] = { url: '/files/cat.jpg' };
+    await queue(engine, {
+      id: 'pic1',
+      userId: USER,
+      kind: 'record',
+      tableId: 'record:category',
+      createdAt: 1,
+      payload: { entity: 'category', op: 'create', recordId: 'c1', method: 'POST', path: '/api/category', body: { title: 'Tea', imageUrl: 'data:image/jpeg;base64,QUJD' }, label: 'Tea' },
+    });
+    server.refuseRequestWith = null;
+    await engine.flush();
+    expect(server.requests.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /api/upload', 'POST /api/category']);
+    expect(server.requests[0]!.body).toMatchObject({ fileContent: 'QUJD' });
+    expect(server.requests[1]!.body).toEqual({ title: 'Tea', imageUrl: '/files/cat.jpg' });
+    expect(engine.getState().commands).toEqual([]);
+  });
+
+  it('remembers an upload when the change itself is refused, so Retry does not upload the picture again', async () => {
+    const { server, engine } = setup();
+    server.answers['POST /api/upload'] = { url: '/files/cat.jpg' };
+    await queue(engine, {
+      id: 'pic2',
+      userId: USER,
+      kind: 'record',
+      tableId: 'record:category',
+      createdAt: 1,
+      payload: { entity: 'category', op: 'create', recordId: 'c2', method: 'POST', path: '/api/category', body: { title: 'Tea', imageUrl: 'data:image/jpeg;base64,QUJD' }, label: 'Tea' },
+    });
+    // the upload goes through, then kh-pos refuses the category
+    const original = server.api.call;
+    let first = true;
+    server.api.call = (async (m: string, p: string, b?: unknown) => {
+      if (p === '/api/category' && first) {
+        first = false;
+        throw new ApiError('server', 400, 'No');
+      }
+      return original(m, p, b);
+    }) as typeof original;
+    await engine.flush();
+    expect(engine.getState().failed).toBe(1);
+    await engine.retry('pic2');
+    await engine.flush();
+    expect(server.requests.filter((r) => r.path === '/api/upload')).toHaveLength(1);
+    expect(engine.getState().commands).toEqual([]);
+  });
+});
+
+describe('An idle app notices that kh-pos has gone', () => {
+  it('asks kh-pos every 20 seconds while online with nothing waiting, and turns Offline when it does not answer', async () => {
+    let clock = 1_000_000;
+    const server = new FakeServer();
+    const engine = new SyncEngine(server.api, new MemoryStore(), () => clock);
+    engine.setUser(USER);
+    await engine.tick(); // the first check
+    expect(engine.getState().online).toBe(true);
+    server.online = false;
+    clock += 5_000;
+    await engine.tick(); // too soon: no question asked
+    expect(engine.getState().online).toBe(true);
+    clock += 20_000;
+    await engine.tick();
+    expect(engine.getState().online).toBe(false);
+    server.online = true;
+    await engine.tick(); // offline: asked every time
+    expect(engine.getState().online).toBe(true);
   });
 });

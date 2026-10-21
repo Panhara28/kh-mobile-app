@@ -15,10 +15,11 @@ import { colors, font, radius, space } from './theme';
  */
 export function SyncBadge() {
   const { t } = useTranslation();
-  const { state } = useOffline();
+  const { state, moduleSync } = useOffline();
   const [open, setOpen] = useState(false);
+  const saving = state.online && state.pending === 0 && moduleSync.running;
 
-  const tone = state.failed > 0 ? 'bad' : !state.online ? 'offline' : state.pending > 0 || state.syncing ? 'busy' : 'ok';
+  const tone = state.failed > 0 ? 'bad' : !state.online ? 'offline' : state.pending > 0 || state.syncing || saving ? 'busy' : 'ok';
   const label = state.syncing
     ? t('offline.syncing')
     : state.failed > 0
@@ -29,11 +30,14 @@ export function SyncBadge() {
           : t('offline.offline')
         : state.pending > 0
           ? t('offline.waiting', { count: state.pending })
-          : t('offline.online');
+          : saving
+            ? t('offline.modulesPill', { percent: Math.min(99, Math.round((moduleSync.done / Math.max(1, moduleSync.total)) * 100)) })
+            : t('offline.online');
 
   return (
     <>
       <Pressable
+        testID={`sync-pill-${tone}`}
         onPress={() => setOpen(true)}
         accessibilityRole="button"
         accessibilityLabel={`${t('offline.title')}: ${label}`}
@@ -70,7 +74,7 @@ export function StaleBanner({ savedAt }: { savedAt: number | null }) {
 export function SyncSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { state, engine, data, syncNow } = useOffline();
+  const { state, engine, data, syncNow, moduleSync } = useOffline();
   const [names, setNames] = useState<Map<string, string>>(new Map());
   const [syncing, setSyncing] = useState(false);
   const [saved, setSaved] = useState<Awaited<ReturnType<typeof data.savedSummary>> | null>(null);
@@ -128,7 +132,7 @@ export function SyncSheet({ visible, onClose }: { visible: boolean; onClose: () 
         <View style={[styles.sheet, { paddingBottom: insets.bottom + space.lg }]}>
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>{t('offline.title')}</Text>
-            <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('offline.close')}>
+            <Pressable testID="sync-close" onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('offline.close')}>
               <Text style={styles.close}>✕</Text>
             </Pressable>
           </View>
@@ -170,6 +174,29 @@ export function SyncSheet({ visible, onClose }: { visible: boolean; onClose: () 
                 ? t('offline.savedMenu', { count: saved.menuItems, time: saved.menuAt ? clock(new Date(saved.menuAt)) : '' })
                 : `${t('offline.menuLabel')}: ${t('offline.savedNone')}`}
             </Text>
+            <Text testID="modules-title" style={styles.section}>{t('offline.modulesTitle')}</Text>
+            {moduleSync.running ? (
+              <>
+                <Text testID="modules-running" style={styles.rowMeta}>{t('offline.modulesRunning', { done: moduleSync.done, total: moduleSync.total })}</Text>
+                <View style={styles.bar}>
+                  <View style={[styles.barFill, { width: `${Math.min(100, Math.round((moduleSync.done / Math.max(1, moduleSync.total)) * 100))}%` }]} />
+                </View>
+              </>
+            ) : moduleSync.finishedAt ? (
+              <Text testID="modules-done" style={styles.rowMeta}>{t('offline.modulesDone', { time: clock(new Date(moduleSync.finishedAt)) })}</Text>
+            ) : (
+              <Text testID="modules-none" style={styles.rowMeta}>{t('offline.modulesNone')}</Text>
+            )}
+            {moduleSync.problems.length > 0 ? (
+              <>
+                <Text testID="modules-problems" style={[styles.rowMeta, styles.rowError]}>{t('offline.modulesProblems', { count: moduleSync.problems.length })}</Text>
+                {moduleSync.problems.slice(0, 12).map((p) => (
+                  <Text key={p.address} style={styles.rowMeta} selectable>
+                    {p.address.length > 70 ? `${p.address.slice(0, 70)}…` : p.address} — {p.reason}
+                  </Text>
+                ))}
+              </>
+            ) : null}
             <Text style={styles.rowMeta}>{t('offline.savedHint')}</Text>
           </ScrollView>
 
@@ -203,6 +230,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm, padding: space.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
   rowTitle: { fontSize: font.body, color: colors.foreground, lineHeight: font.lineHeight },
   rowMeta: { fontSize: 12, color: colors.mutedForeground, lineHeight: 18 },
+  bar: { height: 6, borderRadius: 3, backgroundColor: colors.border, overflow: 'hidden' },
+  barFill: { height: 6, backgroundColor: colors.info },
   rowError: { fontSize: 12, color: colors.destructive, marginTop: 2, lineHeight: 18 },
   rowActions: { gap: 4, alignItems: 'flex-end' },
   note: { marginTop: space.md },

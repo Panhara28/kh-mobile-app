@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CheckoutPayment, MenuProduct, OrderLine, PaymentMethod, PosInfo, RestaurantTable } from '@/lib/api';
 import { applyOutbox } from '@/lib/offline/overlay';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { useOffline } from '@/lib/offline/provider';
 import type { CommandKind, CommandPayload, NewCommand } from '@/lib/offline/types';
 import { activeLines, addToTable, canCheckout, kitchenMoves, modifierNames, modifierPrice, orderCounts, pendingQty, serveMoves, statusQty } from '@/lib/order';
@@ -14,7 +15,7 @@ import { methodNames, receiptFromCheckout, receiptFromDetail, type Receipt } fro
 import { toKhPosTime } from '@/lib/time';
 import { useShift } from '@/lib/use-shift';
 import { can } from '@/lib/line';
-import type { TransferBody } from '@/lib/transfer';
+import { selectAll, selectedCount, type TransferBody } from '@/lib/transfer';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button } from '@/ui/components';
@@ -51,6 +52,7 @@ export default function TableScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { api, user } = useSession();
   const { data, engine, state } = useOffline();
+  const writer = useRecordWriter();
   const { warehouseId, currency, capEnabled, exchangeRate } = useBranch();
   const { shift, reload: reloadShift } = useShift();
 
@@ -368,19 +370,30 @@ export default function TableScreen() {
   }
 
   async function doTransfer(body: TransferBody, destination: RestaurantTable) {
+    const order = table?.order;
+    if (!order) return;
     setBusy(true);
     try {
-      if (!engine.getState().online && table?.order) {
-        await engine.enqueue(
-          command('transfer', { orderId: body.orderId, destinationTableId: destination.id, destinationName: destination.table_name, transferDiscount: body.transferDiscount, order: table.order }),
+      // the whole order onto a free table can be shown on the other table at once; anything else (part of an order, a
+      // table that has an order) is kept and sent as it is. Either way it is written to the phone first.
+      const moved = body.orderItems.reduce((a, i) => a + i.orderItemStatuses.reduce((b, st) => b + st.quantity, 0), 0);
+      const whole = moved === selectedCount(selectAll(order)) && destination.status !== 'order_taken' && !destination.order;
+      let how: 'done' | 'queued';
+      if (whole) {
+        how = await engine.run(
+          command('transfer', { orderId: body.orderId, destinationTableId: destination.id, destinationName: destination.table_name, transferDiscount: body.transferDiscount, order }),
+          () => api.transferTable(body),
         );
-        setTransferTables(null);
+      } else {
+        if (!engine.getState().online) setTransferTables(null);
+        how = await writer({ entity: 'table-transfer', op: 'action', recordId: `transfer:${body.orderId}:${Date.now()}`, method: 'POST', path: '/api/transfer-table', body, once: true, label: `${t('transfer.button')}: ${destination.table_name}` });
+      }
+      setTransferTables(null);
+      if (how === 'queued') {
         Alert.alert(t('transfer.savedOffline', { name: destination.table_name }));
-        router.back(); // the order is on the other table now
+        if (whole) router.back(); // the order is on the other table now
         return;
       }
-      await api.transferTable(body);
-      setTransferTables(null);
       Alert.alert(t('transfer.done', { name: destination.table_name }));
       await load();
       if (!(await data.table(id).then((r) => r.data.order).catch(() => null))) router.back(); // the whole order moved
@@ -433,7 +446,9 @@ export default function TableScreen() {
       const walkIn = (await data.posInfo(warehouseId)).data.posCustomerId;
       const body = orderTypeBody(type, walkIn, customer);
       if (!body) return;
-      await api.setOrderType(orderId, body);
+      // sent at once, or kept on the phone and sent when kh-pos can be reached
+      const how = await writer({ entity: 'order', op: 'action', recordId: `type:${orderId}`, method: 'PUT', path: `/api/pos/order/${encodeURIComponent(orderId)}/customer`, body, label: t('orderType.title') });
+      if (how === 'queued') Alert.alert(t('offline.savedOffline'));
       setOrderTypeOpen(false);
     } catch (e) {
       showError(e);
@@ -671,7 +686,7 @@ export default function TableScreen() {
           onComplete={(p) => void completeCheckout(p)}
         />
       ) : null}
-      {transferTables ? <TransferSheet table={table} tables={transferTables} busy={busy} offline={!state.online} onClose={() => setTransferTables(null)} onTransfer={(b, d) => void doTransfer(b, d)} /> : null}
+      {transferTables ? <TransferSheet table={table} tables={transferTables} busy={busy} onClose={() => setTransferTables(null)} onTransfer={(b, d) => void doTransfer(b, d)} /> : null}
       <ReceiptSheet
         receipt={receipt}
         onClose={() => {

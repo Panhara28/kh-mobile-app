@@ -19,17 +19,19 @@ export interface RecordRequest {
   label: string;
   once?: boolean;
   row?: Record<string, unknown>;
+  /** The body carries a secret (a password): it is sealed before it is written to the phone's database. */
+  secret?: boolean;
 }
 
 /** The outbox entry for a setup change. */
-export function recordCommand(userId: string, req: RecordRequest, id: string, now = Date.now()): NewCommand<'record'> {
+export function recordCommand(userId: string, req: RecordRequest, id: string, now = Date.now(), sealed?: string): NewCommand<'record'> {
   return {
     id,
     userId,
     kind: 'record',
     tableId: `record:${req.entity}`,
     createdAt: now,
-    payload: { entity: req.entity, op: req.op, recordId: req.recordId, method: req.method, path: req.path, body: req.body, steps: req.steps, mustBeTrue: req.mustBeTrue, produce: req.produce, label: req.label, once: req.once, row: req.row },
+    payload: { entity: req.entity, op: req.op, recordId: req.recordId, method: req.method, path: req.path, body: sealed ? undefined : req.body, steps: sealed ? undefined : req.steps, sealed, mustBeTrue: req.mustBeTrue, produce: req.produce, label: req.label, once: req.once, row: req.row },
   };
 }
 

@@ -8,13 +8,12 @@ import { fetchAllPages } from '@/lib/catalog';
 import { can } from '@/lib/line';
 import { useOffline } from '@/lib/offline/provider';
 import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import { branchBody, branchForm, branchTitle, emptyBranch, validateBranch, type BranchForm, type BranchRow } from '@/lib/org';
 import { useSession } from '@/lib/session';
 import { dateOnly, orNA } from '@/lib/suppliers';
 import { Badge, Button, Card, Input } from '@/ui/components';
 import { ToggleRow } from '@/ui/product-form/parts';
-import { uploadBase64 } from '@/ui/product-form/images-section';
+import { pictureValue } from '@/lib/offline/uploads';
 import { ScreenHeader } from '@/ui/screen-header';
 import { EmptyState, ErrorState, LoadingState } from '@/ui/states';
 import { StaleBanner } from '@/ui/sync-status';
@@ -28,7 +27,6 @@ export default function BranchesScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data, state } = useOffline();
-  const guard = useOnlineOnly();
   const insets = useSafeAreaInsets();
 
   const [rows, setRows] = useState<BranchRow[] | null>(null);
@@ -83,18 +81,18 @@ export default function BranchesScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.7, mediaTypes: ['images'] });
     const asset = result.assets?.[0];
     if (result.canceled || !asset?.base64) return;
-    guard(() => {
+    {
       void (async () => {
         setUploading(true);
         try {
-          set({ image: await uploadBase64(api, asset.base64!) });
+          set({ image: pictureValue(asset.base64!) });
         } catch (e) {
           Alert.alert(t('products.uploadFailed'), e instanceof Error ? e.message : undefined);
         } finally {
           setUploading(false);
         }
       })();
-    });
+    }
   }
 
   function save() {
@@ -103,8 +101,8 @@ export default function BranchesScreen() {
     setProblem(bad);
     if (bad) return;
     const body = branchBody(e.form, e.row ?? undefined);
-    // an edit is kept on the phone and sent later when kh-pos can't be reached; a new branch has an account password,
-    // which must not be kept in the phone's queue, so adding needs the server
+    // every change is kept on the phone and sent later when kh-pos can't be reached; the account password of a new
+    // branch is sealed with a key held in the phone's secure storage
     const edit = e.row;
     const run = async () => {
       setBusy(true);
@@ -113,7 +111,20 @@ export default function BranchesScreen() {
           const upd = body as { warehouseName: string; ownerName: string; phoneNumber: string; address: string; image: string; lat: string; lng: string; useMainBranchVisibility: boolean };
           await writer({ entity: 'branch', op: 'update', recordId: edit.id!, method: 'PUT', path: '/api/warehouse-v2', body, label: upd.warehouseName, row: { name: upd.warehouseName, ownerName: upd.ownerName, phone: upd.phoneNumber, address: upd.address, image: upd.image, lat: upd.lat, lng: upd.lng } });
         } else {
-          await api.call('POST', '/api/warehouse-v2', body);
+          const name = e.form.warehouseName.trim();
+          const how = await writer({
+            entity: 'branch',
+            op: 'create',
+            recordId: `new:${name}`,
+            method: 'POST',
+            path: '/api/warehouse-v2',
+            body,
+            secret: true,
+            once: true,
+            label: name,
+            row: { id: `new:${name}`, name, isMain: false, ownerName: e.form.ownerName.trim(), phoneNumber: e.form.phoneNumber.trim(), address: e.form.address.trim(), image: e.form.image, useMainBranchVisibility: e.form.useMainBranchVisibility },
+          });
+          if (how === 'queued') Alert.alert(t('offline.savedOffline'));
         }
         setEditing(null);
         await load();
@@ -123,8 +134,7 @@ export default function BranchesScreen() {
         setBusy(false);
       }
     };
-    if (edit) void run();
-    else guard(run);
+    void run();
   }
 
   function remove(b: BranchRow) {
@@ -134,14 +144,15 @@ export default function BranchesScreen() {
         text: t('admin.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('DELETE', '/api/warehouse-v2', { id: b.id });
+              const how = await writer({ entity: 'branch', op: 'delete', recordId: b.id!, method: 'DELETE', path: '/api/warehouse-v2', body: { id: b.id }, once: true, label: b.name });
+              if (how === 'queued') Alert.alert(t('offline.savedOffline'));
               await load();
             } catch (err) {
               Alert.alert(t('branches.deleteFailed'), err instanceof Error ? err.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }

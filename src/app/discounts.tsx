@@ -11,7 +11,6 @@ import { can } from '@/lib/line';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
 import { useRecordRows, useRecordWriter } from '@/lib/offline/use-record';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button, Card, Chip, Input } from '@/ui/components';
@@ -203,7 +202,7 @@ function AppliesModal({ api, discount, canEdit, onClose }: { api: KhPosApi; disc
   const { t } = useTranslation();
   const { data } = useOffline();
   const { currency, warehouseId } = useBranch();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const [state, setState] = useState<AppliesState | null>(null);
   const [tab, setTab] = useState<'all' | 'product' | 'category'>('product');
   const [error, setError] = useState<unknown>(null);
@@ -215,7 +214,7 @@ function AppliesModal({ api, discount, canEdit, onClose }: { api: KhPosApi; disc
   const read = useCallback(
     async (setFirstTab: boolean) => {
       try {
-        const r = await api.call<{ result?: AppliesRow[] }>('GET', `/api/discount/applies?id=${encodeURIComponent(discount.id)}`);
+        const r = await api.getOrSaved<{ result?: AppliesRow[] }>(`/api/discount/applies?id=${encodeURIComponent(discount.id)}`);
         const s = appliesState(r.result ?? []);
         setState(s);
         if (setFirstTab) setTab(s.tab);
@@ -235,10 +234,17 @@ function AppliesModal({ api, discount, canEdit, onClose }: { api: KhPosApi; disc
 
   /** Sends the changes one after another (the server handles each as its own request), then reads again. */
   function send(changes: Change[], afterTab?: 'all' | 'product' | 'category') {
-    guard(async () => {
+    void (async () => {
       setBusy(true);
       try {
-        for (const c of changes) await api.call('POST', '/api/discount/applies', appliesBody([c]));
+        // each is sent at once, or kept on the phone and sent in order when kh-pos can be reached
+        let queued = false;
+        const stamp = Date.now();
+        for (const [i, c] of changes.entries()) {
+          const how = await writer({ entity: 'discount-applies', op: 'action', recordId: `applies:${stamp}:${i}`, method: 'POST', path: '/api/discount/applies', body: appliesBody([c]), label: t('discounts.title') });
+          if (how === 'queued') queued = true;
+        }
+        if (queued) Alert.alert(t('offline.savedOffline'));
         await read(false);
         if (afterTab) setTab(afterTab);
       } catch (e) {
@@ -246,7 +252,7 @@ function AppliesModal({ api, discount, canEdit, onClose }: { api: KhPosApi; disc
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   function chooseTab(next: 'all' | 'product' | 'category') {

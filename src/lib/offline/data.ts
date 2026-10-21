@@ -1,5 +1,6 @@
 import { ApiError, type Category, type KhPosApi, type MenuProduct, type MenuQuery, type PaymentMethod, type PosInfo, type PromotionOption, type RestaurantTable, type Setting, type Shift } from '../api';
 import { fetchAllPages } from '../catalog';
+import { filterOrdersLocal, mergeRecentOrders, type OrderFilter, type OrderRow } from '../orders';
 import { compositeQuery, type CompositeOption } from '../production';
 import type { PromotionSet } from '../promotion-set';
 import { filterMenu } from './menu-local';
@@ -58,7 +59,10 @@ export class OfflineData {
   private async live<T>(call: () => Promise<T>): Promise<T> {
     if (Date.now() < this.downUntil) throw new ApiError('network', undefined, 'Server unreachable (recently)');
     try {
+      const servedBefore = this.api.savedCopiesServed ?? 0;
       const result = await call();
+      // answered from saved copies (another read was rebuilding offline meanwhile): says nothing about kh-pos
+      if ((this.api.savedCopiesServed ?? 0) !== servedBefore) return result;
       this.downUntil = 0;
       this.reachability(true);
       return result;
@@ -78,6 +82,10 @@ export class OfflineData {
       return { data, stale: false, savedAt: null };
     } catch (e) {
       if (!(e instanceof ApiError) || e.kind !== 'network') throw e;
+      // The same screen read again from the saved answers of its addresses: these are kept fresh in the background for
+      // every module, so a screen that was never opened (or opened with other filters) can still be shown.
+      const rebuilt = await this.api.fromSavedCopies?.(fetcher).catch(() => null);
+      if (rebuilt) return { data: rebuilt.value, stale: true, savedAt: rebuilt.savedAt ?? Date.now() };
       const saved = await this.store.getCache<T>(key);
       if (!saved) throw e;
       return { data: saved.value, stale: true, savedAt: saved.savedAt };
@@ -158,6 +166,42 @@ export class OfflineData {
    */
   cachedRead<T>(name: string, extra: string, fetcher: () => Promise<T>): Promise<Loaded<T>> {
     return this.read(this.key(name, extra), fetcher);
+  }
+
+  /**
+   * The order list. Each list read online is saved as it was asked, and its orders are added to a rolling set of recent
+   * orders (with their details, for the first few) so that offline any date, status, invoice or phone filter can be
+   * answered from them, not only a list that was opened before.
+   */
+  async orders(f: OrderFilter): Promise<Loaded<{ totalRows: number; orders: OrderRow[] }>> {
+    const recentKey = this.key('orders-recent');
+    try {
+      const r = await this.read(this.key('orders', JSON.stringify(f)), () => this.api.orders(f));
+      if (!r.stale) void this.rememberOrders(recentKey, r.data.orders, (f.offset ?? 0) === 0);
+      return r;
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.kind !== 'network') throw e;
+      const recent = await this.store.getCache<OrderRow[]>(recentKey);
+      if (!recent) throw e;
+      return { data: filterOrdersLocal(recent.value, f), stale: true, savedAt: recent.savedAt };
+    }
+  }
+
+  private savedDetails = new Set<string>();
+
+  private async rememberOrders(recentKey: string, fresh: OrderRow[], first: boolean): Promise<void> {
+    try {
+      const saved = (await this.store.getCache<OrderRow[]>(recentKey))?.value ?? [];
+      await this.store.setCache(recentKey, mergeRecentOrders(saved, fresh));
+      if (!first) return;
+      for (const o of fresh.slice(0, 20)) {
+        if (this.savedDetails.has(o.orderId)) continue;
+        this.savedDetails.add(o.orderId);
+        void this.cachedRead('order', o.orderId, () => this.api.orderDetail(o.orderId)).catch(() => this.savedDetails.delete(o.orderId));
+      }
+    } catch {
+      // best effort: the list itself was already shown
+    }
   }
 
   /** The cashier's recent shifts (their open one is among them). */

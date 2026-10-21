@@ -1,3 +1,4 @@
+import { chooseLanguage } from '@/i18n/saved-language';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +10,7 @@ import { testConnection } from '@/lib/print-server';
 import { ScanPrintUrl } from '@/ui/scan-print-url';
 import { loadDevice, saveDeviceLabel, savePrinterName, savePrintMethod, savePrintUrl, type DeviceSettings } from '@/lib/device';
 import { can } from '@/lib/line';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { useSession } from '@/lib/session';
 import { useShift } from '@/lib/use-shift';
 import { Button, Card, Field, Segmented } from '@/ui/components';
@@ -22,8 +23,8 @@ import { colors, font, radius, space } from '@/ui/theme';
  */
 export default function AccountScreen() {
   const { t } = useTranslation();
-  const { api, user, logout } = useSession();
-  const guard = useOnlineOnly();
+  const { user, logout } = useSession();
+  const writer = useRecordWriter();
   const { shift, reload } = useShift();
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -60,21 +61,22 @@ export default function AccountScreen() {
       Alert.alert(t('account.checkAll'));
       return;
     }
-    guard(async () => {
+    void (async () => {
       setBusy(true);
       try {
-        await api.call('POST', '/api/user/change-password', { oldPassword, newPassword });
+        // sent at once, or kept on the phone (sealed) and sent when kh-pos can be reached
+        const how = await writer({ entity: 'account', op: 'action', recordId: 'change-password', method: 'POST', path: '/api/user/change-password', body: { oldPassword, newPassword }, secret: true, once: true, label: t('account.changePassword') });
         setOldPassword('');
         setNewPassword('');
         setConfirm('');
-        Alert.alert(t('account.passwordChangedOk'));
+        Alert.alert(how === 'queued' ? t('offline.savedOffline') : t('account.passwordChangedOk'));
       } catch (e) {
         Alert.alert(t('account.passwordFailed'), e instanceof Error ? e.message : undefined);
       } finally {
         setBusy(false);
       }
-    });
-  }, [valid, guard, api, oldPassword, newPassword, t]);
+    })();
+  }, [valid, writer, oldPassword, newPassword, t]);
 
   async function saveLabel() {
     if (!device) return;
@@ -133,7 +135,7 @@ export default function AccountScreen() {
               { value: 'en', label: 'English' },
             ]}
             value={language}
-            onChange={(l) => void i18n.changeLanguage(l)}
+            onChange={(l) => void chooseLanguage(l)}
           />
         </Card>
 

@@ -20,6 +20,12 @@ export type ApiErrorKind =
   | 'forbidden'
   | 'server'; // anything else
 
+/** The saved answers of GET requests, by address (see KhPosApi.fromSavedCopies). */
+export interface UrlCache {
+  save(path: string, value: unknown): void;
+  load(path: string): Promise<{ value: unknown; savedAt: number } | null>;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly kind: ApiErrorKind,
@@ -331,8 +337,95 @@ export class KhPosApi {
     return this.getToken();
   }
 
+  // ---- saved answers (offline) ----
+  private urlCache: UrlCache | null = null;
+  private savedCopyDepth = 0;
+  private oldestServed: number | null = null;
+  /** How many GETs were answered from a saved copy so far (so the caller can tell its own call from another one). */
+  savedCopiesServed = 0;
+
+  /** Where the answer to every GET is kept, so it can be shown again when kh-pos can't be reached. */
+  setUrlCache(cache: UrlCache | null): void {
+    this.urlCache = cache;
+  }
+
+  /**
+   * Runs `fn` with every GET answered from the copy saved the last time that same address was read (an address with no
+   * copy fails like an unreachable server). Used when kh-pos can't be reached, to build a screen's data from what the
+   * phone has. `savedAt` is when the oldest copy used was taken.
+   */
+  async fromSavedCopies<T>(fn: () => Promise<T>): Promise<{ value: T; savedAt: number | null }> {
+    this.savedCopyDepth++;
+    this.oldestServed = null;
+    try {
+      const value = await fn();
+      return { value, savedAt: this.oldestServed };
+    } finally {
+      this.savedCopyDepth--;
+    }
+  }
+
+  /**
+   * The saved answer of an address. A product search (by title or barcode) that was never asked is worked out from the
+   * saved catalog pages (`/api/product-v2?limit=100&offset=N`), the way the server would answer it.
+   */
+  private async savedAnswer(path: string): Promise<{ value: unknown; savedAt: number } | null> {
+    if (!this.urlCache) return null;
+    return (await this.urlCache.load(path)) ?? (await this.searchSavedProducts(path));
+  }
+
+  private async searchSavedProducts(path: string): Promise<{ value: unknown; savedAt: number } | null> {
+    const m = /^\/api\/product-v2\?(.*)$/.exec(path);
+    if (!m || !this.urlCache) return null;
+    const q = new URLSearchParams(m[1]);
+    const text = (q.get('searchTitle') ?? '').trim().toLowerCase();
+    const barcode = (q.get('barcode') ?? '').trim();
+    if ((!text && !barcode) || q.get('supplierId') || q.get('categoryId')) return null; // other filters need the server
+    type Variant = { name?: string | null; barcode?: string | null; sku?: string | number | null };
+    const items: { title?: string | null; productVariants?: Variant[] }[] = [];
+    let oldest: number | null = null;
+    for (let page = 0; page < 50; page++) {
+      const hit = await this.urlCache.load(`/api/product-v2?limit=100&offset=${page * 100}`);
+      if (!hit) break;
+      const data = ((hit.value as { result?: { data?: typeof items } })?.result?.data ?? []) as typeof items;
+      items.push(...data);
+      oldest = oldest === null ? hit.savedAt : Math.min(oldest, hit.savedAt);
+      if (data.length < 100) break;
+    }
+    if (items.length === 0 || oldest === null) return null;
+    const has = (s: unknown) => String(s ?? '').toLowerCase().includes(text);
+    const rows = items.filter((p) =>
+      barcode ? (p.productVariants ?? []).some((v) => String(v.barcode ?? '').trim() === barcode) : has(p.title) || (p.productVariants ?? []).some((v) => has(v.name) || has(v.barcode) || has(v.sku)),
+    );
+    const offset = Number(q.get('offset') ?? 0);
+    const limit = Number(q.get('limit') ?? 30);
+    return { value: { success: true, result: { data: rows.slice(offset, offset + limit), total: rows.length } }, savedAt: oldest };
+  }
+
+  /**
+   * Like `call` for a GET, but when kh-pos can't be reached it answers from the copy saved the last time that address was
+   * read (and a product search from the saved catalog). For pickers and searches that are not read through the data cache.
+   */
+  async getOrSaved<T = Record<string, unknown>>(path: string): Promise<T> {
+    try {
+      return await this.request<T>('GET', path);
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.kind !== 'network') throw e;
+      const hit = await this.savedAnswer(path);
+      if (!hit) throw e;
+      return hit.value as T;
+    }
+  }
+
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     if (!this.baseUrl) throw new ApiError('notConfigured', undefined, 'No server address (EXPO_PUBLIC_KHPOS_URL)');
+    if (method === 'GET' && this.savedCopyDepth > 0 && this.urlCache) {
+      const hit = await this.savedAnswer(path);
+      if (!hit) throw new ApiError('network', undefined, 'No saved copy of this');
+      this.savedCopiesServed++;
+      this.oldestServed = this.oldestServed === null ? hit.savedAt : Math.min(this.oldestServed, hit.savedAt);
+      return hit.value as T;
+    }
     const headers: Record<string, string> = { ...getDeviceHeaders() };
     // kh-pos parses a body only when Content-Type is exactly "application/json", and fails on
     // GET requests that declare JSON without a body: send the header only with a body.
@@ -367,7 +460,9 @@ export class KhPosApi {
     if (res.status === 403) throw new ApiError('forbidden', 403, message);
     if (!res.ok || json.success === false) throw new ApiError('server', res.status, message);
     // the login answer is the one place a token is wanted; everywhere else other people's tokens are dropped
-    return (path === '/api/auth/login' ? json : stripSecrets(json)) as T;
+    const answer = (path === '/api/auth/login' ? json : stripSecrets(json)) as T;
+    if (method === 'GET' && this.urlCache && path !== '/api/auth/login') this.urlCache.save(path, answer);
+    return answer;
   }
 
   /**
@@ -729,7 +824,7 @@ export class KhPosApi {
   /** Product image URLs may be relative to the kh-pos server. */
   imageUrl(url: string | undefined | null): string | null {
     if (!url) return null;
-    if (/^https?:\/\//i.test(url)) return url;
+    if (/^(https?:\/\/|data:)/i.test(url)) return url;
     return `${this.baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   }
 }

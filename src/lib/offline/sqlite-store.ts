@@ -89,12 +89,13 @@ export class SqliteStore implements LocalStore {
 
   async outboxAdd(cmd: NewCommand): Promise<void> {
     await this.db.runAsync(
-      "INSERT OR IGNORE INTO outbox (id, user_id, kind, table_id, payload, status, attempts, created_at) VALUES (?, ?, ?, ?, ?, 'pending', 0, ?)",
+      "INSERT OR IGNORE INTO outbox (id, user_id, kind, table_id, payload, status, attempts, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
       cmd.id,
       cmd.userId,
       cmd.kind,
       cmd.tableId,
       JSON.stringify(cmd.payload),
+      cmd.status ?? 'pending',
       cmd.createdAt,
     );
   }

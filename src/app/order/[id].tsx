@@ -8,7 +8,7 @@ import { can } from '@/lib/line';
 import { splitTitle } from '@/lib/menu';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { buildReturns, refundFor, returnableQty, returnedQty, statusTone } from '@/lib/orders';
 import { lineExtras } from '@/lib/order';
 import { methodNames, receiptFromDetail, type Receipt } from '@/lib/receipt';
@@ -41,7 +41,7 @@ export default function OrderDetailScreen() {
   const { api, user } = useSession();
   const { data } = useOffline();
   const { currency, exchangeRate } = useBranch();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
 
   const [detail, setDetail] = useState<OrderDetailResult | null>(null);
   const [staleAt, setStaleAt] = useState<number | null | false>(false);
@@ -115,18 +115,19 @@ export default function OrderDetailScreen() {
         text: t('orders.return'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             setBusy(true);
             try {
-              const ids = await api.createReturns(returns);
-              Alert.alert(t('orders.returned', { count: ids.length }));
+              // sent at once, or kept on the phone and sent once when kh-pos can be reached (it pays money back)
+              const how = await writer({ entity: 'order-return', op: 'action', recordId: `return:${info.orderId}:${returns.map((r) => `${r.orderItemId}x${r.quantity}`).join(',')}`, method: 'POST', path: '/api/pos/return', body: returns, once: true, label: `${t('orders.return')} #${info.invoiceNo}` });
+              Alert.alert(how === 'queued' ? t('offline.savedOffline') : t('orders.returned', { count: returns.length }));
               await reload();
             } catch (e) {
               Alert.alert(t(`errors.${errorKind(e)}`), e instanceof Error ? e.message : undefined);
             } finally {
               setBusy(false);
             }
-          }),
+          })(),
       },
     ]);
   }
@@ -138,19 +139,19 @@ export default function OrderDetailScreen() {
         text: t('orders.undo'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             setBusy(true);
             try {
-              const r = await api.undoOrder(info.orderId);
-              Alert.alert(t('orders.undone'));
-              if (r.tableNumber) router.replace({ pathname: '/table/[id]', params: { id: r.tableNumber } });
+              const how = await writer({ entity: 'order', op: 'action', recordId: `undo:${info.orderId}`, method: 'PUT', path: `/api/pos/order/${encodeURIComponent(info.orderId)}/undo-from-complete-to-draft`, body: {}, once: true, label: `${t('orders.undo')} #${info.invoiceNo}` });
+              Alert.alert(how === 'queued' ? t('offline.savedOffline') : t('orders.undone'));
+              if (how === 'done' && info.tableNumber) router.replace({ pathname: '/table/[id]', params: { id: info.tableNumber } });
               else await reload();
             } catch (e) {
               Alert.alert(t(`errors.${errorKind(e)}`), e instanceof Error ? e.message : undefined);
             } finally {
               setBusy(false);
             }
-          }),
+          })(),
       },
     ]);
   }
@@ -162,16 +163,17 @@ export default function OrderDetailScreen() {
         text: t('orders.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             setBusy(true);
             try {
-              await api.deleteOrder(info.orderId);
+              const how = await writer({ entity: 'order', op: 'action', recordId: `delete:${info.orderId}`, method: 'DELETE', path: `/api/pos/order/${encodeURIComponent(info.orderId)}`, once: true, label: `${t('orders.delete')} #${info.invoiceNo}` });
+              if (how === 'queued') Alert.alert(t('offline.savedOffline'));
               router.back();
             } catch (e) {
               Alert.alert(t(`errors.${errorKind(e)}`), e instanceof Error ? e.message : undefined);
               setBusy(false);
             }
-          }),
+          })(),
       },
     ]);
   }

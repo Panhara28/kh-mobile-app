@@ -31,8 +31,8 @@ export function BindUsers({ userId, warehouseId, onChange }: { userId: string; w
     void (async () => {
       try {
         const [g, list, all] = await Promise.all([
-          api.call<{ result?: number }>('GET', `/api/user/bind-user/group?userId=${encodeURIComponent(userId)}`),
-          api.call<{ result?: Parameters<typeof initialBindEntries>[0] }>('GET', `/api/user/bind-user?userId=${encodeURIComponent(userId)}`),
+          api.getOrSaved<{ result?: number }>(`/api/user/bind-user/group?userId=${encodeURIComponent(userId)}`),
+          api.getOrSaved<{ result?: Parameters<typeof initialBindEntries>[0] }>(`/api/user/bind-user?userId=${encodeURIComponent(userId)}`),
           fetchAllPages<Branch>(async (o, l) => (await api.call<{ result: { data: Branch[]; total: number } }>('GET', `/api/warehouse?limit=${Math.min(l, 100)}&offset=${o}`)).result),
         ]);
         if (!live) return;

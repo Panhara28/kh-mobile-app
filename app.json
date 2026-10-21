@@ -27,7 +27,11 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -46,10 +50,25 @@
           "photosPermission": "KH POS uses your photos to add pictures to products.",
           "cameraPermission": "KH POS uses the camera to take pictures of products."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4e6d8d8c-be6e-4750-b669-09b9bbf10717"
+      }
+    },
+    "owner": "panhara"
   }
 }

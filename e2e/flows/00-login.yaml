@@ -1,0 +1,39 @@
+# Logs in (only when the login screen is showing). Needs: APP_ID, LINK_BASE, KH_USER, KH_PASS (see e2e/README.md).
+# Restarts the app (so it loads the newest code from Metro). Works in any app language: the steps use fixed test IDs, not the words on the screen.
+appId: ${APP_ID}
+---
+# an earlier run that stopped half way may have left the phone in airplane mode
+- setAirplaneMode: disabled
+- launchApp:
+    stopApp: true
+- openLink: "${LINK_BASE}"
+- extendedWaitUntil:
+    visible:
+      id: "login-username|sync-pill-.*"
+    timeout: 120000
+- runFlow:
+    when:
+      visible:
+        id: "sync-close"
+    commands:
+      - tapOn:
+          id: "sync-close"
+- runFlow:
+    when:
+      visible:
+        id: "login-username"
+    commands:
+      - tapOn:
+          id: "login-username"
+      - inputText: ${KH_USER}
+      - tapOn:
+          id: "login-password"
+      - inputText: ${KH_PASS}
+      - hideKeyboard
+      - tapOn:
+          id: "login-submit"
+- extendedWaitUntil:
+    visible:
+      id: "sync-pill-.*"
+    timeout: 60000
+- takeScreenshot: "logged-in"

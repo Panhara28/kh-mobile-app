@@ -6,7 +6,7 @@
 const n = (v: unknown) => Number(v) || 0;
 const cents = (v: number) => Math.round(v * 100) / 100;
 
-export type ReportKind = 'dashboard' | 'sale-report' | 'end-of-day' | 'sale-breakdown' | 'sale-item-report' | 'void-order' | 'guest-number' | 'stock-report' | 'expiry' | 'sale-product' | 'cinema-showtime-sale';
+export type ReportKind = 'dashboard' | 'sale-report' | 'end-of-day' | 'sale-breakdown' | 'sale-item-report' | 'void-order' | 'guest-number' | 'stock-report' | 'expiry' | 'sale-product';
 
 /** The kh-pos permission resource that gates each report (the same names as the web menu). */
 export const REPORT_RESOURCE: Record<ReportKind, string> = {
@@ -21,7 +21,6 @@ export const REPORT_RESOURCE: Record<ReportKind, string> = {
   expiry: 'expiry',
   // the web has no menu item for the product chart: it is part of the sale report
   'sale-product': 'sale-report',
-  'cinema-showtime-sale': 'cinema-showtime-sale',
 };
 
 /** Reports that are for a period (the others show the situation now). */
@@ -36,7 +35,6 @@ export const REPORT_HAS_DATES: Record<ReportKind, boolean> = {
   'stock-report': true,
   expiry: false,
   'sale-product': true,
-  'cinema-showtime-sale': true,
 };
 
 export function dateQuery(range: { start: string; end: string }): string {

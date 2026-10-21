@@ -34,7 +34,7 @@ export function CompositePicker({ api, warehouseId, onPick, onClose, compositeOn
         let got: CompositeOption[];
         try {
           if (!state.online) throw new ApiError('network');
-          const r = await api.call<{ result?: CompositeOption[] }>('GET', `/api/product/search-product?${compositeQuery(search, warehouseId, offset, PAGE, { compositeOnly, includeNotForSale, forReplenishment })}`);
+          const r = await api.getOrSaved<{ result?: CompositeOption[] }>(`/api/product/search-product?${compositeQuery(search, warehouseId, offset, PAGE, { compositeOnly, includeNotForSale, forReplenishment })}`);
           got = r.result ?? [];
           if (id === run.current) setSavedAt(false);
         } catch (e) {

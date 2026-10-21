@@ -4,23 +4,16 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { KhPosApi } from '@/lib/api';
+import { pictureValue } from '@/lib/offline/uploads';
 import { addImages, removeImage, unbindImage, type ProductFormData } from '@/lib/product-form';
 import { Button } from '@/ui/components';
 import { colors, font, radius, space } from '@/ui/theme';
-
-/** Uploads one picture (base64) to kh-pos and returns its address. */
-export async function uploadBase64(api: KhPosApi, base64: string, extension = 'jpg'): Promise<string> {
-  const res = await api.call<{ url?: string }>('POST', '/api/upload', { fileName: `${Date.now()}-${Crypto.randomUUID().slice(0, 6)}.${extension}`, fileContent: base64 });
-  if (!res.url) throw new Error('upload failed');
-  return res.url;
-}
 
 /**
  * Product pictures like the web "Product Images": upload several at once (library or camera),
  * see which variant each is bound to, unbind, delete, and open one to preview it.
  */
-export function ImagesSection({ api, form, onChange, guard }: { api: KhPosApi; form: ProductFormData; onChange: (f: ProductFormData) => void; guard: (action: () => void) => void }) {
+export function ImagesSection({ form, onChange }: { form: ProductFormData; onChange: (f: ProductFormData) => void }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [busy, setBusy] = useState<string | null>(null);
@@ -37,13 +30,13 @@ export function ImagesSection({ api, form, onChange, guard }: { api: KhPosApi; f
       : await ImagePicker.launchImageLibraryAsync({ base64: true, quality: 0.7, mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: 10 });
     const assets = (result.assets ?? []).filter((a) => !!a.base64);
     if (result.canceled || assets.length === 0) return;
-    guard(() => {
+    {
       void (async () => {
         const urls: string[] = [];
         try {
           for (const [i, a] of assets.entries()) {
             setBusy(t('pform.uploading', { done: i + 1, total: assets.length }));
-            urls.push(await uploadBase64(api, a.base64!));
+            urls.push(pictureValue(a.base64!));
           }
         } catch (e) {
           Alert.alert(t('products.uploadFailed'), e instanceof Error ? e.message : undefined);
@@ -52,7 +45,7 @@ export function ImagesSection({ api, form, onChange, guard }: { api: KhPosApi; f
           if (urls.length > 0) onChange(addImages(form, urls, () => Crypto.randomUUID()));
         }
       })();
-    });
+    }
   }
 
   return (

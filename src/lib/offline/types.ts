@@ -206,6 +206,13 @@ export interface RecordPayload {
   steps?: { method: RecordPayload['method']; path: string; body?: unknown }[];
   /** How many of the `steps` have been sent. */
   done?: number;
+  /** The `result` of the last call that gave one, for a later call that uses `{{result}}` (kept so a retry carries on). */
+  resultId?: string;
+  /**
+   * For a change that carries a secret (a password): the `body` and `steps` sealed with a key held in the phone's secure
+   * storage (see secret.ts), so the SQLite file never holds them in the clear. `body` and `steps` are then left out.
+   */
+  sealed?: string;
   /**
    * kh-pos answers a yes or no inside a successful reply (for example `{result: false}`): this is the field to look at.
    * An answer of `false` is a refusal.
@@ -254,7 +261,11 @@ export interface OutboxCommand<K extends CommandKind = CommandKind> {
   kind: K;
   tableId: string;
   payload: CommandPayload[K];
-  status: 'pending' | 'failed';
+  /**
+   * `sending`: written to the phone's database before it is sent while kh-pos is reachable (write-ahead), so a crash or
+   * a lost signal in the middle of a send never loses it. It is removed when kh-pos has answered.
+   */
+  status: 'pending' | 'failed' | 'sending';
   /** Why a failed command failed (kh-pos' message). */
   error?: string | null;
   attempts: number;
@@ -265,7 +276,7 @@ export interface OutboxCommand<K extends CommandKind = CommandKind> {
 }
 
 export type NewCommand<K extends CommandKind = CommandKind> = Omit<OutboxCommand<K>, 'seq' | 'attempts' | 'status' | 'error'> & {
-  status?: 'pending';
+  status?: 'pending' | 'sending';
 };
 
 export interface CachedValue<T> {

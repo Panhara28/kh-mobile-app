@@ -1,3 +1,4 @@
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, Text, View } from 'react-native';
@@ -13,6 +14,7 @@ import { colors, font, space } from '@/ui/theme';
  */
 export function SupplierPicker({ api, data, value, onChange }: { api: KhPosApi; data: OfflineData; value: string; onChange: (id: string) => void }) {
   const { t } = useTranslation();
+  const writer = useRecordWriter();
   const [all, setAll] = useState<SupplierRow[]>([]);
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
@@ -28,10 +30,18 @@ export function SupplierPicker({ api, data, value, onChange }: { api: KhPosApi; 
   async function create() {
     setBusy(true);
     try {
-      const r = await api.call<{ id?: string; name?: string }>('POST', '/api/supplier', { name: search.trim(), contactName: '', contactPhone: '', contactEmail: '', address: '' });
-      if (r.id) {
-        setAll((a) => [...a, { id: r.id!, name: r.name ?? search.trim() } as SupplierRow]);
-        onChange(r.id);
+      const body = { name: search.trim(), contactName: '', contactPhone: '', contactEmail: '', address: '' };
+      // written to the phone first; kept for later when kh-pos can't be reached (the supplier can be picked once it has been sent)
+      let created: { id?: string; name?: string } | undefined;
+      const how = await writer({ entity: 'supplier', op: 'create', recordId: `new:${body.name}`, method: 'POST', path: '/api/supplier', body, once: true, label: body.name, row: { id: `new:${body.name}`, name: body.name } }, (a) => (created = a as { id?: string; name?: string }));
+      if (how === 'queued') {
+        Alert.alert(t('offline.savedOffline'));
+        setSearch('');
+        return;
+      }
+      if (created?.id) {
+        setAll((a) => [...a, { id: created!.id!, name: created!.name ?? search.trim() } as SupplierRow]);
+        onChange(created.id);
         setSearch('');
       }
     } catch (e) {
@@ -61,6 +71,7 @@ export function SupplierPicker({ api, data, value, onChange }: { api: KhPosApi; 
  */
 export function CategoryPicker({ api, data, warehouseId, value, onChange }: { api: KhPosApi; data: OfflineData; warehouseId: string; value: string; onChange: (c: CategoryRow | null) => void }) {
   const { t } = useTranslation();
+  const writer = useRecordWriter();
   const [all, setAll] = useState<CategoryRow[]>([]);
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
@@ -76,10 +87,18 @@ export function CategoryPicker({ api, data, warehouseId, value, onChange }: { ap
   async function create() {
     setBusy(true);
     try {
-      const r = await api.call<{ result?: CategoryRow }>('POST', '/api/category', { title: search.trim(), description: '', imageUrl: null, parentId: null, printerId: null });
-      if (r.result) {
-        setAll((a) => [...a, r.result!]);
-        onChange(r.result);
+      const body = { title: search.trim(), description: '', imageUrl: null, parentId: null, printerId: null };
+      // written to the phone first; kept for later when kh-pos can't be reached (the category can be picked once it has been sent)
+      let created: { result?: CategoryRow } | undefined;
+      const how = await writer({ entity: 'category', op: 'create', recordId: `new:${body.title}`, method: 'POST', path: '/api/category', body, once: true, label: body.title, row: { id: `new:${body.title}`, title: body.title } }, (a) => (created = a as { result?: CategoryRow }));
+      if (how === 'queued') {
+        Alert.alert(t('offline.savedOffline'));
+        setSearch('');
+        return;
+      }
+      if (created?.result) {
+        setAll((a) => [...a, created!.result!]);
+        onChange(created.result);
         setSearch('');
       }
     } catch (e) {

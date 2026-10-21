@@ -6,7 +6,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { RestaurantTable, Setting, TableInput } from '@/lib/api';
 import { can } from '@/lib/line';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { useSession } from '@/lib/session';
 import { cleanTable, emptyTableForm, formFromTable, tableOptions, validateTable } from '@/lib/table-form';
 import { Button, Card, Field } from '@/ui/components';
@@ -21,9 +21,9 @@ import { colors, font, radius, space } from '@/ui/theme';
  */
 export default function TableSetupScreen() {
   const { t } = useTranslation();
-  const { api, user } = useSession();
+  const { user } = useSession();
   const { data } = useOffline();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const insets = useSafeAreaInsets();
   const warehouseId = user?.currentWarehouseId ?? '';
 
@@ -80,15 +80,20 @@ export default function TableSetupScreen() {
     }
     const form = cleanTable(editing.form);
     const id = editing.id;
-    await guard(async () => {
-      if (await run(() => (id ? api.updateTable(id, form) : api.createTable(form)))) setEditing(null);
+    // sent at once, or kept on the phone and sent when kh-pos can be reached
+    const ok = await run(async () => {
+      const how = id
+        ? await writer({ entity: 'table-setup', op: 'update', recordId: id, method: 'PUT', path: '/api/table', body: { id, ...form }, label: form.tableNumber })
+        : await writer({ entity: 'table-setup', op: 'create', recordId: `new:${Date.now()}`, method: 'POST', path: '/api/table', body: form, once: true, label: form.tableNumber });
+      if (how === 'queued') Alert.alert(t('offline.savedOffline'));
     });
+    if (ok) setEditing(null);
   }
 
   function confirmDelete(table: RestaurantTable) {
     Alert.alert(t('tableSetup.deleteConfirm', { name: table.table_name }), table.order ? t('tableSetup.hasOrder') : undefined, [
       { text: t('common.cancel'), style: 'cancel' },
-      { text: t('tableSetup.delete'), style: 'destructive', onPress: () => void guard(() => run(() => api.deleteTable(table.id))) },
+      { text: t('tableSetup.delete'), style: 'destructive', onPress: () => void run(async () => { const how = await writer({ entity: 'table-setup', op: 'delete', recordId: table.id, method: 'DELETE', path: '/api/table', body: { id: table.id }, label: table.table_name }); if (how === 'queued') Alert.alert(t('offline.savedOffline')); }) },
     ]);
   }
 
@@ -99,9 +104,11 @@ export default function TableSetupScreen() {
       return;
     }
     const g = generating;
-    await guard(async () => {
-      if (await run(() => api.generateTables({ count: Math.floor(g.count), default: { key: g.key.trim(), capacity: Math.floor(g.capacity), section: g.section.trim(), shape: g.shape.trim() } }))) setGenerating(null);
+    const ok = await run(async () => {
+      const how = await writer({ entity: 'table-setup', op: 'action', recordId: `generate:${Date.now()}`, method: 'POST', path: '/api/table/layout', body: { count: Math.floor(g.count), default: { key: g.key.trim(), capacity: Math.floor(g.capacity), section: g.section.trim(), shape: g.shape.trim() } }, once: true, label: t('tableSetup.generate') });
+      if (how === 'queued') Alert.alert(t('offline.savedOffline'));
     });
+    if (ok) setGenerating(null);
   }
 
   const form = editing?.form;
