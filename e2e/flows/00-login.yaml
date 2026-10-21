@@ -2,6 +2,8 @@
 # Restarts the app (so it loads the newest code from Metro). Works in any app language: the steps use fixed test IDs, not the words on the screen.
 appId: ${APP_ID}
 ---
+# an earlier run that stopped half way may have left the phone in airplane mode
+- setAirplaneMode: disabled
 - launchApp:
     stopApp: true
 - openLink: "${LINK_BASE}"

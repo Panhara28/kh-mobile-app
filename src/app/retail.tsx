@@ -74,7 +74,7 @@ export default function RetailScreen() {
   const [pay, setPay] = useState<{ orderId: string; slotId: string; offline?: boolean } | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const lastScan = useRef({ code: '', at: 0 });
-  const catalog = useRef<RetailProduct[]>([]);
+  const [catalog, setCatalog] = useState<RetailProduct[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -87,7 +87,7 @@ export default function RetailScreen() {
             return { data: r.result?.data ?? [], total: r.result?.total ?? 0 };
           })),
         )
-        .then((r) => void (catalog.current = r.data), () => undefined);
+        .then((r) => setCatalog(r.data), () => undefined);
       void reloadShift();
     }, [api, data, reloadShift]),
   );
@@ -96,7 +96,7 @@ export default function RetailScreen() {
   useEffect(() => {
     let cancelled = false;
     const h = setTimeout(() => {
-      const fromSaved = () => !cancelled && setFound(searchSaved(catalog.current, text));
+      const fromSaved = () => !cancelled && setFound(searchSaved(catalog, text));
       if (!state.online) {
         fromSaved();
         return;
@@ -112,7 +112,7 @@ export default function RetailScreen() {
       cancelled = true;
       clearTimeout(h);
     };
-  }, [api, text, state.online]);
+  }, [api, text, state.online, catalog]);
 
   const add = (p: RetailProduct) => setCart((c) => addToCart(c, p, () => Crypto.randomUUID()));
 
@@ -127,7 +127,7 @@ export default function RetailScreen() {
         const r = await api.getOrSaved<{ result?: { data: Found[] } }>(`/api/product-v2?limit=30&offset=0&searchTitle=${encodeURIComponent(code)}`);
         match = matchBarcode(toProducts(r.result?.data ?? []), code);
       } catch {
-        match = matchBarcode(catalog.current, code); // offline: the saved products
+        match = matchBarcode(catalog, code); // offline: the saved products
       }
     }
     if (match) add(match);

@@ -3,6 +3,8 @@
 # Needs: APP_ID, LINK_BASE (see e2e/README.md).
 appId: ${APP_ID}
 ---
+# an earlier run that stopped half way may have left the phone in airplane mode
+- setAirplaneMode: disabled
 - launchApp:
     stopApp: false
 - openLink: "${LINK_BASE}more"
@@ -53,8 +55,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-tables"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-tables"
       - assertNotVisible:
           id: "error-network"
@@ -91,8 +97,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-retail"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-retail"
       - assertNotVisible:
           id: "error-network"
@@ -129,8 +139,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-orders"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-orders"
       - assertNotVisible:
           id: "error-network"
@@ -167,8 +181,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-stock-finding"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-stock-finding"
       - assertNotVisible:
           id: "error-network"
@@ -205,8 +223,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-shift"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-shift"
       - assertNotVisible:
           id: "error-network"
@@ -243,8 +265,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-board"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-board"
       - assertNotVisible:
           id: "error-network"
@@ -281,8 +307,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-report-dashboard"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-report-dashboard"
       - assertNotVisible:
           id: "error-network"
@@ -319,8 +349,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-report-end-of-day"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-report-end-of-day"
       - assertNotVisible:
           id: "error-network"
@@ -357,8 +391,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-report-sale-report"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-report-sale-report"
       - assertNotVisible:
           id: "error-network"
@@ -395,8 +433,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-report-sale-breakdown"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-report-sale-breakdown"
       - assertNotVisible:
           id: "error-network"
@@ -433,8 +475,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-report-sale-item-report"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-report-sale-item-report"
       - assertNotVisible:
           id: "error-network"
@@ -471,8 +517,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-report-void-order"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-report-void-order"
       - assertNotVisible:
           id: "error-network"
@@ -509,8 +559,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-report-guest-number"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-report-guest-number"
       - assertNotVisible:
           id: "error-network"
@@ -547,8 +601,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-report-stock-report"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-report-stock-report"
       - assertNotVisible:
           id: "error-network"
@@ -585,8 +643,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-report-expiry"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-report-expiry"
       - assertNotVisible:
           id: "error-network"
@@ -623,8 +685,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-report-sale-product"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-report-sale-product"
       - assertNotVisible:
           id: "error-network"
@@ -661,8 +727,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-product-groups"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-product-groups"
       - assertNotVisible:
           id: "error-network"
@@ -699,8 +769,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-products"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-products"
       - assertNotVisible:
           id: "error-network"
@@ -737,8 +811,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-account"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-account"
       - assertNotVisible:
           id: "error-network"
@@ -775,8 +853,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-branches"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-branches"
       - assertNotVisible:
           id: "error-network"
@@ -813,8 +895,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-table-setup"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-table-setup"
       - assertNotVisible:
           id: "error-network"
@@ -851,8 +937,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-table-layout"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-table-layout"
       - assertNotVisible:
           id: "error-network"
@@ -889,8 +979,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-settings"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-settings"
       - assertNotVisible:
           id: "error-network"
@@ -927,8 +1021,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-promotion-sets"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-promotion-sets"
       - assertNotVisible:
           id: "error-network"
@@ -965,8 +1063,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-booking"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-booking"
       - assertNotVisible:
           id: "error-network"
@@ -1003,8 +1105,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-chart-of-accounts"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-chart-of-accounts"
       - assertNotVisible:
           id: "error-network"
@@ -1041,8 +1147,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-categories"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-categories"
       - assertNotVisible:
           id: "error-network"
@@ -1079,8 +1189,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-modifiers"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-modifiers"
       - assertNotVisible:
           id: "error-network"
@@ -1117,8 +1231,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-discounts"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-discounts"
       - assertNotVisible:
           id: "error-network"
@@ -1155,8 +1273,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-stock-movements"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-stock-movements"
       - assertNotVisible:
           id: "error-network"
@@ -1193,8 +1315,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-returns"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-returns"
       - assertNotVisible:
           id: "error-network"
@@ -1231,8 +1357,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-backlog"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-backlog"
       - assertNotVisible:
           id: "error-network"
@@ -1269,8 +1399,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-production"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-production"
       - assertNotVisible:
           id: "error-network"
@@ -1307,8 +1441,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-slots"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-slots"
       - assertNotVisible:
           id: "error-network"
@@ -1345,8 +1483,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-replenishment"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-replenishment"
       - assertNotVisible:
           id: "error-network"
@@ -1383,8 +1525,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-purchase-orders"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-purchase-orders"
       - assertNotVisible:
           id: "error-network"
@@ -1421,8 +1567,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-suppliers"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-suppliers"
       - assertNotVisible:
           id: "error-network"
@@ -1459,8 +1609,12 @@ appId: ${APP_ID}
     commands:
       - tapOn:
           id: "module-supplier-prices"
+      - extendedWaitUntil:
+          notVisible:
+            id: "loading"
+          timeout: 20000
       - waitForAnimationToEnd:
-          timeout: 5000
+          timeout: 3000
       - takeScreenshot: "offline-supplier-prices"
       - assertNotVisible:
           id: "error-network"

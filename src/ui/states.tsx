@@ -8,7 +8,7 @@ import { colors, font, space } from './theme';
 export function LoadingState({ label }: { label?: string }) {
   const { t } = useTranslation();
   return (
-    <View style={styles.center}>
+    <View style={styles.center} testID="loading">
       <ActivityIndicator color={colors.primary} />
       <Text style={styles.muted}>{label ?? t('common.loading')}</Text>
     </View>
