@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RestaurantTable } from '@/lib/api';
 import { can } from '@/lib/line';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { useSession } from '@/lib/session';
 import { CANVAS_H, CANVAS_W, clamp, clearBody, hasChanges, layoutBody, layoutOf, savedPositions, snap, TILE_H, TILE_W, type Point } from '@/lib/table-layout';
 import { Button } from '@/ui/components';
@@ -60,9 +60,9 @@ function Tile({ table, at, onDragging, onMove }: { table: RestaurantTable; at: P
 /** The table floor plan like the kh-pos web "table flow": drag each table where it stands in the room, then save. Saving needs the server. */
 export default function TableLayoutScreen() {
   const { t } = useTranslation();
-  const { api, user } = useSession();
+  const { user } = useSession();
   const { data } = useOffline();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const [tables, setTables] = useState<RestaurantTable[] | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [original, setOriginal] = useState<Record<string, Point>>({});
@@ -97,18 +97,19 @@ export default function TableLayoutScreen() {
   function save() {
     const body = layoutBody(current, original, saved);
     if (body.length === 0) return;
-    guard(async () => {
+    void (async () => {
       setBusy(true);
       try {
-        await api.call('PUT', '/api/table/layout', body);
-        Alert.alert(t('layout.saved'));
+        // sent at once, or kept on the phone and sent when kh-pos can be reached
+        const how = await writer({ entity: 'table-layout', op: 'action', recordId: 'layout', method: 'PUT', path: '/api/table/layout', body, label: t('tableSetup.title') });
+        Alert.alert(how === 'queued' ? t('offline.savedOffline') : t('layout.saved'));
         await load();
       } catch (e) {
         Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   function reset() {
@@ -118,14 +119,15 @@ export default function TableLayoutScreen() {
         text: t('layout.reset'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('PUT', '/api/table/layout', clearBody((tables ?? []).map((x) => x.id)));
+              const how = await writer({ entity: 'table-layout', op: 'action', recordId: 'layout-reset', method: 'PUT', path: '/api/table/layout', body: clearBody((tables ?? []).map((x) => x.id)), label: t('layout.reset') });
+              if (how === 'queued') Alert.alert(t('offline.savedOffline'));
               await load();
             } catch (e) {
               Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }
