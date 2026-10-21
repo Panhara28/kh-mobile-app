@@ -68,6 +68,14 @@ export function pickingQuery(items: { variantId: string; qty: number }[]): strin
   }).toString();
 }
 
+/** The cache key of an order's picking list (so the list opened online can be opened offline too). */
+export function pickingKey(order: Pick<DraftOrder, 'orderId' | 'items'>): string {
+  return `${order.orderId}:${pickingQuery((order.items ?? []).map((i) => ({ variantId: i.variantId, qty: i.qty })))}`;
+}
+
+/** Id of a waiting move or conversion, so the same one is not queued twice. */
+export const findingRecordId = (kind: 'transfer' | 'convert', orderId: string, item: PickItem) => `${kind}:${orderId}:${item.variant?.id ?? ''}:${item.slot?.id ?? ''}`;
+
 export interface Sorted {
   transfer: PickItem[];
   convert: PickItem[];

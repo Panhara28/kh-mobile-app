@@ -4,8 +4,10 @@ import { Alert, FlatList, Image, Modal, RefreshControl, ScrollView, StyleSheet, 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
-import { conversionBody, conversionDone, conversionInfo, conversionProblem, draftQuery, pickImage, pickingQuery, portions, sortPicks, transferBody, variantName, type DraftOrder, type PickItem } from '@/lib/stock-finding';
+import { hasPending } from '@/lib/offline/records';
+import { useRecordWriter } from '@/lib/offline/use-record';
+import { conversionBody, conversionDone, conversionInfo, conversionProblem, draftQuery, findingRecordId, pickImage, pickingKey, pickingQuery, portions, sortPicks, transferBody, variantName, type DraftOrder, type PickItem } from '@/lib/stock-finding';
+import type { KhPosApi } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button, Card, Input } from '@/ui/components';
@@ -17,7 +19,9 @@ import { colors, font, radius, space } from '@/ui/theme';
 /**
  * Stock Finding like the kh-pos web page (Order Management > Finding and Transfer): the draft
  * orders, and for one of them where its products are. Products sitting in other slots are moved to
- * the POS slot (one by one or all), and products that need a unit conversion are converted. Needs the server.
+ * the POS slot (one by one or all), and products that need a unit conversion are converted.
+ * Offline: the picking lists saved while online are shown, and a move or conversion is kept on the phone and sent once
+ * when the server is back (stock figures are those of the saved list; the server checks them when it receives it).
  */
 export default function StockFindingScreen() {
   const { t } = useTranslation();
@@ -49,6 +53,8 @@ export default function StockFindingScreen() {
       setOrders(r.data);
       setStaleAt(r.stale ? r.savedAt : false);
       setError(null);
+      // save the picking lists too, so an order can be opened offline
+      if (!r.stale) for (const o of r.data.slice(0, 15)) void data.cachedRead('transfer-picking', pickingKey(o), () => fetchPicking(api, o)).catch(() => undefined);
     } catch (e) {
       if (id === run.current) setError(e);
     }
@@ -107,10 +113,17 @@ export default function StockFindingScreen() {
   );
 }
 
+async function fetchPicking(api: KhPosApi, order: DraftOrder): Promise<PickItem[]> {
+  const lines = (order.items ?? []).map((i) => ({ variantId: i.variantId, qty: i.qty }));
+  return (await api.call<{ result?: PickItem[] }>('GET', `/api/replenishment/new/stock-picking-list?${pickingQuery(lines)}`)).result ?? [];
+}
+
 function TransferSheet({ order, onClose }: { order: DraftOrder; onClose: () => void }) {
   const { t } = useTranslation();
   const { api, user } = useSession();
-  const guard = useOnlineOnly();
+  const { data, state } = useOffline();
+  const writer = useRecordWriter();
+  const [staleAt, setStaleAt] = useState<number | null | false>(false);
   const insets = useSafeAreaInsets();
   const [items, setItems] = useState<PickItem[] | null>(null);
   const [posSlotId, setPosSlotId] = useState('');
@@ -120,23 +133,26 @@ function TransferSheet({ order, onClose }: { order: DraftOrder; onClose: () => v
 
   const loadList = useCallback(async () => {
     try {
-      const lines = (order.items ?? []).map((i) => ({ variantId: i.variantId, qty: i.qty }));
-      const r = await api.call<{ result?: PickItem[] }>('GET', `/api/replenishment/new/stock-picking-list?${pickingQuery(lines)}`);
-      setItems(r.result ?? []);
+      const r = await data.cachedRead('transfer-picking', pickingKey(order), () => fetchPicking(api, order));
+      setItems(r.data);
+      setStaleAt(r.stale ? r.savedAt : false);
       setError(null);
     } catch (e) {
       setError(e);
     }
-  }, [api, order]);
+  }, [api, data, order]);
 
   useEffect(() => {
     // loads after an await, so the state is set asynchronously
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadList();
-    if (user?.currentWarehouseId) api.posInfo(user.currentWarehouseId).then((p) => setPosSlotId(p.posSlotId), () => undefined);
-  }, [loadList, api, user?.currentWarehouseId]);
+    if (user?.currentWarehouseId) data.posInfo(user.currentWarehouseId).then((p) => setPosSlotId(p.data.posSlotId), () => undefined);
+  }, [loadList, data, user?.currentWarehouseId]);
 
-  const groups = sortPicks(items ?? []);
+  const sorted = sortPicks(items ?? []);
+  // one already waiting to be sent is not offered again
+  const waiting = (kind: 'transfer' | 'convert', x: PickItem) => hasPending(state.commands, 'stockfinding', findingRecordId(kind, order.orderId, x));
+  const groups = { ...sorted, transfer: sorted.transfer.filter((x) => !waiting('transfer', x)), convert: sorted.convert.filter((x) => !waiting('convert', x)) };
   // like the web, anyone who can open the page can use its buttons
   const may = true;
 
@@ -145,21 +161,25 @@ function TransferSheet({ order, onClose }: { order: DraftOrder; onClose: () => v
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('finding.transfer'),
-        onPress: () =>
-          guard(async () => {
+        onPress: () => {
+          void (async () => {
             setBusy(true);
             let failed = false;
+            let queued = false;
             for (const x of groups.transfer) {
               try {
-                await api.call('POST', '/api/inventory/transfer', transferBody(x, posSlotId, order.orderId));
-              } catch {
+                const how = await writer({ entity: 'stockfinding', op: 'action', recordId: findingRecordId('transfer', order.orderId, x), method: 'POST', path: '/api/inventory/transfer', body: transferBody(x, posSlotId, order.orderId), label: t('finding.transfer'), once: true });
+                if (how === 'queued') queued = true;
+              } catch (e) {
                 failed = true;
+                if (e instanceof Error && e.message) Alert.alert(e.message);
               }
             }
             setBusy(false);
-            Alert.alert(failed ? t('finding.someFailed') : t('finding.transferred_all'));
+            Alert.alert(failed ? t('finding.someFailed') : queued ? t('transfer.savedOfflineStock') : t('finding.transferred_all'));
             await loadList();
-          }),
+          })();
+        },
       },
     ]);
   }
@@ -171,36 +191,37 @@ function TransferSheet({ order, onClose }: { order: DraftOrder; onClose: () => v
       return;
     }
     try {
-      await api.call('POST', '/api/unit-conversion', conversionBody(x, posSlotId));
+      const how = await writer({ entity: 'stockfinding', op: 'action', recordId: findingRecordId('convert', order.orderId, x), method: 'POST', path: '/api/unit-conversion', body: conversionBody(x, posSlotId), label: t('finding.convert'), once: true });
       const d = conversionDone(x);
-      Alert.alert(t('finding.converted', { qty: d.qty, from: d.from, to: d.to }));
+      Alert.alert(how === 'queued' ? t('transfer.savedOfflineStock') : t('finding.converted', { qty: d.qty, from: d.from, to: d.to }));
     } catch (e) {
       Alert.alert(t('finding.convertFailed'), e instanceof Error ? e.message : undefined);
     }
   }
 
   function convert(x: PickItem) {
-    guard(async () => {
+    void (async () => {
       setBusy(true);
       await convertOne(x);
       setBusy(false);
       await loadList();
-    });
+    })();
   }
 
   function convertAll() {
-    guard(async () => {
+    void (async () => {
       setBusy(true);
       for (const x of groups.convert) await convertOne(x);
       setBusy(false);
       await loadList();
-    });
+    })();
   }
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={styles.safe}>
         <ScreenHeader title={t('finding.sheetTitle', { no: order.invoiceNo })} />
+        {staleAt !== false ? <StaleBanner savedAt={staleAt} /> : null}
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space.md }]}>
           {items === null ? (
             error ? <ErrorState error={error} onRetry={() => void loadList()} /> : <LoadingState />
