@@ -37,6 +37,13 @@ export default function ChartOfAccountsScreen() {
       create: (f) => api.call('POST', '/api/accounting/chart-of-account', accountBody(f)),
       update: (r, f) => api.call('PUT', '/api/accounting/chart-of-account', accountBody(f, r)),
       remove: (r) => api.call('DELETE', '/api/accounting/chart-of-account', { id: r.id }),
+      // add, edit and delete are kept on the phone and sent when kh-pos can be reached (kh-pos makes the id of a new account)
+      offline: {
+        entity: 'chart-of-account',
+        create: (f, id) => ({ method: 'POST', path: '/api/accounting/chart-of-account', body: accountBody(f), once: true, label: f.accountName.trim(), row: { id, accountName: f.accountName.trim(), accountType: f.accountType } as unknown as AccountRow & Record<string, unknown> }),
+        update: (r, f) => ({ method: 'PUT', path: '/api/accounting/chart-of-account', body: accountBody(f, r), label: f.accountName.trim(), row: { accountName: f.accountName.trim(), ...(f.accountType ? { accountType: f.accountType } : {}) } }),
+        remove: (r) => ({ method: 'DELETE', path: '/api/accounting/chart-of-account', body: { id: r.id }, label: r.accountName }),
+      },
     }),
     [api, t],
   );

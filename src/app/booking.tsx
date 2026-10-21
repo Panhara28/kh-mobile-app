@@ -8,7 +8,7 @@ import { rangeFor, type DateRange } from '@/lib/dates';
 import { can } from '@/lib/line';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { useSession } from '@/lib/session';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button, Card, Chip, Input } from '@/ui/components';
@@ -27,7 +27,7 @@ export default function BookingScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
   const { data } = useOffline();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const { currency } = useBranch();
   const [range, setRange] = useState<DateRange | null>(() => rangeFor('month'));
   const [type, setType] = useState<AccountType | ''>('');
@@ -81,11 +81,12 @@ export default function BookingScreen() {
     const bad = validateBooking(f);
     setProblem(bad);
     if (bad) return;
-    guard(async () => {
+    void (async () => {
       setBusy(true);
       try {
-        const r = await api.call<{ success?: boolean; result?: string }>('POST', '/api/accounting/booking', bookingBody(f));
-        if (r.success === false) throw new Error(typeof r.result === 'string' ? r.result : t('errors.server'));
+        // sent at once, or kept on the phone and sent once when kh-pos can be reached (kh-pos can answer "no" inside a 200)
+        const how = await writer({ entity: 'booking', op: 'create', recordId: `new:${Date.now()}`, method: 'POST', path: '/api/accounting/booking', body: bookingBody(f), mustBeTrue: 'success', once: true, label: f.bookingName.trim() || t('more.booking') });
+        if (how === 'queued') Alert.alert(t('offline.savedOffline'));
         setAdding(null);
         setVersion((v) => v + 1);
       } catch (e) {
@@ -93,7 +94,7 @@ export default function BookingScreen() {
       } finally {
         setBusy(false);
       }
-    });
+    })();
   }
 
   function remove(b: BookingRow) {
@@ -103,14 +104,15 @@ export default function BookingScreen() {
         text: t('admin.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('DELETE', '/api/accounting/booking', { id: b.id });
+              const how = await writer({ entity: 'booking', op: 'delete', recordId: b.id, method: 'DELETE', path: '/api/accounting/booking', body: { id: b.id }, label: b.description });
+              if (how === 'queued') Alert.alert(t('offline.savedOffline'));
               setVersion((v) => v + 1);
             } catch (e) {
               Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }
