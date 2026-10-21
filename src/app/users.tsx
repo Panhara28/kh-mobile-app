@@ -7,7 +7,7 @@ import { fetchAllPages } from '@/lib/catalog';
 import { can } from '@/lib/line';
 import { useCachedLoad } from '@/lib/offline/use-cached-load';
 import { useOffline } from '@/lib/offline/provider';
-import { useOnlineOnly } from '@/lib/offline/use-online-only';
+import { useRecordWriter } from '@/lib/offline/use-record';
 import { useSession } from '@/lib/session';
 import { bindBody, canDeleteUser, canResetPassword, emptyUser, normalizePhone, roleLabel, userBody, userFormOf, validateReset, validateUser, type BindEntry, type RoleRef, type UserForm, type UserRow } from '@/lib/users';
 import { Button } from '@/ui/components';
@@ -24,7 +24,7 @@ import { BindUsers } from '@/ui/users/bind-section';
 export default function UsersScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
-  const guard = useOnlineOnly();
+  const writer = useRecordWriter();
   const { state } = useOffline();
   const online = state.online;
   const [resetFor, setResetFor] = useState<UserRow | null>(null);
@@ -74,11 +74,24 @@ export default function UsersScreen() {
       },
       remove: (r) => (canDeleteUser(r.id, user?.id) ? api.call('DELETE', '/api/user', { id: r.id }) : Promise.reject(new Error(t('users.cannotDeleteSelf')))),
       deleteMessage: (r) => t('users.deleteAsk', { name: r.fullname || r.username }),
-      // edit and delete are kept on the phone and sent later; adding a user and resetting a password need the server,
-      // because a password must not be kept in the phone's queue
+      // add, edit and delete are kept on the phone and sent later; the password of a new user is sealed with a key held in
+      // the phone's secure storage, so the SQLite file never holds it in the clear
       offline: {
         entity: 'user',
         clientId: true,
+        create: (f, id) => {
+          const body = userBody({ ...f, id, phoneNumber: normalizePhone(f.phoneNumber) });
+          const role = (roles ?? []).find((x) => x.id === f.roleId);
+          return {
+            method: 'POST' as const,
+            path: '/api/user',
+            body,
+            secret: true,
+            once: true,
+            label: body.fullname || body.username,
+            row: { id, username: body.username, fullname: body.fullname, phoneNumber: body.phoneNumber, profile: body.profile, roleId: body.roleId, role: role ? { id: role.id, role: role.role } : null, currentWarehouseId: body.warehouseId } as unknown as UserRow & Record<string, unknown>,
+          };
+        },
         update: (r, f) => {
           const body = userBody({ ...f, phoneNumber: normalizePhone(f.phoneNumber) });
           // the branches the person is bound to are sent only when the list was loaded (online); they make accounts, so then it is sent once
@@ -114,18 +127,17 @@ export default function UsersScreen() {
       return;
     }
     const target = resetFor;
-    guard(async () => {
-      setBusy(true);
-      try {
-        await api.call('POST', '/api/user/reset-password', { userId: target.id, newPassword: values.password });
-        setResetFor(null);
-        Alert.alert(t('users.passwordChanged'));
-      } catch (e) {
-        Alert.alert(t('users.resetFailed'), e instanceof Error ? e.message : undefined);
-      } finally {
-        setBusy(false);
-      }
-    });
+    setBusy(true);
+    try {
+      // sent at once, or kept on the phone (sealed) and sent when kh-pos can be reached
+      const how = await writer({ entity: 'user', op: 'action', recordId: `reset:${target.id}`, method: 'POST', path: '/api/user/reset-password', body: { userId: target.id, newPassword: values.password }, secret: true, once: true, label: `${t('users.resetPassword')}: ${target.fullname || target.username}` });
+      setResetFor(null);
+      Alert.alert(how === 'queued' ? t('offline.savedOffline') : t('users.passwordChanged'));
+    } catch (e) {
+      Alert.alert(t('users.resetFailed'), e instanceof Error ? e.message : undefined);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (

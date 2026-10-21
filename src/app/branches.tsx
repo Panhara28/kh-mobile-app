@@ -103,8 +103,8 @@ export default function BranchesScreen() {
     setProblem(bad);
     if (bad) return;
     const body = branchBody(e.form, e.row ?? undefined);
-    // an edit is kept on the phone and sent later when kh-pos can't be reached; a new branch has an account password,
-    // which must not be kept in the phone's queue, so adding needs the server
+    // every change is kept on the phone and sent later when kh-pos can't be reached; the account password of a new
+    // branch is sealed with a key held in the phone's secure storage
     const edit = e.row;
     const run = async () => {
       setBusy(true);
@@ -113,7 +113,20 @@ export default function BranchesScreen() {
           const upd = body as { warehouseName: string; ownerName: string; phoneNumber: string; address: string; image: string; lat: string; lng: string; useMainBranchVisibility: boolean };
           await writer({ entity: 'branch', op: 'update', recordId: edit.id!, method: 'PUT', path: '/api/warehouse-v2', body, label: upd.warehouseName, row: { name: upd.warehouseName, ownerName: upd.ownerName, phone: upd.phoneNumber, address: upd.address, image: upd.image, lat: upd.lat, lng: upd.lng } });
         } else {
-          await api.call('POST', '/api/warehouse-v2', body);
+          const name = e.form.warehouseName.trim();
+          const how = await writer({
+            entity: 'branch',
+            op: 'create',
+            recordId: `new:${name}`,
+            method: 'POST',
+            path: '/api/warehouse-v2',
+            body,
+            secret: true,
+            once: true,
+            label: name,
+            row: { id: `new:${name}`, name, isMain: false, ownerName: e.form.ownerName.trim(), phoneNumber: e.form.phoneNumber.trim(), address: e.form.address.trim(), image: e.form.image, useMainBranchVisibility: e.form.useMainBranchVisibility },
+          });
+          if (how === 'queued') Alert.alert(t('offline.savedOffline'));
         }
         setEditing(null);
         await load();
@@ -123,8 +136,7 @@ export default function BranchesScreen() {
         setBusy(false);
       }
     };
-    if (edit) void run();
-    else guard(run);
+    void run();
   }
 
   function remove(b: BranchRow) {
@@ -134,14 +146,15 @@ export default function BranchesScreen() {
         text: t('admin.delete'),
         style: 'destructive',
         onPress: () =>
-          guard(async () => {
+          void (async () => {
             try {
-              await api.call('DELETE', '/api/warehouse-v2', { id: b.id });
+              const how = await writer({ entity: 'branch', op: 'delete', recordId: b.id!, method: 'DELETE', path: '/api/warehouse-v2', body: { id: b.id }, once: true, label: b.name });
+              if (how === 'queued') Alert.alert(t('offline.savedOffline'));
               await load();
             } catch (err) {
               Alert.alert(t('branches.deleteFailed'), err instanceof Error ? err.message : undefined);
             }
-          }),
+          })(),
       },
     ]);
   }
