@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { boardRows, localTotal, type BoardResult } from '@/lib/board';
 import { rangeFor, type DateRange } from '@/lib/dates';

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { fetchAllPages } from '@/lib/catalog';
 import { useSession } from '@/lib/session';
 import { addBinding, availableBranches, initialBindEntries, removeBinding, type BindEntry } from '@/lib/users';

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { applyCleanEnd, applyCleanEvent, CLEAN_IDLE, type CleanState } from '@/lib/clean-dummy';
 import { useSession } from '@/lib/session';

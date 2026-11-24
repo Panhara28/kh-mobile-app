@@ -1,7 +1,8 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { branchSaleQuery } from '@/lib/board';
 import { formatMoney } from '@/lib/money';

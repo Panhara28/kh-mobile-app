@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { printReceipt } from '@/lib/print';
-import { Alert, Modal, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { splitTitle } from '@/lib/menu';
 import { formatMoney } from '@/lib/money';

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import type { Category, KhPosApi, MenuProduct } from '@/lib/api';
 import type { OfflineData } from '@/lib/offline/data';
 import { useOffline } from '@/lib/offline/provider';

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, RefreshControl, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { can } from '@/lib/line';
 import { formatMoney } from '@/lib/money';

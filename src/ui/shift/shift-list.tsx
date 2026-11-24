@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import type { Shift } from '@/lib/api';
 import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Alert, PanResponder, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, PanResponder, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RestaurantTable } from '@/lib/api';
 import { can } from '@/lib/line';

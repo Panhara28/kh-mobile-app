@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { addConversion, conversionComplete, conversionsAvailable, conversionsLeft, fromChoices, patchConversion, removeConversion, toChoices, type ProductFormData } from '@/lib/product-form';
 import { Button, Card, Chip } from '@/ui/components';
 import { NumInput } from './parts';

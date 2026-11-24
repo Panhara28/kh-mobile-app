@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { addResource, createRoleBody, removeResource, resourceLabel, togglePermission, toRoles, updateRoleBody, validateRoleName, type Permissions, type Role, type RoleRow } from '@/lib/accessibility';
 import { can } from '@/lib/line';

@@ -2,7 +2,8 @@ import * as Clipboard from 'expo-clipboard';
 import * as ImagePicker from 'expo-image-picker';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Image, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Image, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '@/ui/text';
 import {
   ENVIRONMENTS,
   INVOICE_TEMPLATES,

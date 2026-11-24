@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { bookingBody, bookingQuery, emptyBooking, isExpense, summaryNumbers, validateBooking, type AccountRow, type AccountType, type BookingForm, type BookingRow, type BookingSummary } from '@/lib/accounting';
 import { fetchAllPages } from '@/lib/catalog';

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ComponentType, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { WebView as RNWebView, type WebViewProps } from 'react-native-webview';
 
 /** react-native-webview 14's class typing defaults its extra-props parameter to `undefined`, which makes every prop `never`. */

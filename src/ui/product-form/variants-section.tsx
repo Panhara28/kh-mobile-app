@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { KhPosApi } from '@/lib/api';
 import { bindable, imagesFor, MAX_IMAGES_PER_VARIANT, patchVariant, removeComponent, removeVariant, setAllPrices, setComponent, setDiscountType, toggleBind, type ProductFormData, type VariantForm } from '@/lib/product-form';

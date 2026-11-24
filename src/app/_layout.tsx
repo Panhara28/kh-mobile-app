@@ -1,9 +1,11 @@
+import { useFonts } from 'expo-font';
 import { Stack, router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { homeRoute } from '@/lib/modules';
 import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
-import { LogBox, StyleSheet, Text } from 'react-native';
+import { LogBox, StyleSheet } from 'react-native';
+import { KRASAR_FONTS, Text } from '@/ui/text';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { initI18n } from '@/i18n';
 import { restoreLanguage } from '@/i18n/saved-language';
@@ -20,6 +22,9 @@ void restoreLanguage();
 LogBox.ignoreLogs(['Cannot connect to Expo CLI', 'Error happened from the WebSocket']);
 
 export default function RootLayout() {
+  // Krasar for Khmer text (ui/text.tsx). Local files, so this is a moment; on an error the system font is used.
+  const [fontsLoaded, fontError] = useFonts(KRASAR_FONTS);
+  if (!fontsLoaded && !fontError) return null;
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />

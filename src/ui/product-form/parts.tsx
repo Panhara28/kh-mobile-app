@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { StyleSheet, Switch, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { Card, Field } from '@/ui/components';
 import { colors, font, radius, space } from '@/ui/theme';
 

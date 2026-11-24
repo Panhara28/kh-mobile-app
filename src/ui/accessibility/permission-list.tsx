@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { StyleSheet, Switch, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { ACTIONS, availableResources, isEnabled, resourceLabel, type Permissions } from '@/lib/accessibility';
 import { Button, Chip } from '@/ui/components';
 import { colors, font, radius, space } from '@/ui/theme';

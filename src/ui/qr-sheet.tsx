@@ -1,7 +1,8 @@
 import * as Clipboard from 'expo-clipboard';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Linking, Modal, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Modal, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { qrMatrix, qrRuns } from '@/lib/qr';
 import { Button } from './components';

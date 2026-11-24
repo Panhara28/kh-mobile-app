@@ -8,13 +8,11 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   View,
-  TextInput,
 } from 'react-native';
+import { Text, TextInput } from '@/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isLanguage, type Language } from '@/i18n';
-import { KHPOS_URL } from '@/lib/config';
 import { useSession } from '@/lib/session';
 import { Field, Segmented } from '@/ui/components';
 import { errorKind } from '@/ui/states';
@@ -86,9 +84,6 @@ export default function Login() {
             <View style={styles.brand}>
               <Image source={require('../../assets/brand/bongit-mark-white.png')} style={styles.logo} resizeMode="contain" accessibilityLabel="BongIT" />
               <Text style={styles.product}>Point Of Sale</Text>
-              <Text style={styles.powered}>
-                Powered by <Text style={styles.poweredStrong}>BongIT</Text>
-              </Text>
             </View>
           </View>
 
@@ -181,7 +176,9 @@ export default function Login() {
               </Pressable>
             </View>
 
-            <Text style={styles.server}>{t('login.server', { url: KHPOS_URL || '-' })}</Text>
+            <Text style={styles.powered}>
+              Powered by <Text style={styles.poweredStrong}>BongIT</Text>
+            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -205,10 +202,8 @@ const styles = StyleSheet.create({
   hero: { flexGrow: 1, minHeight: 280, paddingHorizontal: space.lg },
   lang: { alignSelf: 'flex-end', width: 130 },
   brand: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: space.xl },
-  logo: { width: 112, height: 112, marginBottom: space.sm },
+  logo: { width: 176, height: 176, marginBottom: space.xs },
   product: { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
-  powered: { fontSize: font.body, color: 'rgba(255,255,255,0.8)' },
-  poweredStrong: { fontWeight: '700', color: '#fff' },
 
   sheet: {
     backgroundColor: colors.card,
@@ -264,7 +259,8 @@ const styles = StyleSheet.create({
     padding: space.md,
   },
   failureText: { color: colors.destructive, fontSize: font.small, lineHeight: 20 },
-  server: { textAlign: 'center', fontSize: 12, color: colors.mutedForeground },
+  powered: { textAlign: 'center', fontSize: font.small, color: colors.mutedForeground, marginTop: space.xs },
+  poweredStrong: { fontWeight: '700', color: '#0B43C7' },
   eye: { paddingHorizontal: space.md, height: '100%', justifyContent: 'center' },
   eyeText: { fontSize: 18 },
 });

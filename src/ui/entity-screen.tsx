@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { can } from '@/lib/line';
 import { useCachedLoad } from '@/lib/offline/use-cached-load';

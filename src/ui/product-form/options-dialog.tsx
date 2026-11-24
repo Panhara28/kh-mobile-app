@@ -1,7 +1,8 @@
 import * as Crypto from 'expo-crypto';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { canGenerate, MAX_OPTIONS, optionProblems, type OptionForm } from '@/lib/product-form';
 import { Button, Card, Chip, Input } from '@/ui/components';

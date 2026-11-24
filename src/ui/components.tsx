@@ -3,12 +3,11 @@ import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   View,
   type TextInputProps,
   type ViewStyle,
 } from 'react-native';
+import { Text, TextInput } from '@/ui/text';
 import { clampInt } from '@/lib/number';
 import { colors, font, radius, shadow, space } from './theme';
 

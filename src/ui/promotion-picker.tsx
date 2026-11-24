@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { buildLines, defaultChoices, rewardLabel, type PromotionCandidate, type PromotionLine, type PromotionSlot, type SummaryLabels } from '@/lib/promotion-set';
 import { cardPrice } from '@/lib/menu';

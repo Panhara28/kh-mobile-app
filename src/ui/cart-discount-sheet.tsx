@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { TableOrder } from '@/lib/api';
 import { buildCartDiscount, cartLines, checkCartDiscount, currentCartDiscount, previewCartDiscount, removeAllDiscounts, type CartDiscountType } from '@/lib/cart-discount';

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { ApiError, type ApiErrorKind } from '@/lib/api';
 import { Button } from './components';
 import { colors, font, space } from './theme';

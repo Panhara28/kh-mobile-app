@@ -1,6 +1,7 @@
 import { printReceipt } from '@/lib/print';
 import { useTranslation } from 'react-i18next';
-import { Alert, Modal, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Shift } from '@/lib/api';
 import { formatMoney } from '@/lib/money';

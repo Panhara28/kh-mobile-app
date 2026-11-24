@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RestaurantTable } from '@/lib/api';
 import { formatMoney, type CurrencyCode } from '@/lib/money';

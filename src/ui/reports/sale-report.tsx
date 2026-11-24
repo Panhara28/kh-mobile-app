@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import { fetchAllPages } from '@/lib/catalog';
 import type { DateRange } from '@/lib/dates';
 import { formatMoney, type CurrencyCode } from '@/lib/money';

@@ -1,7 +1,8 @@
 import { useRecordWriter } from '@/lib/offline/use-record';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
+import { Text } from '@/ui/text';
 import type { KhPosApi } from '@/lib/api';
 import { fetchAllPages, type CategoryRow, type SupplierRow } from '@/lib/catalog';
 import type { OfflineData } from '@/lib/offline/data';
