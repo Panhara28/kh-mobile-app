@@ -72,6 +72,20 @@ export default function TableScreen() {
   const [busy, setBusy] = useState(false);
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  /** What to open once the cart drawer has closed (iOS can't show a sheet while the drawer is still on screen). */
+  const afterCart = useRef<(() => void) | null>(null);
+  function closeCartThen(next: () => void) {
+    afterCart.current = next;
+    setCartOpen(false);
+    // in case the drawer never reports it has gone
+    setTimeout(runAfterCart, 900);
+  }
+  function runAfterCart() {
+    const next = afterCart.current;
+    afterCart.current = null;
+    next?.();
+  }
+
   const [discountOpen, setDiscountOpen] = useState(false);
   const [orderTypeOpen, setOrderTypeOpen] = useState(false);
   const [transferTables, setTransferTables] = useState<RestaurantTable[] | null>(null);
@@ -604,8 +618,7 @@ export default function TableScreen() {
   const openLine = activeLines(table.order).find((l) => l.orderDetailId === openLineId) ?? null;
 
   function openCustomize(line: OrderLine) {
-    setCartOpen(false);
-    setOpenLineId(line.orderDetailId);
+    closeCartThen(() => setOpenLineId(line.orderDetailId));
   }
 
   function closeCustomize() {
@@ -697,6 +710,7 @@ export default function TableScreen() {
       />
       <CartDrawer
         visible={cartOpen}
+        onHidden={runAfterCart}
         tableName={seatName}
         order={table.order}
         names={names}
@@ -711,16 +725,13 @@ export default function TableScreen() {
         onSend={() => void send()}
         onServeAll={() => void serveAll()}
         onDiscount={() => {
-          setCartOpen(false);
-          setDiscountOpen(true);
+          closeCartThen(() => setDiscountOpen(true));
         }}
         onOrderType={() => {
-          setCartOpen(false);
-          startOrderType();
+          closeCartThen(startOrderType);
         }}
         onCheckout={() => {
-          setCartOpen(false);
-          void startCheckout();
+          closeCartThen(() => void startCheckout());
         }}
         onSetGuests={setGuests}
         onOpenLine={openCustomize}

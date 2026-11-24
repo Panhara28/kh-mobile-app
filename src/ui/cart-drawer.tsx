@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Animated, Image, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Alert, Animated, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Text } from '@/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ModifierItem, OrderLine, StaffUser, TableOrder } from '@/lib/api';
@@ -39,6 +39,7 @@ export function CartDrawer({
   onOrderType,
   onSetGuests,
   onOpenLine,
+  onHidden,
 }: {
   visible: boolean;
   tableName: string;
@@ -50,6 +51,11 @@ export function CartDrawer({
   currency: CurrencyCode;
   busy: boolean;
   onClose: () => void;
+  /**
+   * The drawer has finished closing. iOS shows one modal at a time: a sheet opened while the drawer is still
+   * sliding away never appears and the screen looks frozen, so the next sheet waits for this.
+   */
+  onHidden?: () => void;
   onSetPending: (line: OrderLine, qty: number) => void;
   onDelete: (line: OrderLine) => void;
   /** Prints the line's kitchen ticket again (qty = portions already sent). */
@@ -99,10 +105,18 @@ export function CartDrawer({
   // Slide in from the right; keep the modal mounted until the slide-out has finished.
   const slide = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(visible);
+  const hidden = useRef(onHidden);
+  useEffect(() => {
+    hidden.current = onHidden;
+  });
   useEffect(() => {
     if (visible) setMounted(true);
     Animated.timing(slide, { toValue: visible ? 1 : 0, duration: 220, useNativeDriver: true }).start(({ finished }) => {
-      if (finished && !visible) setMounted(false);
+      if (finished && !visible) {
+        setMounted(false);
+        // iOS: Modal onDismiss below says when it has really gone
+        if (Platform.OS !== 'ios') hidden.current?.();
+      }
     });
   }, [visible, slide]);
   const translateX = slide.interpolate({ inputRange: [0, 1], outputRange: [drawerWidth, 0] });
@@ -138,7 +152,7 @@ export function CartDrawer({
   };
 
   return (
-    <Modal visible={mounted} animationType="none" transparent onRequestClose={onClose}>
+    <Modal visible={mounted} animationType="none" transparent onRequestClose={onClose} onDismiss={() => hidden.current?.()}>
       <Animated.View style={[styles.backdrop, { opacity: slide }]}>
         <Pressable style={styles.fill} onPress={onClose} accessibilityLabel={t('common.close')} />
       </Animated.View>
