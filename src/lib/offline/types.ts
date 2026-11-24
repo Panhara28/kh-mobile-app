@@ -294,6 +294,10 @@ export interface LocalStore {
   getCache<T>(key: string): Promise<CachedValue<T> | null>;
   setCache(key: string, value: unknown): Promise<void>;
   deleteCache(key: string): Promise<void>;
+  /** Keys of the saved copies that start with `prefix`. */
+  cacheKeys(prefix: string): Promise<string[]>;
+  /** Empties the phone's database: every saved copy and every change waiting to be sent. */
+  clearAll(): Promise<void>;
 
   outboxAdd(cmd: NewCommand): Promise<void>;
   /** All commands, oldest first. */

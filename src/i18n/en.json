@@ -2247,5 +2247,15 @@
     "passwordMismatch": "The passwords are not the same.",
     "alreadyRegistered": "This kh-pos already has a store. Sign in instead.",
     "failed": "Could not register."
+  },
+  "wipe": {
+    "button": "Clear data on this phone",
+    "hint": "Removes the saved menu, tables, orders, offline logins and changes not sent yet, then signs out. The next login loads everything fresh from kh-pos.",
+    "title": "Clear data on this phone?",
+    "ask": "Everything kh-pos saved on this phone is removed and you are signed out. Data on kh-pos itself is not touched. This cannot be undone.",
+    "confirm": "Clear",
+    "unsentTitle": "Changes not sent yet",
+    "unsent": "{{count}} changes on this phone have not reached kh-pos. Clearing deletes them for good.",
+    "confirmLose": "Delete them and clear"
   }
 }

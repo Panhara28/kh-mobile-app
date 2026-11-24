@@ -48,6 +48,12 @@ interface SessionValue {
   api: KhPosApi;
   login(username: string, password: string): Promise<void>;
   logout(): Promise<void>;
+  /**
+   * Clears everything this phone keeps for kh-pos (saved copies, changes not sent yet, offline logins, the login
+   * token) and signs out, so the next login starts fresh from kh-pos like the web. The device id, printer and
+   * language stay.
+   */
+  wipePhone(): Promise<void>;
   retry(): void;
 }
 
@@ -214,6 +220,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [api, saveUser, loginOffline],
   );
 
+  const wipePhone = useCallback(async () => {
+    const store = await getStore();
+    // the offline logins are in secure storage, one per staff member who signed in on this phone
+    for (const key of await store.cacheKeys('profile:')) await vault.remove(key.slice('profile:'.length)).catch(() => undefined);
+    await store.clearAll();
+    await signOutLocally();
+  }, [signOutLocally]);
+
   const value = useMemo<SessionValue>(
     () => ({
       status,
@@ -221,12 +235,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       api,
       login,
       logout: signOutLocally,
+      wipePhone,
       retry: () => {
         setStatus('loading');
         setAttempt((a) => a + 1);
       },
     }),
-    [status, user, api, login, signOutLocally],
+    [status, user, api, login, signOutLocally, wipePhone],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

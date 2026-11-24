@@ -12,6 +12,7 @@ import { ScanPrintUrl } from '@/ui/scan-print-url';
 import { loadDevice, saveDeviceLabel, savePrinterName, savePrintMethod, savePrintUrl, type DeviceSettings } from '@/lib/device';
 import { can } from '@/lib/line';
 import { useRecordWriter } from '@/lib/offline/use-record';
+import { useOffline } from '@/lib/offline/provider';
 import { useSession } from '@/lib/session';
 import { useShift } from '@/lib/use-shift';
 import { Button, Card, Field, Segmented } from '@/ui/components';
@@ -25,7 +26,40 @@ import { colors, font, radius, space } from '@/ui/theme';
  */
 export default function AccountScreen() {
   const { t } = useTranslation();
-  const { user, logout } = useSession();
+  const { user, logout, wipePhone } = useSession();
+  const { engine, state: offline } = useOffline();
+  const [wiping, setWiping] = useState(false);
+
+  /** Clears everything this phone keeps for kh-pos and signs out (asked twice when changes would be lost). */
+  function confirmWipe() {
+    const unsent = offline.pending + offline.failed;
+    const run = () =>
+      void (async () => {
+        setWiping(true);
+        try {
+          await wipePhone();
+          await engine.refresh();
+        } catch (e) {
+          Alert.alert(t('errors.server'), e instanceof Error ? e.message : undefined);
+        } finally {
+          setWiping(false);
+        }
+      })();
+    Alert.alert(t('wipe.title'), t('wipe.ask'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('wipe.confirm'),
+        style: 'destructive',
+        onPress: () =>
+          unsent > 0
+            ? Alert.alert(t('wipe.unsentTitle'), t('wipe.unsent', { count: unsent }), [
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('wipe.confirmLose'), style: 'destructive', onPress: run },
+              ])
+            : run(),
+      },
+    ]);
+  }
   const writer = useRecordWriter();
   const { shift, reload } = useShift();
   const [oldPassword, setOldPassword] = useState('');
@@ -221,6 +255,10 @@ export default function AccountScreen() {
               ])
             }
           />
+        </View>
+        <View style={{ gap: space.xs }}>
+          <Button title={t('wipe.button')} variant="destructive" loading={wiping} onPress={confirmWipe} />
+          <Text style={{ fontSize: font.small, color: colors.mutedForeground }}>{t('wipe.hint')}</Text>
         </View>
       </ScrollView>
       <TabBar current="account" />

@@ -87,6 +87,18 @@ export class SqliteStore implements LocalStore {
     await this.db.runAsync('DELETE FROM cache WHERE key = ?', key);
   }
 
+  async cacheKeys(prefix: string): Promise<string[]> {
+    const rows = await this.db.getAllAsync<{ key: string }>('SELECT key FROM cache WHERE substr(key, 1, ?) = ?', prefix.length, prefix);
+    return rows.map((r) => r.key);
+  }
+
+  async clearAll(): Promise<void> {
+    await this.db.withExclusiveTransactionAsync(async (tx) => {
+      await tx.runAsync('DELETE FROM cache');
+      await tx.runAsync('DELETE FROM outbox');
+    });
+  }
+
   async outboxAdd(cmd: NewCommand): Promise<void> {
     await this.db.runAsync(
       "INSERT OR IGNORE INTO outbox (id, user_id, kind, table_id, payload, status, attempts, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?)",

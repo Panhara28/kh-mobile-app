@@ -21,6 +21,15 @@ export class MemoryStore implements LocalStore {
     this.cache.delete(key);
   }
 
+  async cacheKeys(prefix: string): Promise<string[]> {
+    return [...this.cache.keys()].filter((k) => k.startsWith(prefix));
+  }
+
+  async clearAll(): Promise<void> {
+    this.cache.clear();
+    this.outbox = [];
+  }
+
   async outboxAdd(cmd: NewCommand): Promise<void> {
     if (this.outbox.some((c) => c.id === cmd.id)) return; // same command twice: keep the first
     this.outbox.push({ ...JSON.parse(JSON.stringify(cmd)), status: cmd.status ?? 'pending', error: null, attempts: 0, seq: this.nextSeq++ });
