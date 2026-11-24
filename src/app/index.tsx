@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useRef, useState, type ComponentRef } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState, type ComponentRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -31,7 +31,24 @@ const BRAND_GRADIENT = `linear-gradient(160deg, ${BRAND_FROM} 0%, ${BRAND_TO} 10
  */
 export default function Login() {
   const { t, i18n } = useTranslation();
-  const { login } = useSession();
+  const { login, api } = useSession();
+
+  // Like the web: a kh-pos with no users yet (new, or all its data wiped) opens on Register.
+  // Unreachable: stay here (staff who signed in on this phone before can log in offline).
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      api.call<{ result?: boolean }>('GET', '/api/user/has-user').then(
+        (r) => {
+          if (!cancelled && r.result === false) router.replace('/register');
+        },
+        () => undefined,
+      );
+      return () => {
+        cancelled = true;
+      };
+    }, [api]),
+  );
   const insets = useSafeAreaInsets();
   const language: Language = isLanguage(i18n.language) ? i18n.language : 'km';
   const [username, setUsername] = useState('');
