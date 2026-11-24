@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KHPOS_MODE } from '@/lib/config';
 import { describeCommand } from '@/lib/offline/describe';
 import { storeInfo } from '@/lib/offline/store';
 import { useOffline } from '@/lib/offline/provider';
@@ -33,7 +34,7 @@ export function SyncBadge() {
           ? t('offline.waiting', { count: state.pending })
           : saving
             ? t('offline.modulesPill', { percent: Math.min(99, Math.round((moduleSync.done / Math.max(1, moduleSync.total)) * 100)) })
-            : t('offline.online');
+            : KHPOS_MODE === 'phone' ? t('offline.onPhone') : t('offline.online');
 
   return (
     <>
@@ -139,7 +140,7 @@ export function SyncSheet({ visible, onClose }: { visible: boolean; onClose: () 
           </View>
 
           <Text style={[styles.status, { color: state.online ? colors.success : colors.warning }]}>
-            {state.online ? t('offline.statusOnline') : t('offline.statusOffline')}
+            {KHPOS_MODE === 'phone' ? t('offline.statusPhone') : state.online ? t('offline.statusOnline') : t('offline.statusOffline')}
           </Text>
           <Text style={styles.rowMeta}>
             {state.lastSyncedAt ? t('offline.lastSynced', { time: clock(new Date(state.lastSyncedAt)) }) : t('offline.neverSynced')}
