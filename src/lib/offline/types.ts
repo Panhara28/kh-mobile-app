@@ -180,6 +180,10 @@ export interface RetailSalePayload {
   warehouseId: string;
   cart: RetailLine[];
   payments: CheckoutPayment[];
+  /** The customer chosen at the counter; the walk-in customer (POS info) when absent. */
+  customerId?: string;
+  /** Manual discounts per line (the sale's discount), set after the sale is opened and before it is paid. */
+  discounts?: { lineId: string; amount: number; discountType: 'PERCENTAGE' | 'AMOUNT' }[];
   /** Kept so the receipt can be shown for a sale that has not reached kh-pos yet. */
   receipt: Receipt;
 }

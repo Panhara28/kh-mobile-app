@@ -1,4 +1,5 @@
 /** Retail POS (no table): scan or search products, build a cart, then pay. The cart is kept on the phone until Charge. */
+import { buildCartDiscount, checkCartDiscount, previewCartDiscount, type CartDiscountType, type CartLine } from './cart-discount';
 
 const n = (v: unknown) => Number(v) || 0;
 const cents = (v: number) => Math.round(v * 100) / 100;
@@ -51,4 +52,29 @@ export function retailOrderBody(input: { warehouseId: string; slotId: string; cu
     invoiceNo: input.invoiceNo,
     items: cart.map((l) => ({ id: l.lineId, variantId: l.variantId, qty: l.qty, price: String(l.price) })),
   };
+}
+
+/** A discount on the whole retail sale, like the web POS "Discount" sheet: a percentage or an amount. */
+export interface RetailDiscount {
+  type: CartDiscountType;
+  value: number;
+}
+
+/**
+ * The sale's discount worked out with the table cart's maths (lib/cart-discount.ts, the same as the web): what each
+ * line gets (sent to kh-pos as manual discounts once the sale is opened), the money off and the total to pay.
+ */
+export function retailDiscount(cart: RetailLine[], d: RetailDiscount | null): { rows: { lineId: string; amount: number; discountType: CartDiscountType }[]; off: number; total: number } {
+  const total = cartTotal(cart);
+  if (!d || !(d.value > 0) || cart.length === 0) return { rows: [], off: 0, total };
+  const lines: CartLine[] = cart.map((l) => {
+    const gross = Math.round(l.price * l.qty * 100) / 100;
+    return { orderDetailId: l.lineId, title: l.name, qty: l.qty, gross, existing: 0, netBase: gross, hasManual: false };
+  });
+  if (checkCartDiscount(lines, new Set(), d.type, d.value) !== 'ok') return { rows: [], off: 0, total };
+  const preview = previewCartDiscount(lines, new Set(), d.type, d.value);
+  const rows = buildCartDiscount(lines, new Set(), d.type, d.value)
+    .filter((r) => r.amount > 0)
+    .map((r) => ({ lineId: r.orderDetailId, amount: r.amount, discountType: r.discountType }));
+  return { rows, off: preview?.totalManual ?? 0, total: preview?.finalTotal ?? total };
 }

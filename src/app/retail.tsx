@@ -4,6 +4,10 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { BadgePercent, ClipboardList, UserRound } from 'lucide-react-native';
+import type { CustomerRow } from '@/lib/customers';
+import { RetailCustomerSheet, RetailDiscountSheet } from '@/ui/retail-extras';
+import { TransferSheet } from '@/ui/picking-sheet';
 import { Text } from '@/ui/text';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CheckoutPayment, PaymentMethod } from '@/lib/api';
@@ -14,7 +18,7 @@ import { useOnlineOnly } from '@/lib/offline/use-online-only';
 import { fetchAllPages } from '@/lib/catalog';
 import { methodNames, receiptFromDetail, receiptFromRetail, type Receipt } from '@/lib/receipt';
 import { toKhPosTime } from '@/lib/time';
-import { addToCart, cartCount, cartTotal, matchBarcode, setQty, type RetailLine, type RetailProduct } from '@/lib/retail';
+import { addToCart, cartCount, retailDiscount, matchBarcode, setQty, type RetailDiscount, type RetailLine, type RetailProduct } from '@/lib/retail';
 import { useSession } from '@/lib/session';
 import type { ProductListItem } from '@/lib/products';
 import { useBranch } from '@/lib/use-branch';
@@ -76,6 +80,11 @@ export default function RetailScreen() {
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const lastScan = useRef({ code: '', at: 0 });
   const [catalog, setCatalog] = useState<RetailProduct[]>([]);
+  const [customer, setCustomer] = useState<CustomerRow | null>(null);
+  const [discount, setDiscount] = useState<RetailDiscount | null>(null);
+  const [sheet, setSheet] = useState<'customer' | 'discount' | 'picking' | null>(null);
+  /** Same list as long as the cart is the same, so the picking list opened online also opens offline. */
+  const pickingOrder = { orderId: `retail:${cart.map((l) => `${l.variantId}x${l.qty}`).join(',')}`, invoiceNo: '', items: cart.map((l) => ({ variantId: l.variantId, qty: l.qty })) };
 
   useFocusEffect(
     useCallback(() => {
@@ -166,7 +175,11 @@ export default function RetailScreen() {
         // the stock is checked before the customer pays (the sale is opened and paid in one go afterwards)
         const need = (await api.stockToTransfer(cart.map((l) => ({ variantId: l.variantId, toFindQty: l.qty })))).filter((x) => x.slot && x.slot.posSlot === false);
         if (need.length > 0) {
-          Alert.alert(t('checkout.needStock'));
+          // like the web checkout check: show where the stock is, with the buttons to move it to the POS slot
+          Alert.alert(t('checkout.needStock'), undefined, [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('retail.picking'), onPress: () => setSheet('picking') },
+          ]);
           return;
         }
         setPay({ orderId: Crypto.randomUUID(), slotId: '' });
@@ -193,17 +206,28 @@ export default function RetailScreen() {
       methods: methodNames(methods),
       payments,
       total,
+      discount: priced.off,
       exchangeRate,
       currency,
       paidAt: toKhPosTime(new Date()),
     };
-    const cmd = saleCommand(user?.id ?? '', { orderId: p.orderId, warehouseId, cart, payments, receipt: receiptFromRetail({ ...base, offline: true }) });
+    const cmd = saleCommand(user?.id ?? '', {
+      orderId: p.orderId,
+      warehouseId,
+      cart,
+      payments,
+      ...(customer ? { customerId: customer.id } : {}),
+      ...(priced.rows.length ? { discounts: priced.rows } : {}),
+      receipt: receiptFromRetail({ ...base, offline: true }),
+    });
     setBusy(true);
     try {
       // written to the phone first; opened and paid in kh-pos at once, or kept and sent when kh-pos can be reached
       const how = await engine.run(cmd, () => engine.replayNow(cmd));
       setPay(null);
       setCart([]);
+      setDiscount(null);
+      setCustomer(null);
       if (how === 'queued') {
         Alert.alert(t('checkout.savedOffline'));
         setReceipt(receiptFromRetail({ ...base, offline: true }));
@@ -221,7 +245,8 @@ export default function RetailScreen() {
     }
   }
 
-  const total = cartTotal(cart);
+  const priced = retailDiscount(cart, discount);
+  const total = priced.total;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -286,12 +311,26 @@ export default function RetailScreen() {
               </View>
             )}
           />
+          <View style={styles.extras}>
+            <Button title={customer ? customer.customerName || customer.phone : t('retail.walkIn')} variant="secondary" size="sm" left={<UserRound size={16} color={colors.foreground} />} onPress={() => setSheet('customer')} style={styles.flex} />
+            <Button title={priced.off > 0 ? `− ${formatMoney(priced.off, currency)}` : t('retail.discount')} variant="secondary" size="sm" left={<BadgePercent size={16} color={colors.foreground} />} onPress={() => setSheet('discount')} style={styles.flex} />
+            <Button title={t('retail.picking')} variant="secondary" size="sm" left={<ClipboardList size={16} color={colors.foreground} />} onPress={() => setSheet('picking')} style={styles.flex} />
+          </View>
           <View style={styles.row}>
             <Text style={styles.heading}>{t('retail.items', { count: cartCount(cart) })}</Text>
             <Text style={styles.heading}>{formatMoney(total, currency)}</Text>
           </View>
           <View style={styles.row}>
-            <Button title={t('retail.clear')} variant="outline" onPress={() => setCart([])} style={styles.flex} />
+            <Button
+              title={t('retail.clear')}
+              variant="outline"
+              onPress={() => {
+                setCart([]);
+                setDiscount(null);
+                setCustomer(null);
+              }}
+              style={styles.flex}
+            />
             <Button title={`${t('retail.charge')} ${formatMoney(total, currency)}`} loading={busy} onPress={charge} style={styles.flex} />
           </View>
         </View>
@@ -309,6 +348,29 @@ export default function RetailScreen() {
 
       {pay ? <CheckoutSheet total={total} currency={currency} exchangeRate={exchangeRate} methods={methods} busy={busy} onClose={cancelPay} onComplete={(p) => void complete(p)} /> : null}
       <ReceiptSheet receipt={receipt} onClose={() => setReceipt(null)} />
+      {sheet === 'customer' ? (
+        <RetailCustomerSheet
+          current={customer}
+          onPick={(c) => {
+            setCustomer(c);
+            setSheet(null);
+          }}
+          onClose={() => setSheet(null)}
+        />
+      ) : null}
+      {sheet === 'discount' ? (
+        <RetailDiscountSheet
+          cart={cart}
+          current={discount}
+          currency={currency}
+          onApply={(d) => {
+            setDiscount(d);
+            setSheet(null);
+          }}
+          onClose={() => setSheet(null)}
+        />
+      ) : null}
+      {sheet === 'picking' ? <TransferSheet order={pickingOrder} title={t('retail.pickingTitle')} linkOrder={false} onClose={() => setSheet(null)} /> : null}
     </SafeAreaView>
   );
 }
@@ -329,6 +391,7 @@ const styles = StyleSheet.create({
   cartRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: 2 },
   cartName: { flex: 1, fontSize: font.body, color: colors.foreground },
   qty: { minWidth: 24, textAlign: 'center', fontSize: font.body, fontWeight: '700', color: colors.foreground },
+  extras: { flexDirection: 'row', gap: space.sm },
   lineTotal: { minWidth: 64, textAlign: 'right', fontSize: font.small, color: colors.mutedForeground },
   scanner: { flex: 1, backgroundColor: '#000' },
   scanFooter: { gap: space.sm, padding: space.md, backgroundColor: colors.card },

@@ -89,6 +89,8 @@ export function receiptFromRetail(input: {
   currency: CurrencyCode;
   paidAt: string;
   offline: boolean;
+  /** Money off the sale (its discount); `total` is what was paid after it. */
+  discount?: number;
 }): Receipt {
   const payments = input.payments.map((p) => ({ method: methodName(input.methods, p.paymentMethod), currency: p.currency, amount: p.amount, amountUsd: p.amountUsd }));
   return {
@@ -100,7 +102,7 @@ export function receiptFromRetail(input: {
     guests: null,
     lines: input.cart.map((l) => ({ title: l.name, qty: l.qty, price: l.price, total: Math.round(l.price * l.qty * 100) / 100, extras: [] })),
     total: input.total,
-    discount: 0,
+    discount: input.discount ?? 0,
     payments,
     change: changeOf(payments, input.total),
     exchangeRate: input.exchangeRate,

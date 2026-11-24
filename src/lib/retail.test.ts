@@ -42,3 +42,33 @@ describe('opening the order', () => {
     expect('tableNumber' in body).toBe(false);
   });
 });
+
+describe('retail discount', () => {
+  const { retailDiscount } = jest.requireActual('./retail') as typeof import('./retail');
+  const cart = [
+    { variantId: 'a', productId: 'p', name: 'Rice', price: 2.5, barcode: '', lineId: 'l1', qty: 2 },
+    { variantId: 'b', productId: 'p', name: 'Tea', price: 1, barcode: '', lineId: 'l2', qty: 1 },
+  ];
+  it('no discount: the cart total', () => {
+    expect(retailDiscount(cart, null)).toEqual({ rows: [], off: 0, total: 6 });
+  });
+  it('a percentage goes on every line', () => {
+    const r = retailDiscount(cart, { type: 'PERCENTAGE', value: 10 });
+    expect(r.rows).toEqual([
+      { lineId: 'l1', amount: 10, discountType: 'PERCENTAGE' },
+      { lineId: 'l2', amount: 10, discountType: 'PERCENTAGE' },
+    ]);
+    expect(r.off).toBe(0.6);
+    expect(r.total).toBe(5.4);
+  });
+  it('an amount is shared by price', () => {
+    const r = retailDiscount(cart, { type: 'AMOUNT', value: 1.2 });
+    expect(r.rows[0]!.amount).toBeCloseTo(1);
+    expect(r.rows[1]!.amount).toBeCloseTo(0.2);
+    expect(r.total).toBe(4.8);
+  });
+  it('a discount bigger than the sale is ignored', () => {
+    expect(retailDiscount(cart, { type: 'AMOUNT', value: 50 }).total).toBe(6);
+    expect(retailDiscount(cart, { type: 'PERCENTAGE', value: 120 }).total).toBe(6);
+  });
+});

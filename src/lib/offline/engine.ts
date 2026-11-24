@@ -592,11 +592,13 @@ export class SyncEngine {
       if (short.length > 0) throw new Error('Some products are not in the POS slot. Move the stock to the POS slot, then Retry.');
       const invoiceNo = await this.api.nextInvoiceNumber();
       try {
-        await this.api.createRetailOrder(retailOrderBody({ warehouseId: p.warehouseId, slotId: info.posSlotId, customerId: info.posCustomerId, invoiceNo, orderId: p.orderId }, p.cart));
+        await this.api.createRetailOrder(retailOrderBody({ warehouseId: p.warehouseId, slotId: info.posSlotId, customerId: p.customerId || info.posCustomerId, invoiceNo, orderId: p.orderId }, p.cart));
       } catch (e) {
         if (!(e instanceof ApiError && /duplicate/i.test(e.message) && /primary/i.test(e.message))) throw e; // an earlier try opened it
       }
     }
+    // the sale's discount (setting it again on a retry gives the same discount)
+    for (const d of p.discounts ?? []) await this.api.setManualDiscount(p.orderId, { itemId: d.lineId, amount: d.amount, discountType: d.discountType });
     await this.api.checkout(p.orderId, { slotId: info.posSlotId, payments: p.payments });
   }
 
