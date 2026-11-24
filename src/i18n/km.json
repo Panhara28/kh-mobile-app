@@ -54,7 +54,15 @@
     "empty": "សាខានេះមិនទាន់មានតុនៅឡើយទេ។",
     "seats": "{{count}} កៅអី",
     "items": "{{count}} មុខ",
-    "toSend": "{{count}} មិនទាន់ផ្ញើ"
+    "toSend": "{{count}} មិនទាន់ផ្ញើ",
+    "groups": "{{count}} ក្រុម",
+    "tag": "ស្លាក",
+    "newGroup": "ដាក់ភ្ញៀវក្រុមថ្មី",
+    "seatAnyway": "តុពេញ · ដាក់ទោះយ៉ាងណា",
+    "noOrderYet": "មិនទាន់កុម្ម៉ង់",
+    "guests": "ភ្ញៀវ {{count}} នាក់",
+    "newGroupTitle": "ក្រុមថ្មី",
+    "tagOnSave": "លេខស្លាកនឹងផ្តល់ឱ្យ ពេលរក្សាទុកម្ហូបដំបូង។"
   },
   "tableStatus": {
     "available": "ទំនេរ",

@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,9 +11,11 @@ import { useOffline } from '@/lib/offline/provider';
 import { orderCounts } from '@/lib/order';
 import { useSession } from '@/lib/session';
 import { invoiceLink, tableMenuLink } from '@/lib/qr';
+import { groupSeat, openGroups, seatId, splitSeat, waitingSeats } from '@/lib/table-groups';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button } from '@/ui/components';
 import { QrSheet } from '@/ui/qr-sheet';
+import { TableGroupsSheet } from '@/ui/table-groups-sheet';
 import { EmptyState, ErrorState, LoadingState } from '@/ui/states';
 import { StaleBanner, SyncBadge } from '@/ui/sync-status';
 import { colors, font, radius, shadow, space } from '@/ui/theme';
@@ -24,7 +27,10 @@ export default function TablesScreen() {
   const { t } = useTranslation();
   const { api, user, logout } = useSession();
   const { data, state } = useOffline();
-  const { currency } = useBranch();
+  const { currency, tableMode } = useBranch();
+  const tagMode = tableMode === 'TAG';
+  /** "Table + Tag" style: the table whose groups are listed. */
+  const [groupsOf, setGroupsOf] = useState<string | null>(null);
   const [saved, setSaved] = useState<RestaurantTable[] | null>(null);
   /** When the list on screen was saved, if kh-pos couldn't be reached. */
   const [staleAt, setStaleAt] = useState<number | null | false>(false);
@@ -46,6 +52,38 @@ export default function TablesScreen() {
 
   // Changes waiting to be sent are shown on their tables (an offline order looks like any other).
   const tables = useMemo(() => (saved ? saved.map((t) => applyOutbox(t, state.commands)) : null), [saved, state.commands]);
+
+  /**
+   * "Table + Tag" style: each table's groups as seats (lib/table-groups.ts), the open ones from kh-pos plus
+   * groups started on this phone that kh-pos hasn't received yet, with their waiting changes applied.
+   */
+  const groups = useMemo(() => {
+    const m = new Map<string, RestaurantTable[]>();
+    if (!tagMode || !saved) return m;
+    const waiting = state.commands.filter((c) => c.status === 'pending').map((c) => c.tableId);
+    for (const t of saved) {
+      const ids = new Set([...openGroups(t).map((o) => o.orderId), ...waitingSeats(t.id, waiting).map((id) => splitSeat(id).orderId!)]);
+      const seats = [...ids].map((orderId) => applyOutbox(groupSeat(t, orderId), state.commands)).filter((g) => g.order);
+      seats.sort((a, b) => String(a.order?.tagNo ?? '~').localeCompare(String(b.order?.tagNo ?? '~')));
+      m.set(t.id, seats);
+    }
+    return m;
+  }, [tagMode, saved, state.commands]);
+
+  function openTable(table: RestaurantTable) {
+    if (!tagMode) {
+      router.push({ pathname: '/table/[id]', params: { id: table.id } });
+      return;
+    }
+    if ((groups.get(table.id) ?? []).length === 0) newGroup(table.id);
+    else setGroupsOf(table.id);
+  }
+
+  /** A new group gets its own order id now; kh-pos opens that order (with the next free tag) on its first dish. */
+  function newGroup(tableId: string) {
+    setGroupsOf(null);
+    router.push({ pathname: '/table/[id]', params: { id: seatId(tableId, Crypto.randomUUID()) } });
+  }
 
 
   // Reload whenever the screen is shown, and keep it fresh while it stays open
@@ -72,7 +110,8 @@ export default function TablesScreen() {
   function showQr(table: RestaurantTable) {
     const branch = user?.currentWarehouseId;
     const tableQr = () => setQr({ title: t('qr.tableTitle'), subtitle: table.table_name, link: tableMenuLink(api.baseUrl, branch, table.id) });
-    const orderId = table.order && !table.order.localOnly ? table.order.orderId : null;
+    // with tags, a table holds several bills: only the table's menu QR here
+    const orderId = !tagMode && table.order && !table.order.localOnly ? table.order.orderId : null;
     if (!orderId) {
       tableQr();
       return;
@@ -134,8 +173,9 @@ export default function TablesScreen() {
           renderItem={({ item }) => (
             <TableCard
               table={item}
+              groups={tagMode ? (groups.get(item.id) ?? []) : undefined}
               currency={currency}
-              onPress={() => router.push({ pathname: '/table/[id]', params: { id: item.id } })}
+              onPress={() => openTable(item)}
               onQr={() => showQr(item)}
             />
           )}
@@ -143,6 +183,19 @@ export default function TablesScreen() {
           ListEmptyComponent={<EmptyState title={t('tables.empty')} />}
         />
       )}
+      {groupsOf && tables?.find((x) => x.id === groupsOf) ? (
+        <TableGroupsSheet
+          table={tables.find((x) => x.id === groupsOf)!}
+          groups={groups.get(groupsOf) ?? []}
+          currency={currency}
+          onOpen={(id) => {
+            setGroupsOf(null);
+            router.push({ pathname: '/table/[id]', params: { id } });
+          }}
+          onNewGroup={() => newGroup(groupsOf)}
+          onClose={() => setGroupsOf(null)}
+        />
+      ) : null}
       {qr ? <QrSheet title={qr.title} subtitle={qr.subtitle} link={qr.link} onClose={() => setQr(null)} /> : null}
     </SafeAreaView>
   );
@@ -150,10 +203,56 @@ export default function TablesScreen() {
 
 const statusTone = { available: 'outline', order_taken: 'default', cleaning: 'info' } as const;
 
-function TableCard({ table, currency, onPress, onQr }: { table: RestaurantTable; currency: CurrencyCode; onPress: () => void; onQr: () => void }) {
+function TableCard({
+  table,
+  groups,
+  currency,
+  onPress,
+  onQr,
+}: {
+  table: RestaurantTable;
+  /** "Table + Tag" style: the groups at this table (see TablesScreen). */
+  groups?: RestaurantTable[];
+  currency: CurrencyCode;
+  onPress: () => void;
+  onQr: () => void;
+}) {
   const { t } = useTranslation();
   const counts = orderCounts(table.order);
-  const occupied = table.status === 'order_taken';
+  const occupied = groups ? groups.length > 0 : table.status === 'order_taken';
+  if (groups && groups.length > 0) {
+    const total = groups.reduce((a, g) => a + Number(g.order?.totalAmount ?? 0), 0);
+    const all = groups.map((g) => orderCounts(g.order));
+    const portions = all.reduce((a, c) => a + c.portions, 0);
+    const pending = all.reduce((a, c) => a + c.pending, 0);
+    return (
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${table.table_name}, ${t('tables.groups', { count: groups.length })}`}
+        style={({ pressed }) => [styles.card, styles.cardOccupied, pressed && styles.pressed]}
+      >
+        <View style={styles.cardTop}>
+          <Text style={[styles.tableName, styles.textOnDark]} numberOfLines={1}>
+            {table.table_name}
+          </Text>
+          <Badge text={t('tables.groups', { count: groups.length })} tone="outline" />
+        </View>
+        <View style={styles.orderInfo}>
+          <Text style={[styles.amount, styles.textOnDark]}>{formatMoney(total, currency)}</Text>
+          <Text style={[styles.meta, styles.metaOnDark]} numberOfLines={1}>
+            {groups.map((g) => g.order?.tagNo ?? '…').join(' · ')} · {t('tables.items', { count: portions })}
+          </Text>
+          {pending > 0 ? <Badge tone="warning" text={t('tables.toSend', { count: pending })} /> : null}
+          {groups.some((g) => g.pendingSync) ? <Badge tone="info" text={t('offline.notSent')} /> : null}
+        </View>
+        <Pressable onPress={onQr} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('qr.button', { name: table.table_name })} style={[styles.qrButton, styles.qrButtonOnDark]}>
+          <Text style={[styles.qrText, styles.textOnDark]}>▦ {t('qr.short')}</Text>
+        </Pressable>
+      </Pressable>
+    );
+  }
+  if (groups) table = { ...table, order: null, status: table.status === 'order_taken' ? 'available' : table.status };
   return (
     <Pressable
       onPress={onPress}

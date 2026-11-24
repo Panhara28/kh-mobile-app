@@ -54,7 +54,15 @@
     "empty": "No tables in this branch yet.",
     "seats": "{{count}} seats",
     "items": "{{count}} items",
-    "toSend": "{{count}} to send"
+    "toSend": "{{count}} to send",
+    "groups": "{{count}} groups",
+    "tag": "Tag",
+    "newGroup": "Seat new group",
+    "seatAnyway": "Table full · seat anyway",
+    "noOrderYet": "No order yet",
+    "guests": "{{count}} guests",
+    "newGroupTitle": "New group",
+    "tagOnSave": "The tag number is given when the first dish is saved."
   },
   "tableStatus": {
     "available": "Free",

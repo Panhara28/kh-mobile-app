@@ -9,6 +9,7 @@ import type { PromotionSet, PromotionSlot } from './promotion-set';
 import { stripSecrets } from './redact';
 import { orderQuery, type OrderFilter, type OrderRow, type ReturnInput } from './orders';
 import type { TransferBody } from './transfer';
+import { groupSeat, lowestFreeTag, splitSeat, tableModeOf, usedTags } from './table-groups';
 
 export type ApiErrorKind =
   | 'notConfigured' // the app was started without EXPO_PUBLIC_KHPOS_URL
@@ -172,6 +173,8 @@ export interface TableOrder {
   payments?: PaymentRow[];
   /** App only: the order was started offline and has no kh-pos order or invoice number yet. */
   localOnly?: boolean;
+  /** "Table + Tag" style: the group's tag ("001"). */
+  tagNo?: string | null;
 }
 
 /** A payment on an order (kh-pos Payment). */
@@ -271,6 +274,8 @@ export interface RestaurantTable {
   section: string | null;
   status: TableStatus;
   order: TableOrder | null;
+  /** kh-pos-v2: every open order at the table (several in the "Table + Tag" style, see table-groups.ts). */
+  orders?: TableOrder[] | null;
   table_shape?: string | null;
   location_description?: string | null;
   /** Comma separated features ("window, quiet"). */
@@ -578,14 +583,24 @@ export class KhPosApi {
     return json.result ?? [];
   }
 
+  /**
+   * A table with its open order. For a group seat (`<tableId>~<orderId>`, "Table + Tag" style) it is that
+   * group's order, or none yet: kh-pos's single-table call only knows a table's first order.
+   */
   async table(id: string): Promise<RestaurantTable> {
+    const seat = splitSeat(id);
+    if (seat.orderId) {
+      const table = (await this.tables()).find((t) => t.id === seat.tableId);
+      if (!table) throw new ApiError('server', 404, 'Table not found');
+      return groupSeat(table, seat.orderId);
+    }
     const json = await this.request<{ result?: RestaurantTable }>('GET', `/api/table/${encodeURIComponent(id)}`);
     if (!json.result?.id) throw new ApiError('server', 404, 'Table not found');
     return json.result;
   }
 
   async setTableStatus(id: string, status: TableStatus): Promise<void> {
-    await this.request('PUT', `/api/table/${encodeURIComponent(id)}`, { status });
+    await this.request('PUT', `/api/table/${encodeURIComponent(splitSeat(id).tableId)}`, { status });
   }
 
   async posInfo(warehouseId: string): Promise<PosInfo> {
@@ -611,18 +626,49 @@ export class KhPosApi {
     return json.result;
   }
 
-  /** Opens the table's order with its first line. Returns the order id. */
+  /**
+   * Opens the table's order with its first line. Returns the order id.
+   *
+   * For a group seat ("Table + Tag" style) the order gets the seat's id and the lowest free tag, like the
+   * web suggests it; a tag another device took a moment ago is skipped. When an earlier try already opened
+   * the order (its answer was lost), that order is the result.
+   */
   async createOrder(input: { warehouseId: string; tableId: string; posInfo: PosInfo; invoiceNo: number; line: NewLine }): Promise<string> {
-    const json = await this.request<{ result?: string }>('POST', '/api/pos/order', {
+    const seat = splitSeat(input.tableId);
+    const body = {
       warehouseId: input.warehouseId,
       slotId: input.posInfo.posSlotId,
       customerId: input.posInfo.posCustomerId,
       invoiceNo: input.invoiceNo,
-      tableNumber: input.tableId,
+      tableNumber: seat.tableId,
       items: [{ id: input.line.id, variantId: input.line.variantId, qty: input.line.qty, price: String(input.line.price) }],
-    });
-    if (!json.result) throw new ApiError('server', undefined, 'No order id returned');
-    return json.result;
+    };
+    if (!seat.orderId) {
+      const json = await this.request<{ result?: string }>('POST', '/api/pos/order', body);
+      if (!json.result) throw new ApiError('server', undefined, 'No order id returned');
+      return json.result;
+    }
+
+    const { tagCount } = tableModeOf(await this.settings(input.warehouseId), input.warehouseId);
+    const refused = new Set<string>();
+    for (let attempt = 1; ; attempt++) {
+      const tables = await this.tables();
+      const group = tables.find((t) => t.id === seat.tableId);
+      if (group && groupSeat(group, seat.orderId).order) return seat.orderId; // opened by an earlier try
+      const tagNo = lowestFreeTag(usedTags(tables), tagCount, refused);
+      if (!tagNo) throw new ApiError('server', 409, `All ${tagCount} tags are in use`);
+      try {
+        const json = await this.request<{ result?: string }>('POST', '/api/pos/order', { ...body, orderId: seat.orderId, tagNo });
+        return json.result || seat.orderId;
+      } catch (e) {
+        // another device took this tag between our look and our order: take the next one
+        if (e instanceof ApiError && e.status === 409 && /tag/i.test(e.message) && attempt < 5) {
+          refused.add(tagNo.padStart(3, '0'));
+          continue;
+        }
+        throw e;
+      }
+    }
   }
 
   async addLine(orderId: string, line: NewLine): Promise<void> {

@@ -17,6 +17,7 @@ import { useShift } from '@/lib/use-shift';
 import { can } from '@/lib/line';
 import { selectAll, selectedCount, type TransferBody } from '@/lib/transfer';
 import { useSession } from '@/lib/session';
+import { isGroupSeat } from '@/lib/table-groups';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button } from '@/ui/components';
 import { CartDrawer } from '@/ui/cart-drawer';
@@ -81,6 +82,15 @@ export default function TableScreen() {
   const addQueue = useRef<Promise<void>>(Promise.resolve());
 
   const table = useMemo(() => (saved ? applyOutbox(saved, state.commands) : null), [saved, state.commands]);
+  /** "Table + Tag" style: this screen is one group at the table (lib/table-groups.ts). */
+  const groupSeat = isGroupSeat(id);
+  const seatName = !table
+    ? ''
+    : table.order?.tagNo
+      ? `${table.table_name} · ${t('tables.tag')} ${table.order.tagNo}`
+      : groupSeat
+        ? `${table.table_name} · ${t('tables.newGroupTitle')}`
+        : table.table_name;
 
   const load = useCallback(async () => {
     try {
@@ -324,7 +334,7 @@ export default function TableScreen() {
     const total = orderTotal(activeLines(order));
     const base = receiptFromCheckout({
       order,
-      tableName: table.table_name,
+      tableName: seatName,
       cashier: user?.fullname || user?.username || null,
       names,
       methods: methodNames(methods),
@@ -571,14 +581,14 @@ export default function TableScreen() {
         <Button title={`‹ ${t('common.back')}`} variant="ghost" size="sm" onPress={() => router.back()} />
         <View style={styles.headerText}>
           <Text style={styles.tableName} numberOfLines={1}>
-            {table.table_name}
+            {seatName}
           </Text>
           <Text style={styles.sub} numberOfLines={1}>
-            {table.order ? (table.order.localOnly ? t('offline.notOpened') : t('order.invoice', { no: table.order.invoiceNo })) : t(`tableStatus.${table.status}`)}
+            {table.order ? (table.order.localOnly ? t('offline.notOpened') : t('order.invoice', { no: table.order.invoiceNo })) : groupSeat ? t('tables.tagOnSave') : t(`tableStatus.${table.status}`)}
           </Text>
         </View>
         <SyncBadge />
-        {table.order && can(user, 'restaurant', 'update') ? <Button title="⇄" variant="outline" size="sm" onPress={() => void startTransfer()} accessibilityLabel={t('transfer.button')} /> : null}
+        {table.order && !groupSeat && can(user, 'restaurant', 'update') ? <Button title="⇄" variant="outline" size="sm" onPress={() => void startTransfer()} accessibilityLabel={t('transfer.button')} /> : null}
         <Pressable
           onPress={() => setCartOpen(true)}
           accessibilityRole="button"
@@ -645,7 +655,7 @@ export default function TableScreen() {
       />
       <CartDrawer
         visible={cartOpen}
-        tableName={table.table_name}
+        tableName={seatName}
         order={table.order}
         names={names}
         imageFor={(variantId) => api.imageUrl(products.find((p) => p.variantId === variantId)?.images?.[0]?.url)}

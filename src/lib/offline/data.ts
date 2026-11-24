@@ -3,6 +3,7 @@ import { fetchAllPages } from '../catalog';
 import { filterOrdersLocal, mergeRecentOrders, type OrderFilter, type OrderRow } from '../orders';
 import { compositeQuery, type CompositeOption } from '../production';
 import type { PromotionSet } from '../promotion-set';
+import { groupSeat, openGroups, splitSeat } from '../table-groups';
 import { filterMenu } from './menu-local';
 import type { LocalStore } from './types';
 
@@ -134,7 +135,9 @@ export class OfflineData {
     } catch (e) {
       if (!(e instanceof ApiError) || e.kind !== 'network') throw e;
       const saved = await this.store.getCache<RestaurantTable[]>(this.key('tables'));
-      const hit = saved?.value.find((t) => t.id === id);
+      const seat = splitSeat(id);
+      const physical = saved?.value.find((t) => t.id === seat.tableId);
+      const hit = seat.orderId ? physical && groupSeat(physical, seat.orderId) : physical;
       if (!saved || !hit) throw e;
       return { data: hit, stale: true, savedAt: saved.savedAt };
     }
@@ -145,6 +148,18 @@ export class OfflineData {
       const key = this.key('tables');
       const saved = await this.store.getCache<RestaurantTable[]>(key);
       if (!saved) return;
+      const seat = splitSeat(table.id);
+      if (seat.orderId) {
+        // a group seat: refresh that group inside its table
+        const fresh = table.order;
+        const merge = (t: RestaurantTable): RestaurantTable => {
+          const others = openGroups(t).filter((o) => o.orderId !== seat.orderId);
+          const orders = fresh ? [...others, fresh] : others;
+          return { ...t, status: table.status, orders, order: orders[0] ?? null };
+        };
+        await this.store.setCache(key, saved.value.map((t) => (t.id === seat.tableId ? merge(t) : t)));
+        return;
+      }
       const list = saved.value.some((t) => t.id === table.id) ? saved.value.map((t) => (t.id === table.id ? table : t)) : [...saved.value, table];
       await this.store.setCache(key, list);
     } catch {
