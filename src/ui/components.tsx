@@ -7,6 +7,7 @@ import {
   type TextInputProps,
   type ViewStyle,
 } from 'react-native';
+import { Minus, Plus } from 'lucide-react-native';
 import { Text, TextInput } from '@/ui/text';
 import { clampInt } from '@/lib/number';
 import { colors, font, radius, shadow, space } from './theme';
@@ -248,7 +249,7 @@ export function Stepper({
         hitSlop={6}
         style={[styles.stepperButton, (disabled || value <= min) && styles.stepperDisabled]}
       >
-        <Text style={styles.stepperSign}>−</Text>
+        <Minus size={16} strokeWidth={2.5} color={colors.foreground} />
       </Pressable>
       {editable ? (
         <NumberInput
@@ -270,9 +271,9 @@ export function Stepper({
         disabled={disabled || value >= max}
         onPress={() => onChange(value + 1)}
         hitSlop={6}
-        style={[styles.stepperButton, (disabled || value >= max) && styles.stepperDisabled]}
+        style={[styles.stepperButton, styles.stepperPlus, (disabled || value >= max) && styles.stepperDisabled]}
       >
-        <Text style={styles.stepperSign}>+</Text>
+        <Plus size={16} strokeWidth={2.5} color={colors.primaryForeground} />
       </Pressable>
     </View>
   );
@@ -340,7 +341,7 @@ function NumberInput({
 }
 
 const styles = StyleSheet.create({
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 2, padding: 3, borderRadius: radius.full, backgroundColor: colors.muted },
   numberInput: {
     minWidth: 52,
     height: 38,
@@ -355,18 +356,21 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   stepperButton: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    width: 32,
+    height: 32,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.background,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
-  stepperDisabled: { opacity: 0.4 },
-  stepperSign: { fontSize: 18, fontWeight: '600', color: colors.foreground, lineHeight: 20 },
-  stepperValue: { minWidth: 24, textAlign: 'center', fontSize: font.body, fontWeight: '600', color: colors.foreground },
+  stepperPlus: { backgroundColor: colors.primary },
+  stepperDisabled: { opacity: 0.35 },
+  stepperValue: { minWidth: 32, textAlign: 'center', fontSize: font.body, fontWeight: '700', color: colors.foreground, fontVariant: ['tabular-nums'] },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
