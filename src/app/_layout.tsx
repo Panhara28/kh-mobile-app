@@ -1,7 +1,9 @@
 import { useFonts } from 'expo-font';
-import { Stack, router } from 'expo-router';
+import { Stack, router, usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { homeRoute } from '@/lib/modules';
+import { isModuleForStore } from '@/lib/business-type';
+import { homeRoute, moduleIdForPath } from '@/lib/modules';
+import { useStoreKind } from '@/lib/use-modules';
 import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { LogBox, StyleSheet } from 'react-native';
@@ -55,6 +57,16 @@ function Navigator() {
     // pushed on top of More, so Back from the home screen has somewhere to go
     if (home !== '/more') router.push(home as never);
   }, [status, user]);
+
+  // A screen the store's type leaves out (a small restaurant's purchasing, a restaurant's retail counter...)
+  // can still be reached by a link; send the staff member home instead, like the web.
+  const pathname = usePathname();
+  const kind = useStoreKind();
+  useEffect(() => {
+    if (status !== 'signedIn' || !user) return;
+    const id = moduleIdForPath(pathname);
+    if (id && !isModuleForStore(id, kind)) router.replace(homeRoute(user) as never);
+  }, [status, user, pathname, kind]);
 
   if (status === 'loading') {
     return (

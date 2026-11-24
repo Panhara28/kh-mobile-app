@@ -39,3 +39,19 @@ describe('modules per store, like the web menu', () => {
     for (const gone of ['tables', 'table-setup', 'table-layout', 'report-guest-number']) expect(ids).not.toContain(gone);
   });
 });
+
+describe('screen paths', () => {
+  it('finds the module of a screen, detail screens included', () => {
+    const { moduleIdForPath } = jest.requireActual('./modules') as typeof import('./modules');
+    expect(moduleIdForPath('/purchase-orders')).toBe('purchase-orders');
+    expect(moduleIdForPath('/purchase-order/12')).toBe('purchase-orders');
+    expect(moduleIdForPath('/promotion-set/new')).toBe('promotion-sets');
+    expect(moduleIdForPath('/replenishment/suggest')).toBe('replenishment');
+    expect(moduleIdForPath('/slots/w1')).toBe('slots');
+    expect(moduleIdForPath('/report/stock-report')).toBe('report-stock-report');
+    expect(moduleIdForPath('/tables')).toBe('tables');
+    expect(moduleIdForPath('/table/abc')).toBe('tables');
+    expect(moduleIdForPath('/table-setup')).toBe('table-setup');
+    expect(moduleIdForPath('/home')).toBeNull();
+  });
+});

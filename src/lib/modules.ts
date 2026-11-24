@@ -76,6 +76,21 @@ export function visibleModules(user: StaffUser | null | undefined, enabled: (opt
   );
 }
 
+/** Detail screens opened from a module (not in the menu themselves), by the module they belong to. */
+const DETAIL_ROUTES: [prefix: string, moduleId: string][] = [
+  ['/table', 'tables'],
+  ['/promotion-set', 'promotion-sets'],
+  ['/purchase-order', 'purchase-orders'],
+  ['/replenishment', 'replenishment'],
+  ['/deliveries', 'deliveries'],
+];
+
+/** The module a screen path belongs to (e.g. "/purchase-order/12" → purchase-orders), or null. */
+export function moduleIdForPath(path: string): string | null {
+  const under = (p: string) => path === p || path.startsWith(p + '/');
+  return MODULES.find((m) => under(m.route))?.id ?? DETAIL_ROUTES.find(([p]) => under(p))?.[1] ?? null;
+}
+
 export const GROUP_ORDER: ModuleGroup[] = ['daily', 'reports', 'stock', 'setup'];
 
 /**
