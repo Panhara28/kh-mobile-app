@@ -16,10 +16,14 @@ export function receiptOf(shift: Shift | null | undefined): ShiftReceipt | null 
   return r;
 }
 
-/** The shift a cashier is working in: their own OPEN shift (the web's `currentShift`). */
+/**
+ * The shift the staff member works in, like the web (GET /api/shift/current, ShiftService.getWorkingShift): their own
+ * OPEN shift, otherwise the branch's open shift (a branch has one shift open at a time, whoever opened it).
+ */
 export function currentShift(shifts: Shift[], userId: string | null | undefined): Shift | null {
   if (!userId) return null;
-  return shifts.find((s) => s.status === 'OPEN' && s.opened_by?.id === userId) ?? null;
+  const open = shifts.filter((s) => s.status === 'OPEN');
+  return open.find((s) => s.opened_by?.id === userId) ?? open[0] ?? null;
 }
 
 /** The shift as it will be once opening or closing done offline has reached kh-pos. */

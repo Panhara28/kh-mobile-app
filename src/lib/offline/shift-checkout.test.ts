@@ -68,10 +68,12 @@ describe('shifts', () => {
 describe('shift helpers', () => {
   const shift = (over: Partial<Shift>): Shift => ({ shift_id: 's', status: 'OPEN', opened_at: null, closed_at: null, opened_cash_usd: '10', opened_cash_khr: '4000', opened_by: { id: USER }, ...over });
 
-  it("finds the cashier's own open shift", () => {
+  it("finds the cashier's own open shift, otherwise the branch's open shift (like the web)", () => {
     const list = [shift({ shift_id: 'a', opened_by: { id: 'other' } }), shift({ shift_id: 'b', status: 'CLOSE' }), shift({ shift_id: 'c' })];
     expect(currentShift(list, USER)?.shift_id).toBe('c');
-    expect(currentShift(list, 'nobody')).toBeNull();
+    // the owner works in the shift the cashier opened: kh-pos allows one open shift per branch
+    expect(currentShift(list, 'owner')?.shift_id).toBe('a');
+    expect(currentShift([shift({ status: 'CLOSE' })], 'owner')).toBeNull();
     expect(currentShift(list, null)).toBeNull();
   });
 
