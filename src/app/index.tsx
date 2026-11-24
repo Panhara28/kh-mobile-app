@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useRef, useState, type ComponentRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -177,6 +178,12 @@ export default function Login() {
               </Pressable>
             </View>
 
+            <Pressable onPress={() => router.push('/register')} accessibilityRole="link" hitSlop={8}>
+              <Text style={styles.register}>
+                {t('login.newStore')} <Text style={styles.registerLink}>{t('login.register')}</Text>
+              </Text>
+            </Pressable>
+
             <Text style={styles.powered}>
               Powered by <Text style={styles.poweredStrong}>BongIT</Text>
             </Text>
@@ -260,6 +267,8 @@ const styles = StyleSheet.create({
     padding: space.md,
   },
   failureText: { color: colors.destructive, fontSize: font.small, lineHeight: 20 },
+  register: { textAlign: 'center', fontSize: font.small, color: colors.mutedForeground, marginTop: space.sm },
+  registerLink: { fontWeight: '700', color: '#0B43C7' },
   powered: { textAlign: 'center', fontSize: font.small, color: colors.mutedForeground, marginTop: space.xs },
   poweredStrong: { fontWeight: '700', color: '#0B43C7' },
   eye: { paddingHorizontal: space.md, height: '100%', justifyContent: 'center' },

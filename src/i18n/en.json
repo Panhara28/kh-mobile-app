@@ -12,6 +12,8 @@
     "confirm": "Confirm"
   },
   "login": {
+    "newStore": "New store?",
+    "register": "Register",
     "title": "Login",
     "description": "Enter your username and password to login",
     "username": "Username",
@@ -2228,5 +2230,22 @@
       "missing": "These steps still need doing:",
       "button": "Finish and start selling"
     }
+  },
+  "register": {
+    "title": "Register a new store",
+    "text": "For a new kh-pos server with no users yet. You become the store owner; the store setup comes next.",
+    "storeName": "Store name",
+    "ownerName": "Owner name",
+    "phone": "Phone",
+    "address": "Address",
+    "username": "Username",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "submit": "Register",
+    "allRequired": "Fill in every field.",
+    "tooShort": "Store name, owner name, username and password need at least 3 letters.",
+    "passwordMismatch": "The passwords are not the same.",
+    "alreadyRegistered": "This kh-pos already has a store. Sign in instead.",
+    "failed": "Could not register."
   }
 }

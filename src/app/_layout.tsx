@@ -102,6 +102,7 @@ function Navigator() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.page } }}>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="register" />
       </Stack.Protected>
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="more" />
