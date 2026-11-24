@@ -6,16 +6,17 @@ import { QrCode, Store, Users } from 'lucide-react-native';
 import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { Text } from '@/ui/text';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { RestaurantTable } from '@/lib/api';
+import { ApiError, type RestaurantTable } from '@/lib/api';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
 import { applyOutbox } from '@/lib/offline/overlay';
 import { useOffline } from '@/lib/offline/provider';
 import { orderCounts } from '@/lib/order';
 import { useSession } from '@/lib/session';
 import { invoiceLink, tableMenuLink } from '@/lib/qr';
-import { groupSeat, openGroups, seatId, splitSeat, waitingSeats } from '@/lib/table-groups';
+import { groupSeat, lowestFreeTag, openGroups, seatId, splitSeat, usedTags, waitingSeats } from '@/lib/table-groups';
 import { useBranch } from '@/lib/use-branch';
 import { QrSheet } from '@/ui/qr-sheet';
+import { SeatGroupSheet } from '@/ui/seat-group-sheet';
 import { TableGroupsSheet } from '@/ui/table-groups-sheet';
 import { EmptyState, ErrorState, LoadingState } from '@/ui/states';
 import { StaleBanner, SyncBadge } from '@/ui/sync-status';
@@ -32,7 +33,7 @@ export default function TablesScreen() {
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<'all' | 'free' | 'busy'>('all');
   const { data, state } = useOffline();
-  const { currency, tableMode } = useBranch();
+  const { currency, tableMode, tagCount, warehouseId } = useBranch();
   const tagMode = tableMode === 'TAG';
   /** "Table + Tag" style: the table whose groups are listed. */
   const [groupsOf, setGroupsOf] = useState<string | null>(null);
@@ -84,10 +85,46 @@ export default function TablesScreen() {
     else setGroupsOf(table.id);
   }
 
-  /** A new group gets its own order id now; kh-pos opens that order (with the next free tag) on its first dish. */
+  /** "Table + Tag" style: the table a new group is being seated at (the Seat a group sheet is open). */
+  const [seatingAt, setSeatingAt] = useState<string | null>(null);
+  const [seating, setSeating] = useState(false);
+
+  /** Like the web: a new group is seated first (its tag and guests), then the order is taken. */
   function newGroup(tableId: string) {
     setGroupsOf(null);
-    router.push({ pathname: '/table/[id]', params: { id: seatId(tableId, Crypto.randomUUID()) } });
+    setSeatingAt(tableId);
+  }
+
+  /** Opens the group's order with its tag at once (the web "Seat a group"), then goes to the order. */
+  async function seatGroup(tableId: string, tag: string, guests: number) {
+    const orderId = Crypto.randomUUID();
+    setSeating(true);
+    try {
+      const info = await api.posInfo(warehouseId);
+      const invoiceNo = await api.nextInvoiceNumber();
+      await api.call('POST', '/api/pos/order', {
+        orderId,
+        warehouseId,
+        slotId: info.posSlotId,
+        customerId: info.posCustomerId,
+        invoiceNo,
+        tableNumber: tableId,
+        tagNo: tag,
+        customer: guests,
+        items: [],
+      });
+      setSeatingAt(null);
+      await load();
+      router.push({ pathname: '/table/[id]', params: { id: seatId(tableId, orderId) } });
+    } catch (e) {
+      if (e instanceof ApiError && e.kind === 'network') {
+        // kh-pos can't be reached: the group's order (with the next free tag) is opened with its first dish, sent later
+        setSeatingAt(null);
+        router.push({ pathname: '/table/[id]', params: { id: seatId(tableId, orderId) } });
+      } else Alert.alert(t('seatGroup.failed'), e instanceof Error ? e.message : undefined);
+    } finally {
+      setSeating(false);
+    }
   }
 
 
@@ -221,6 +258,17 @@ export default function TablesScreen() {
         />
       ) : null}
       {qr ? <QrSheet title={qr.title} subtitle={qr.subtitle} link={qr.link} onClose={() => setQr(null)} /> : null}
+      {seatingAt ? (
+        <SeatGroupSheet
+          tableName={saved?.find((x) => x.id === seatingAt)?.table_name ?? ''}
+          suggestedTag={lowestFreeTag(usedTags(saved ?? []), tagCount)}
+          tagCount={tagCount}
+          usedTags={usedTags(saved ?? [])}
+          busy={seating}
+          onSeat={(tag, guests) => void seatGroup(seatingAt, tag, guests)}
+          onClose={() => setSeatingAt(null)}
+        />
+      ) : null}
       <TabBar current="tables" />
     </SafeAreaView>
   );

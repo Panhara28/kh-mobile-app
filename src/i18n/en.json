@@ -2263,5 +2263,16 @@
   },
   "phone": {
     "noWebPages": "Customer QR menus and links need a kh-pos web server. This phone runs kh-pos on its own."
+  },
+  "seatGroup": {
+    "title": "Seat a group",
+    "subtitle": "At {{table}}. The tag is the group's number on the bill and the kitchen ticket.",
+    "tag": "Tag",
+    "guests": "Guests",
+    "seat": "Seat group",
+    "tagRange": "1 to {{max}}",
+    "tagUsed": "This tag is already seated",
+    "guestsBad": "At least 1",
+    "failed": "Could not seat the group"
   }
 }

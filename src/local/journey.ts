@@ -10,6 +10,7 @@ import { createBody, newProductForm } from '../lib/product-form';
 import { storeKind } from '../lib/business-type';
 import { pickSetting } from '../lib/settings';
 import { typeBody, type SetupStatus } from '../lib/setup';
+import { openGroups, seatId } from '../lib/table-groups';
 import type { SqlDriver } from './driver';
 import { migrate } from './migrate';
 import { localFetch } from './server';
@@ -135,6 +136,25 @@ export function newStoreJourney(title: string) {
 
       const done = await api.orderDetail(orderId);
       expect(JSON.stringify(done)).toContain('COMPLETED');
+    });
+      it('Table + Tag style: a group is seated with its tag before anything is ordered, like the web', async () => {
+      await api.call('PUT', '/api/setup', { step: 'tables', tableMode: 'TAG', tagCount: 50 });
+      const table = (await api.tables()).find((t) => t.table_name === 'T-01')!;
+      const info = await api.posInfo(warehouseId);
+      const orderId = newId();
+      await api.call('POST', '/api/pos/order', {
+        orderId, warehouseId, slotId: info.posSlotId, customerId: info.posCustomerId, invoiceNo: await api.nextInvoiceNumber(),
+        tableNumber: table.id, tagNo: '1', customer: 3, items: [],
+      });
+      const seated = (await api.tables()).find((t) => t.id === table.id)!;
+      expect(openGroups(seated).map((o) => [o.orderId, o.tagNo])).toEqual([[orderId, '001']]);
+
+      const product = (await api.menu({ warehouse: warehouseId, limit: 50, offset: 0 })).find((p) => p.productTitle.includes('Iced Latte')) as MenuProduct;
+      const seat = await api.table(seatId(table.id, orderId));
+      expect(seat.order?.orderId).toBe(orderId);
+      await addToTable(api, { table: seat, warehouseId, product, qty: 1, options: [], note: '' }, newId);
+      const after = openGroups((await api.tables()).find((t) => t.id === table.id)!);
+      expect(after.map((o) => o.tagNo)).toEqual(['001']);
     });
   });
 }

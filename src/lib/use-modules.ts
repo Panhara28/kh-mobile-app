@@ -16,7 +16,8 @@ export function settingsChanged(): void {
   settingsVersion++;
   for (const fn of settingsListeners) fn();
 }
-function useSettingsVersion(): number {
+/** Goes up whenever settingsChanged() is called: put it in an effect's dependencies to re-read the settings. */
+export function useSettingsVersion(): number {
   const [v, setV] = useState(settingsVersion);
   useEffect(() => {
     const fn = () => setV(settingsVersion);
