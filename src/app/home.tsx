@@ -2,7 +2,8 @@ import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { ChartColumnBig, Hand, Search, Store, UserRound, X } from 'lucide-react-native';
+import { ChartColumnBig, Hand, Search, UserRound, X } from 'lucide-react-native';
+import { BrandMark } from '@/ui/brand-mark';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RestaurantTable } from '@/lib/api';
 import { rangeFor } from '@/lib/dates';
@@ -141,9 +142,7 @@ export default function HomeScreen() {
         {/* header on the brand gradient */}
         <View style={[styles.hero, { paddingTop: insets.top + space.md }]}>
           <View style={styles.topRow}>
-            <View style={styles.storeIcon}>
-              <Store size={20} color="#fff" strokeWidth={2.2} />
-            </View>
+            <BrandMark size={40} />
             <View style={styles.flex}>
               <Text style={styles.storeName} numberOfLines={1}>
                 {user?.warehouse?.name ?? t('common.appName')}
@@ -323,7 +322,6 @@ const styles = StyleSheet.create({
     experimental_backgroundImage: BRAND_GRADIENT,
   },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  storeIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
   storeName: { fontSize: font.title, fontWeight: '800', color: '#fff' },
   staff: { fontSize: font.small, color: 'rgba(255,255,255,0.8)', marginTop: 1 },
   roundButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.card },

@@ -2,7 +2,7 @@ import * as Crypto from 'expo-crypto';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { QrCode, Store, Users } from 'lucide-react-native';
+import { QrCode, Users } from 'lucide-react-native';
 import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { Text } from '@/ui/text';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import { useSession } from '@/lib/session';
 import { invoiceLink, tableMenuLink } from '@/lib/qr';
 import { groupSeat, lowestFreeTag, openGroups, seatId, splitSeat, usedTags, waitingSeats } from '@/lib/table-groups';
 import { useBranch } from '@/lib/use-branch';
+import { BrandMark } from '@/ui/brand-mark';
 import { QrSheet } from '@/ui/qr-sheet';
 import { SeatGroupSheet } from '@/ui/seat-group-sheet';
 import { TableGroupsSheet } from '@/ui/table-groups-sheet';
@@ -204,9 +205,7 @@ export default function TablesScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <HeaderBar>
         <View style={styles.topRow}>
-          <View style={styles.storeIcon}>
-            <Store size={18} color="#fff" strokeWidth={2.2} />
-          </View>
+          <BrandMark size={36} />
           <View style={styles.headerText}>
             <Text style={styles.branch} numberOfLines={1}>
               {user?.warehouse?.name ?? t('common.appName')}
@@ -390,7 +389,6 @@ const styles = StyleSheet.create({
   cleanHint: { fontSize: font.small, color: colors.warning, fontWeight: '600', marginTop: space.sm },
   safe: { flex: 1, backgroundColor: colors.page },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  storeIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
   headerText: { flex: 1, minWidth: 0 },
   branch: { fontSize: font.body, fontWeight: '800', color: '#fff' },
   staff: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 1 },
