@@ -10,6 +10,7 @@ import { useSession } from '@/lib/session';
 import type { SettingRow } from '@/lib/settings-admin';
 import { canEditSetting, generateCategories, getSettingConfig, settingsForCategory, validateSetting } from '@/lib/settings-general';
 import { useSettingRows } from '@/lib/use-setting-rows';
+import { settingsChanged } from '@/lib/use-modules';
 import { Badge, Button, Card } from '@/ui/components';
 import { ScreenHeader } from '@/ui/screen-header';
 import { renderEditor } from '@/ui/settings/editors';
@@ -47,6 +48,7 @@ function SettingEditor({ row, isMain, onSaved }: { row: SettingRow; isMain: bool
       try {
         const how = await writer({ entity: 'setting', op: 'update', recordId: String(row.id), method: 'PUT', path: '/api/setting', body: { id: row.id, option: row.option ?? '', value }, label: config.label, row: { value } });
         await onSaved();
+        settingsChanged();
         Alert.alert(t(how === 'queued' ? 'sg.savedOffline' : 'sg.saved'));
       } catch (e) {
         Alert.alert(t('sg.saveFailed'), e instanceof Error ? e.message : undefined);

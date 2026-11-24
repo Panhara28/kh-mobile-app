@@ -7,6 +7,8 @@ import { emptyCategoryForm, saveBody } from '../lib/categories';
 import { KhPosApi, type MenuProduct } from '../lib/api';
 import { addToTable } from '../lib/order';
 import { createBody, newProductForm } from '../lib/product-form';
+import { storeKind } from '../lib/business-type';
+import { pickSetting } from '../lib/settings';
 import { typeBody, type SetupStatus } from '../lib/setup';
 import type { SqlDriver } from './driver';
 import { migrate } from './migrate';
@@ -99,6 +101,9 @@ export function newStoreJourney(title: string) {
       expect(s.complete).toBe(true);
       expect(s.systemType).toBe('RESTAURANT');
       expect(s.edition).toBe('LITE');
+      // the app decides which modules a store has from TYPE_POS, read the way the app reads it (lib/use-modules.ts)
+      const rows = await api.settings(warehouseId);
+      expect(storeKind(pickSetting(rows, 'TYPE_POS', warehouseId))).toEqual({ type: 'RESTAURANT', edition: 'LITE' });
     });
 
     it('adds a product to the menu', async () => {

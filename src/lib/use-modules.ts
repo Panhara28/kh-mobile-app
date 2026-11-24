@@ -6,12 +6,34 @@ import { useOffline } from './offline/provider';
 import { useSession } from './session';
 import { pickSetting } from './settings';
 
+let settingsVersion = 0;
+const settingsListeners = new Set<() => void>();
+/**
+ * The branch settings changed (store setup, Settings screen): every screen re-reads them, so the modules follow at
+ * once (a new store is a "MART" until setup makes it a restaurant, and then it has Tables).
+ */
+export function settingsChanged(): void {
+  settingsVersion++;
+  for (const fn of settingsListeners) fn();
+}
+function useSettingsVersion(): number {
+  const [v, setV] = useState(settingsVersion);
+  useEffect(() => {
+    const fn = () => setV(settingsVersion);
+    settingsListeners.add(fn);
+    fn();
+    return () => void settingsListeners.delete(fn);
+  }, []);
+  return v;
+}
+
 /** The branch's settings (the saved copy when kh-pos can't be reached); null until loaded. */
 function useBranchSettings(): Setting[] | null {
   const { user } = useSession();
   const { data, state } = useOffline();
   const warehouseId = user?.currentWarehouseId ?? '';
   const [settings, setSettings] = useState<Setting[] | null>(null);
+  const version = useSettingsVersion();
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -24,7 +46,7 @@ function useBranchSettings(): Setting[] | null {
     return () => {
       cancelled = true;
     };
-  }, [data, user, warehouseId, state.online]);
+  }, [data, user, warehouseId, state.online, version]);
   return settings;
 }
 

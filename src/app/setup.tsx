@@ -8,6 +8,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { PaymentMethod } from '@/lib/api';
 import { homeRoute } from '@/lib/modules';
 import { useSession } from '@/lib/session';
+import { settingsChanged } from '@/lib/use-modules';
 import { choiceOf, firstOpenStep, nextStep, printerProblem, printersBody, typeBody, type BusinessChoice, type SetupPrinter, type SetupStatus, type SetupStepKey } from '@/lib/setup';
 import { Button, Card, Field, Segmented } from '@/ui/components';
 import { ScreenHeader } from '@/ui/screen-header';
@@ -58,6 +59,7 @@ export default function SetupScreen() {
     try {
       const r = await api.call<{ result: SetupStatus }>('PUT', '/api/setup', body);
       setStatus(r.result);
+      settingsChanged(); // e.g. the business type: Tables appear for a restaurant
       setPage(nextStep(r.result, key));
     } catch (e) {
       Alert.alert(t('setup.saveFailed'), e instanceof Error ? e.message : undefined);
@@ -70,6 +72,7 @@ export default function SetupScreen() {
     setBusy(true);
     try {
       await api.call('POST', '/api/setup');
+      settingsChanged();
       Alert.alert(t('setup.doneTitle'), t('setup.doneText'));
       router.replace(homeRoute(user) as Href);
     } catch (e) {
