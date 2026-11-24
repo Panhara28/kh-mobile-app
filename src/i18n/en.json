@@ -2134,5 +2134,99 @@
     "history": "Moves so far",
     "pick": "Choose a table",
     "moveTo": "Move to {{name}}"
+  },
+  "setup": {
+    "title": "Store setup",
+    "progress": "{{done}} of {{total}} done",
+    "saveNext": "Save and continue",
+    "back": "Back",
+    "saveFailed": "Could not save",
+    "doneTitle": "All set",
+    "doneText": "The store is ready. You can open a shift and start selling.",
+    "staffTitle": "Store setup not finished",
+    "staffText": "Selling is locked until the owner finishes the store setup.",
+    "step_store": "Store",
+    "step_type": "Business",
+    "step_currency": "Currency",
+    "step_payment": "Payment",
+    "step_printers": "Printers",
+    "step_tables": "Tables",
+    "step_halls": "Halls",
+    "step_finish": "Finish",
+    "store": {
+      "title": "Your store",
+      "text": "The name, phone and address printed on receipts.",
+      "name": "Store name",
+      "nameShort": "At least 3 letters.",
+      "phone": "Phone",
+      "address": "Address"
+    },
+    "type": {
+      "title": "Type of business",
+      "text": "This decides which screens the app shows.",
+      "SMALL_RESTAURANT": "Small restaurant",
+      "SMALL_RESTAURANT_text": "Tables, orders, kitchen tickets, payment, shifts and simple reports.",
+      "RESTAURANT": "Restaurant",
+      "RESTAURANT_text": "Everything for a restaurant, with stock, purchasing and accounting.",
+      "MART": "Mart / shop",
+      "MART_text": "A retail counter with barcode scanning and stock.",
+      "CINEMA": "Cinema",
+      "CINEMA_text": "Showtimes, halls and tickets (set up on the web)."
+    },
+    "currency": {
+      "title": "Currency",
+      "text": "The currency prices are kept in, and how many riel make one dollar.",
+      "rate": "Exchange rate (៛ per $1)",
+      "rateBad": "Enter a number above 0."
+    },
+    "payment": {
+      "title": "Payment methods",
+      "text": "How customers can pay. Check the list, add any that are missing, then confirm.",
+      "none": "No payment methods yet.",
+      "manage": "Add or edit payment methods",
+      "confirm": "These are right, continue"
+    },
+    "printers": {
+      "title": "Kitchen printers",
+      "text": "The network printers kitchen tickets go to, and which categories print where.",
+      "printer": "Printer",
+      "kitchen": "Kitchen",
+      "name": "Name",
+      "ip": "IP address",
+      "port": "Port",
+      "add": "Add a printer",
+      "categories": "Which printer each category prints to",
+      "bad_name": "Every printer needs a name.",
+      "bad_ip": "Every printer needs an IP address.",
+      "bad_port": "The port is a number from 1 to 65535."
+    },
+    "tables": {
+      "title": "Tables",
+      "text": "Make the tables of your room, and how guests are seated.",
+      "have": "{{count}} tables so far",
+      "prefix": "Name starts with",
+      "amount": "How many",
+      "seats": "Seats",
+      "generate": "Make these tables",
+      "more": "Edit tables one by one",
+      "badGenerate": "Enter 1 to 200 tables and at least 1 seat.",
+      "mode": "Seating",
+      "normal": "One order per table",
+      "tag": "Table + Tag",
+      "normalText": "Each table has one order at a time.",
+      "tagText": "Several groups can share a table; each group gets a tag number.",
+      "tagCount": "Number of tags",
+      "tagBad": "From 1 to 999."
+    },
+    "halls": {
+      "title": "Cinema halls",
+      "text": "Halls and seats are set up on the web app (Cinema › Hall seats). Come back here when they are made."
+    },
+    "finish": {
+      "title": "Finish setup",
+      "text": "Everything is ready. Finish to unlock selling.",
+      "missing": "These steps still need doing:",
+      "button": "Finish and start selling"
+    }
   }
 }

@@ -6,7 +6,8 @@ import { homeRoute, moduleIdForPath } from '@/lib/modules';
 import { useStoreKind } from '@/lib/use-modules';
 import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
-import { LogBox, StyleSheet } from 'react-native';
+import { Alert, LogBox, StyleSheet } from 'react-native';
+import { can } from '@/lib/line';
 import { KRASAR_FONTS, Text } from '@/ui/text';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { initI18n } from '@/i18n';
@@ -41,7 +42,7 @@ export default function RootLayout() {
 
 /** Login screen while signed out; the module menu (More) while signed in. */
 function Navigator() {
-  const { status, retry, logout, user } = useSession();
+  const { status, retry, logout, user, api } = useSession();
   const { t } = useTranslation();
 
   // After signing in, open the role's home screen (the owner's dashboard, a board member's board, ...).
@@ -56,7 +57,17 @@ function Navigator() {
     const home = homeRoute(user);
     // pushed on top of More, so Back from the home screen has somewhere to go
     if (home !== '/more') router.push(home as never);
-  }, [status, user]);
+    // A new store: kh-pos refuses to sell until its first-time setup is finished. The owner is taken there;
+    // other staff are told to ask them. Unknown offline (then the store was set up already, or nothing can be sold yet anyway).
+    api.call<{ result?: { complete?: boolean } }>('GET', '/api/setup').then(
+      (r) => {
+        if (r.result?.complete !== false) return;
+        if (user.role?.role === 'OWNER' || can(user, 'setting', 'update')) router.push('/setup' as never);
+        else Alert.alert(t('setup.staffTitle'), t('setup.staffText'));
+      },
+      () => undefined,
+    );
+  }, [status, user, api, t]);
 
   // A screen the store's type leaves out (a small restaurant's purchasing, a restaurant's retail counter...)
   // can still be reached by a link; send the staff member home instead, like the web.
@@ -95,6 +106,7 @@ function Navigator() {
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="more" />
         <Stack.Screen name="home" />
+        <Stack.Screen name="setup" />
         <Stack.Screen name="account" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="settings-general" />
