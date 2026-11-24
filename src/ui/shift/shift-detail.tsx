@@ -35,8 +35,7 @@ export function useShiftLabels(): ShiftLabels {
 export async function printShift(shift: Shift, labels: ShiftLabels, failed: string) {
   const lines = shiftLines(shift, (v) => formatMoney(v, 'USD'), (v) => formatMoney(v, 'KHR'), labels);
   try {
-    const r = await printReceipt(shiftReceiptHtml(labels.title, lines));
-    if (r.noPrinter) Alert.alert(failed);
+    await printReceipt(shiftReceiptHtml(labels.title, lines));
   } catch (e) {
     Alert.alert(failed, e instanceof Error ? e.message : undefined);
   }

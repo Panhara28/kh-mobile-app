@@ -6,10 +6,8 @@ import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import i18n, { isLanguage, type Language } from '@/i18n';
-import { DEFAULT_PRINT_URL, isValidPrintUrl, passwordChecks, passwordFormValid, passwordStrength, type PrintMethod } from '@/lib/account';
-import { testConnection } from '@/lib/print-server';
-import { ScanPrintUrl } from '@/ui/scan-print-url';
-import { loadDevice, saveDeviceLabel, savePrinterName, savePrintMethod, savePrintUrl, type DeviceSettings } from '@/lib/device';
+import { passwordChecks, passwordFormValid, passwordStrength } from '@/lib/account';
+import { loadDevice, saveDeviceLabel, type DeviceSettings } from '@/lib/device';
 import { can } from '@/lib/line';
 import { useRecordWriter } from '@/lib/offline/use-record';
 import { useOffline } from '@/lib/offline/provider';
@@ -69,11 +67,6 @@ export default function AccountScreen() {
   const [busy, setBusy] = useState(false);
   const [device, setDevice] = useState<DeviceSettings | null>(null);
   const [label, setLabel] = useState('');
-  const [url, setUrl] = useState(DEFAULT_PRINT_URL);
-  const [printer, setPrinter] = useState('');
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [scanning, setScanning] = useState(false);
   const language: Language = isLanguage(i18n.language) ? i18n.language : 'km';
 
   useEffect(() => {
@@ -81,8 +74,6 @@ export default function AccountScreen() {
     loadDevice().then((d) => {
       setDevice(d);
       setLabel(d.label);
-      setUrl(d.printUrl);
-      setPrinter(d.printer);
     });
   }, [reload]);
 
@@ -119,38 +110,6 @@ export default function AccountScreen() {
     const l = await saveDeviceLabel(device.id, label);
     setLabel(l);
     Alert.alert(l ? t('account.deviceNamed', { name: l }) : t('account.deviceCleared'));
-  }
-
-  async function saveUrl() {
-    if (!isValidPrintUrl(url)) {
-      Alert.alert(t('account.urlInvalid'));
-      return;
-    }
-    await savePrintUrl(url);
-    Alert.alert(t('account.urlSaved'));
-  }
-
-  async function resetUrl() {
-    await savePrintUrl('');
-    setUrl(DEFAULT_PRINT_URL);
-    setTestResult(null);
-    Alert.alert(t('account.urlReset'));
-  }
-
-  async function test() {
-    if (!isValidPrintUrl(url)) {
-      Alert.alert(t('account.urlInvalid'));
-      return;
-    }
-    setTesting(true);
-    setTestResult(null);
-    setTestResult(await testConnection(url.trim()));
-    setTesting(false);
-  }
-
-  async function chooseMethod(m: PrintMethod) {
-    setDevice((d) => (d ? { ...d, method: m } : d));
-    await savePrintMethod(m);
   }
 
   return (
@@ -207,39 +166,6 @@ export default function AccountScreen() {
             <Text style={styles.mono}>{device?.id ?? ''}</Text>
           </View>
           <Button title={t('customize.save')} variant="outline" onPress={() => void saveLabel()} />
-        </Card>
-
-        <Card style={styles.card}>
-          <Text style={styles.section}>{t('account.printSettings')}</Text>
-          <Text style={styles.heading2}>{t('account.printServer')}</Text>
-          <Text style={styles.muted}>{t('account.printServerHint')}</Text>
-          <Field label="ws://" value={url} onChangeText={(v) => { setUrl(v); setTestResult(null); }} autoCapitalize="none" autoCorrect={false} placeholder={DEFAULT_PRINT_URL} />
-          {!isValidPrintUrl(url) && url.trim() ? <Text style={styles.error}>{t('account.urlInvalid')}</Text> : null}
-          <View style={styles.row}>
-            <Button title={`▦ ${t('account.scan')}`} variant="outline" size="sm" onPress={() => setScanning(true)} />
-            <Button title={testing ? t('account.testing') : t('account.test')} variant="outline" size="sm" disabled={testing || !isValidPrintUrl(url)} onPress={() => void test()} />
-            <Button title={t('customize.save')} size="sm" disabled={!isValidPrintUrl(url)} onPress={() => void saveUrl()} />
-            <Button title={t('account.reset')} variant="outline" size="sm" onPress={() => void resetUrl()} />
-          </View>
-          {testResult ? <Text style={{ color: testResult.ok ? colors.success : colors.destructive, fontSize: font.small, fontWeight: '600' }}>{testResult.ok ? '✓ ' : '✕ '}{testResult.message}</Text> : null}
-          {scanning ? <ScanPrintUrl onCancel={() => setScanning(false)} onDone={(u) => { setUrl(u); setTestResult(null); setScanning(false); Alert.alert(t('account.scanned')); }} /> : null}
-
-          <Text style={styles.heading2}>{t('account.receiptPrinting')}</Text>
-          <Text style={styles.muted}>{t('account.receiptHint')}</Text>
-          <Segmented
-            options={[
-              { value: 'browser', label: t('account.method_browser') },
-              { value: 'print_server', label: t('account.method_server') },
-            ]}
-            value={device?.method ?? 'browser'}
-            onChange={(m) => void chooseMethod(m as PrintMethod)}
-          />
-          {device?.method === 'print_server' ? (
-            <>
-              <Field label={t('account.printerName')} value={printer} onChangeText={setPrinter} onBlur={() => void savePrinterName(printer)} autoCapitalize="none" placeholder="XP-80C" />
-              {!printer.trim() ? <Text style={styles.error}>{t('account.pickPrinter')}</Text> : null}
-            </>
-          ) : null}
         </Card>
 
         {can(user, 'setting', 'read') ? <Button title={t('more.settings')} variant="outline" onPress={() => router.push('/settings')} /> : null}

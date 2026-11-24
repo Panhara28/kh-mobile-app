@@ -1,4 +1,4 @@
-import { deviceLabelOf, DEFAULT_PRINT_URL, isValidPrintUrl, normalizePrintUrl, passwordChecks, passwordFormValid, passwordStrength } from './account';
+import { deviceLabelOf, passwordChecks, passwordFormValid, passwordStrength } from './account';
 import { getDeviceHeaders, setDeviceHeaders } from './device-headers';
 
 describe('change password', () => {
@@ -17,16 +17,7 @@ describe('change password', () => {
   });
 });
 
-describe('print and device settings', () => {
-  it('accepts only ws:// or wss:// addresses', () => {
-    expect(isValidPrintUrl('ws://192.168.1.20:8181')).toBe(true);
-    expect(isValidPrintUrl('wss://pos.example.com/?token=SHOP-1')).toBe(true);
-    expect(isValidPrintUrl('http://192.168.1.20')).toBe(false);
-    expect(isValidPrintUrl('')).toBe(false);
-    expect(isValidPrintUrl('ws://')).toBe(false);
-    expect(normalizePrintUrl(` ${DEFAULT_PRINT_URL} `)).toBe('');
-    expect(normalizePrintUrl(' ws://10.0.0.5:8181 ')).toBe('ws://10.0.0.5:8181');
-  });
+describe('device settings', () => {
   it('sends the device id and an encoded label', () => {
     setDeviceHeaders('abc', ' ម៉ាស៊ីន ');
     expect(getDeviceHeaders()['X-Device-Id']).toBe('abc');

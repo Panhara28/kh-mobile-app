@@ -43,8 +43,7 @@ export function ReceiptSheet({ receipt, onClose }: { receipt: Receipt | null; on
 
   async function print() {
     try {
-      const r = await printReceipt(receiptHtml(receipt!, labels));
-      if (r.noPrinter) Alert.alert(t('receipt.noPrinter'));
+      await printReceipt(receiptHtml(receipt!, labels));
     } catch (e) {
       Alert.alert(t('receipt.printFailed'), e instanceof Error ? e.message : undefined);
     }
