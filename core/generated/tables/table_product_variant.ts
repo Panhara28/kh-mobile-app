@@ -1,0 +1,3 @@
+// @ts-nocheck
+// GENERATED from kh-pos-v2 by scripts/sync-core.mjs. Do not edit: change kh-pos-v2, then sync.
+export interface table_product_variant {  id?: string;  name: string;  product_id: string;  sku: number;  barcode: string | null;  created_at: string | null;  updated_at: string | null;  deleted_at: string | null;  price: string | null;  available?: number;  purchased_cost: string;  low_stock_qty: number | null;  ideal_stock_qty: number | null;  is_composite?: number;  visible?: number | null;  discount_type?: 'AMOUNT' | 'PERCENTAGE' | null;  discount_value: string | null;  is_popular?: number;  is_new?: number;  is_most_order?: number;}

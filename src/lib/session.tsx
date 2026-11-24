@@ -2,7 +2,7 @@ import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError, KhPosApi, type StaffUser } from './api';
-import { KHPOS_URL } from './config';
+import { KHPOS_MODE, KHPOS_URL, PHONE_ORIGIN } from './config';
 import { loadDevice } from './device';
 import { getStore } from './offline/store';
 import { normalizeUsername, OfflineLogin, rememberLogin } from './offline-login';
@@ -71,7 +71,14 @@ const SessionContext = createContext<SessionValue | null>(null);
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const tokenRef = useRef<string | null>(null);
-  const api = useMemo(() => new KhPosApi(KHPOS_URL, () => tokenRef.current), []);
+  // kh-pos on this phone (its own database, no server), or a kh-pos-v2 server in server mode
+  const api = useMemo(
+    () =>
+      KHPOS_MODE === 'phone'
+        ? new KhPosApi(PHONE_ORIGIN, () => tokenRef.current, ((url: string, init?: RequestInit) => require('../local/phone').phoneFetch(url, init)) as unknown as typeof fetch)
+        : new KhPosApi(KHPOS_URL, () => tokenRef.current),
+    [],
+  );
   const [status, setStatus] = useState<SessionStatus>('loading');
   const [user, setUser] = useState<StaffUser | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -225,6 +232,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // the offline logins are in secure storage, one per staff member who signed in on this phone
     for (const key of await store.cacheKeys('profile:')) await vault.remove(key.slice('profile:'.length)).catch(() => undefined);
     await store.clearAll();
+    // kh-pos on this phone: its store, users, products and sales go too, so the app starts again at Register
+    if (KHPOS_MODE === 'phone') await (require('../local/phone') as typeof import('../local/phone')).erasePhoneDatabase();
     await signOutLocally();
   }, [signOutLocally]);
 

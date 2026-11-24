@@ -1,0 +1,18 @@
+// @ts-nocheck
+// GENERATED from kh-pos-v2 by scripts/sync-core.mjs. Do not edit: change kh-pos-v2, then sync.
+export interface table_supplier_product_prices {
+  id?: string;
+  supplier_id: string;
+  product_variant_id: string;
+  price: string;
+  created_at: string | null;
+  updated_at: string | null;
+  deleted_at: string | null;
+  effect_date: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  deleted_by: string | null;
+  scheduled_price: string | null;
+  scheduled_by: string | null;
+  scheduled_at: string | null;
+}

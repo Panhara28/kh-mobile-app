@@ -1,0 +1,20 @@
+// @ts-nocheck
+// GENERATED from kh-pos-v2 by scripts/sync-core.mjs. Do not edit: change kh-pos-v2, then sync.
+export interface table_restaurant_tables {
+  addional_notes: string | null;
+  created_at: string;
+  created_by: string;
+  deleted_at: string | null;
+  deleted_by: string | null;
+  id: string;
+  location_description: string | null;
+  position_x: string | null;
+  position_y: string | null;
+  section: string | null;
+  setting_capacity: number;
+  special_features: string | null;
+  status?: 'available' | 'order_taken' | 'cleaning';
+  table_name: string;
+  table_shape: string | null;
+  warehouse_id: string;
+}

@@ -113,6 +113,11 @@ export default function TablesScreen() {
 
   /** Like the web table menu: "Qr Code" for the table, and "Gen Invoice QR" when it has an open order. */
   function showQr(table: RestaurantTable) {
+    // customers open these links in their own browser: there is no web page without a kh-pos server
+    if (api.onPhone) {
+      Alert.alert(t('phone.noWebPages'));
+      return;
+    }
     const branch = user?.currentWarehouseId;
     const tableQr = () => setQr({ title: t('qr.tableTitle'), subtitle: table.table_name, link: tableMenuLink(api.baseUrl, branch, table.id) });
     // with tags, a table holds several bills: only the table's menu QR here

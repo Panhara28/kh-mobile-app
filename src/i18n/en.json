@@ -2250,12 +2250,15 @@
   },
   "wipe": {
     "button": "Clear data on this phone",
-    "hint": "Removes the saved menu, tables, orders, offline logins and changes not sent yet, then signs out. The next login loads everything fresh from kh-pos.",
+    "hint": "Removes everything kh-pos keeps on this phone: the store, users, products, tables and sales, then signs out. The app starts again at Register.",
     "title": "Clear data on this phone?",
-    "ask": "Everything kh-pos saved on this phone is removed and you are signed out. Data on kh-pos itself is not touched. This cannot be undone.",
+    "ask": "Everything on this phone is deleted: the store, its users, products, tables and sales. The app starts again at Register. This cannot be undone.",
     "confirm": "Clear",
     "unsentTitle": "Changes not sent yet",
     "unsent": "{{count}} changes on this phone have not reached kh-pos. Clearing deletes them for good.",
     "confirmLose": "Delete them and clear"
+  },
+  "phone": {
+    "noWebPages": "Customer QR menus and links need a kh-pos web server. This phone runs kh-pos on its own."
   }
 }

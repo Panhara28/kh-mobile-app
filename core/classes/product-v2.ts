@@ -1,0 +1,393 @@
+// @ts-nocheck
+// GENERATED from kh-pos-v2 by scripts/sync-core.mjs. Do not edit: change kh-pos-v2, then sync.
+import { LoaderFactory } from "../dataloader/loader-factory";
+import {
+  ProductModifierType,
+  ProductVariantType,
+} from "../dataloader/product-variant-loader";
+import { table_product } from "../generated/tables";
+import { Formatter } from "../lib/formatter";
+import { generateId } from "../lib/generate-id";
+import { UserInfo } from "../lib/server-functions/get-auth-from-token";
+import { ProductCategory } from "../repository/product-category-repository";
+import { ProductImage } from "../repository/product-image-repository";
+import type { Db } from "../db/db";
+import { z } from "zod";
+import { ProductVariantConversionType } from "./product-variant-conversion";
+
+export interface ProductFilterProps {
+  id?: string;
+  limit?: number;
+  offset?: number;
+  searchTitle?: string;
+  supplierId?: string;
+  barcode?: string;
+  categoryId?: string;
+}
+
+export interface ProductV2 {
+  id: string;
+  title: string | null;
+  description?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  deletedAt?: string | null;
+  weight?: number | null;
+  length?: number | null;
+  width?: number | null;
+  height?: number | null;
+  isComposite?: boolean;
+  useProduction?: boolean;
+  trackStock?: boolean;
+  isForSale?: boolean;
+  supplierId?: string | null;
+  productImages: ProductImage[];
+  productCategories: ProductCategory[];
+  productVariants: ProductVariantType[];
+  modifiers?: ProductModifierType[] | null;
+  productConversions?: ProductVariantConversionType[];
+}
+
+export type BasicProduct = Omit<
+  ProductV2,
+  "productImages" | "productCategories" | "productVariants"
+>;
+
+export const inputProductBasicSchema = z.object({
+  title: z.string(),
+  description: z.string().optional(),
+  weight: z.number().optional(),
+  length: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  isComposite: z.boolean().optional(),
+  useProduction: z.boolean().optional(),
+  trackStock: z.boolean().optional(),
+  isForSale: z.boolean().optional(),
+  supplierId: z.string().optional().nullable(),
+});
+
+export type ProductInput = z.infer<typeof inputProductBasicSchema>;
+
+export class ProductServiceV2 {
+  constructor(
+    protected trx: Db,
+    protected user: UserInfo,
+  ) {}
+
+  async mainProductList({
+    id,
+    limit,
+    offset,
+    searchTitle,
+    supplierId,
+    barcode,
+    categoryId,
+  }: ProductFilterProps) {
+    const isMain = this.user.warehouse?.isMain || false;
+    const query = this.trx.table("product").where("product.deleted_at", null);
+    if (id) {
+      query.where("product.id", id);
+    }
+    // Every word must match the title or one of the product's live variants
+    // (name, SKU, barcode), so "coke 330" finds "Coca-Cola" / "330ml" and a
+    // scanned barcode finds its product.
+    const searchTokens = (searchTitle ?? "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 8)
+      .map((t) => `%${t.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+    for (const like of searchTokens) {
+      query.where((qb) => {
+        // SQLite has no default LIKE escape character (MySQL used "\\"), so name it
+        qb.whereRaw("product.title LIKE ? ESCAPE '\\'", [like]).orWhereExists((sub) => {
+          sub
+            .select(this.trx.raw("1"))
+            .from("product_variant as pv_search")
+            .whereRaw("pv_search.product_id = product.id")
+            .whereNull("pv_search.deleted_at")
+            .where((v) => {
+              v.whereRaw("pv_search.name LIKE ? ESCAPE '\\'", [like])
+                .orWhereRaw("pv_search.barcode LIKE ? ESCAPE '\\'", [like])
+                .orWhereRaw("CAST(pv_search.sku AS TEXT) LIKE ? ESCAPE '\\'", [like]);
+            });
+        });
+      });
+    }
+    if (supplierId) {
+      query.where("product.supplier_id", supplierId);
+    }
+    if (categoryId) {
+      query
+        .innerJoin(
+          "product_categories",
+          "product_categories.product_id",
+          "product.id",
+        )
+        .where({
+          "product_categories.category_id": categoryId,
+        });
+    }
+
+    if (barcode) {
+      query.innerJoin(
+        "product_variant",
+        "product.id",
+        "product_variant.product_id",
+      );
+      query.where("product_variant.barcode", barcode);
+    }
+
+    const useMainBranchVisibility =
+      !isMain && !!this.user?.warehouse?.useMainBranchVisibility;
+
+    if (useMainBranchVisibility) {
+      query
+        .join("group_products", "group_products.product_id", "product.id")
+        .join(
+          "product_groups",
+          "product_groups.group_id",
+          "group_products.group_id",
+        )
+        .join(
+          "warehouse_groups",
+          "warehouse_groups.group_id",
+          "group_products.group_id",
+        )
+        .where({
+          "warehouse_groups.warehouse_id": this.user.currentWarehouseId!,
+          "product_groups.deleted_at": null,
+        })
+        .groupBy("product.id");
+    }
+
+    // Count before ordering/grouping: a grouped COUNT(*) returns one row per
+    // product, so `.first()` used to give the join size of a single product.
+    const { total } = await query
+      .clone()
+      .clear("group")
+      .countDistinct("product.id as total")
+      .first<{ total: number }>();
+
+    const term = searchTitle?.trim();
+    if (term) {
+      // Exact title first, then titles starting with the term, then the rest.
+      query.orderByRaw(
+        "CASE WHEN product.title = ? THEN 0 WHEN product.title LIKE ? ESCAPE '\\' THEN 1 ELSE 2 END",
+        [term, `${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`],
+      );
+    }
+    // id breaks created_at ties (bulk-created products share a second) so pages never repeat or skip a product
+    query.orderBy("product.created_at", "desc").orderBy("product.id", "desc");
+
+    const productList: table_product[] = await query
+      .select("product.*")
+      .limit(limit || 30)
+      .offset(offset || 0);
+
+    const imageLoader = LoaderFactory.productImageLoader(this.trx);
+    const categoryLoader = LoaderFactory.categoryByProductLoader(this.trx);
+    const variantLoader = LoaderFactory.productVariantLoader(
+      this.trx,
+      this.user.currentWarehouseId!,
+      this.user,
+    );
+    const modifierByProductLoader = LoaderFactory.modifierByProductLoader(
+      this.trx,
+    );
+
+    const productConversionLoader =
+      LoaderFactory.productVariantConversionLoader(
+        this.trx,
+        this.user.currentWarehouseId!,
+      );
+
+    const queryProductWarehouseVisibility = this.trx
+      .table("product_warehouse_visibility")
+      .where({
+        warehouse_id: this.user.currentWarehouseId!,
+      });
+
+    if (useMainBranchVisibility && productList.length > 0) {
+      queryProductWarehouseVisibility.whereIn(
+        "product_id",
+        productList.map((p) => p.id!),
+      );
+    }
+
+    const visibilityList = await queryProductWarehouseVisibility.select(
+      "product_id",
+      "product_variant_id",
+      "is_visible",
+      "is_for_sale",
+    );
+
+    const data: ProductV2[] = await Promise.all(
+      productList.map(async (p) => ({
+        id: p.id!,
+        title: p.title,
+        description: p.description,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+        deletedAt: p.deleted_at,
+        productImages: p.id ? await imageLoader.load(p.id) : [],
+        productCategories: p.id ? await categoryLoader.load(p.id) : [],
+        productVariants: p.id ? await variantLoader.load(p.id) : [],
+        weight: p.weight,
+        length: p.length,
+        width: p.width,
+        height: p.height,
+        isComposite: p.is_composite === 1,
+        useProduction: p.use_production === 1,
+        trackStock: p.track_stock === 1,
+        isForSale: useMainBranchVisibility
+          ? visibilityList.find((v) => v.product_id === p.id)?.is_for_sale === 1
+          : p.is_for_sale === 1,
+        modifiers: p.id
+          ? ((await modifierByProductLoader.load(p.id)).filter(
+              (m) => m !== null,
+            ) as ProductModifierType[])
+          : [],
+        productConversions: p.id
+          ? await productConversionLoader.load(p.id)
+          : [],
+      })),
+    );
+    return {
+      data,
+      total,
+    };
+  }
+
+  async groupProductByCategory() {
+    const query = this.trx
+      .table("product")
+      .select("*")
+      .where("deleted_at", null);
+
+    query.orderBy("created_at", "desc");
+
+    const productList: table_product[] = await query;
+    const imageLoader = LoaderFactory.productImageLoader(this.trx);
+    const categoryLoader = LoaderFactory.categoryByProductLoader(this.trx);
+    const variantLoader = LoaderFactory.productVariantLoader(
+      this.trx,
+      this.user.currentWarehouseId!,
+    );
+
+    const data: ProductV2[] = await Promise.all(
+      productList.map(async (p) => ({
+        id: p.id!,
+        title: p.title,
+        description: p.description,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+        deletedAt: p.deleted_at,
+        productImages: p.id ? await imageLoader.load(p.id) : [],
+        productCategories: p.id ? await categoryLoader.load(p.id) : [],
+        productVariants: p.id ? await variantLoader.load(p.id) : [],
+        weight: p.weight,
+        length: p.length,
+        width: p.width,
+        height: p.height,
+        isComposite: p.is_composite === 1,
+        useProduction: p.use_production === 1,
+        trackStock: p.track_stock === 1,
+        isForSale: p.is_for_sale === 1,
+      })),
+    );
+
+    const grouped: Record<string, ProductV2[]> = {
+      All: [],
+    };
+
+    data.forEach((p) => {
+      p.productCategories.forEach((c) => {
+        if (!grouped[c.title]) {
+          grouped[c.title] = [];
+        }
+        grouped["All"].push(p);
+        grouped[c.title].push(p);
+      });
+    });
+
+    return grouped;
+  }
+
+  async createProduct(input: ProductInput, id?: string) {
+    const now = Formatter.getNowDateTime();
+    const productId = id ? id : generateId();
+    await this.trx.insert("product", {
+      id: productId,
+      title: input.title,
+      description: input.description,
+      created_at: now,
+      weight: input.weight,
+      length: input.length,
+      width: input.width,
+      height: input.height,
+      is_composite: input.isComposite ? 1 : 0,
+      use_production: input.useProduction ? 1 : 0,
+      track_stock: input.trackStock ? 1 : 0,
+      is_for_sale: input.isForSale ? 1 : 0,
+      supplier_id: input.supplierId ?? null,
+      created_by: this.user.id,
+    });
+    return productId;
+  }
+
+  async updateProduct(input: ProductInput, id: string) {
+    const now = Formatter.getNowDateTime();
+
+    await this.trx.update("product", { id: id }, {
+        title: input.title,
+        description: input.description,
+        updated_at: now,
+        weight: input.weight,
+        length: input.length,
+        width: input.width,
+        height: input.height,
+        is_composite: input.isComposite ? 1 : 0,
+        use_production: input.useProduction ? 1 : 0,
+        track_stock: input.trackStock ? 1 : 0,
+        is_for_sale: input.isForSale ? 1 : 0,
+        supplier_id: input.supplierId || null,
+        updated_by: this.user.id,
+      });
+    return true;
+  }
+
+  async deleteProduct(id: string) {
+    const now = Formatter.getNowDateTime();
+    await this.trx.update("product", { id: id }, {
+      deleted_at: now,
+      deleted_by: this.user.id,
+    });
+    return true;
+  }
+  async getBasicProductById(id: string): Promise<BasicProduct | null> {
+    const product = await this.trx.row<table_product>("product", { AND: [{ id: id }, { deleted_at: null }] });
+    if (!product) {
+      return null;
+    }
+
+    return {
+      id: product.id!,
+      title: product.title,
+      description: product.description,
+      createdAt: product.created_at,
+      updatedAt: product.updated_at,
+      deletedAt: product.deleted_at,
+      weight: product.weight,
+      length: product.length,
+      width: product.width,
+      height: product.height,
+      isComposite: product.is_composite === 1,
+      useProduction: product.use_production === 1,
+      trackStock: product.track_stock === 1,
+      isForSale: product.is_for_sale === 1,
+      supplierId: product.supplier_id,
+    };
+  }
+}

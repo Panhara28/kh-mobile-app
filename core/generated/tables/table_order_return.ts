@@ -1,0 +1,19 @@
+// @ts-nocheck
+// GENERATED from kh-pos-v2 by scripts/sync-core.mjs. Do not edit: change kh-pos-v2, then sync.
+export interface table_order_return {
+  id: string;
+  warehouse_id: string | null;
+  order_id: string;
+  order_item_id: string;
+  quantity: number;
+  refund_amount: string;
+  reason: string | null;
+  status: 'returned' | 'stock_in';
+  created_at: string | null;
+  created_by: string | null;
+  returned_at: string | null;
+  returned_by: string | null;
+  stock_in_at: string | null;
+  stock_in_by: string | null;
+  shift_id: string | null;
+}

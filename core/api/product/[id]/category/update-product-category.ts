@@ -1,0 +1,77 @@
+// @ts-nocheck
+// GENERATED from kh-pos-v2 by scripts/sync-core.mjs. Do not edit: change kh-pos-v2, then sync.
+import type { Db } from "../../../../db/db";
+import { ProductCategoryDetail, ProductCategoryUpdate } from "./types";
+import { Formatter } from "../../../../lib/formatter";
+import { table_product_categories } from "../../../../generated/tables";
+import { v4 } from "uuid";
+import { LoaderFactory } from "../../../../dataloader/loader-factory";
+
+export async function updateProductCategory(
+  db: Db,
+  input: ProductCategoryUpdate[],
+  productId: string
+) {
+  const result: ProductCategoryDetail[] = [];
+  const now = Formatter.getNowDateTime();
+  await db.tx(async (trx) => {
+    // find category that are not in the input and delete
+    const toDetete: table_product_categories[] = await trx
+      .table<table_product_categories>("product_categories")
+      .whereNotIn(
+        "id",
+        input.filter((i) => i.id).map((i) => i.id)
+      )
+      .andWhere("product_id", productId);
+    for (const i of toDetete) {
+      await trx.del("product_categories", { AND: [{ id: i.id }, { product_id: productId }] });
+
+      // log user action
+    }
+
+    // update
+    const toUpdate = input.filter((i) => i.action === "update");
+    for (const i of toUpdate) {
+      await trx.update("product_categories", { AND: [{ id: i.id }, { product_id: productId }] }, {
+          category_id: i.categoryId,
+          updated_at: now,
+          product_id: productId,
+        });
+      result.push({
+        id: i.id!,
+        productId: productId,
+        categoryId: i.categoryId,
+      });
+
+      // log user action
+    }
+
+    // create
+    const toCreate = input.filter((i) => i.action === "create");
+    for (const i of toCreate) {
+      const id = v4();
+      await trx.insert("product_categories", {
+        id,
+        product_id: productId,
+        category_id: i.categoryId,
+        created_at: now,
+      });
+      result.push({
+        id,
+        productId: productId,
+        categoryId: i.categoryId,
+      });
+
+      // log user action
+    }
+  });
+  const categoryLoader = LoaderFactory.productCategoryLoader(db);
+  return await Promise.all(
+    result.map(async (r) => {
+      return {
+        ...r,
+        category: await categoryLoader.load(r.categoryId),
+      };
+    })
+  );
+}

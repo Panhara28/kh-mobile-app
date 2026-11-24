@@ -1,0 +1,69 @@
+// @ts-nocheck
+// GENERATED from kh-pos-v2 by scripts/sync-core.mjs. Do not edit: change kh-pos-v2, then sync.
+import { DiscountByProduct } from "../../../dataloader/discount-by-product-loader";
+import {
+  ProductModifierType,
+  ProductVariantType,
+} from "../../../dataloader/product-variant-loader";
+import { ProductCategory } from "../../../repository/product-category-repository";
+import { ProductImage } from "../../../repository/product-image-repository";
+import { z } from "zod";
+
+export interface ProductSearchFilter {
+  search?: string;
+  limit?: number;
+  offset?: number;
+  warehouse?: string;
+  sku?: string;
+  barcode?: string;
+  replenishment?: boolean;
+  categoryKeys?: string[] | string;
+  supplierId?: string;
+  type?: "all" | "pos";
+  includeProductNotForSale?: boolean;
+  compositeOnly?: boolean;
+  /** Only variants of this product (promotion-set "any variant" slots). */
+  productId?: string;
+  /** Only these variants (promotion-set item slots). */
+  variantIds?: string[];
+}
+
+export interface ProductSearchResult {
+  productId: string;
+  variantId: string;
+  warehouseId: string;
+  productTitle: string;
+  price?: number;
+  discountType?: "AMOUNT" | "PERCENTAGE" | null;
+  discountValue?: number | null;
+  /** Unit price after the variant menu discount, or null when there is none. */
+  discountedPrice?: number | null;
+  stock?: number;
+  sku?: string;
+  barcode?: string;
+  purchasedCost?: number;
+  incomingStock?: number;
+  images?: ProductImage[];
+  variants?: ProductVariantType[];
+  modifiers?: ProductModifierType[] | null;
+  discounts?: DiscountByProduct[] | null;
+  category?: ProductCategory | null;
+  isPopular?: boolean;
+  isNew?: boolean;
+  isMostOrder?: boolean;
+}
+
+export const productSearchFilterSchema = z.object({
+  search: z.string().optional(),
+  limit: z.string().optional(),
+  offset: z.string().optional(),
+  warehouse: z.string().optional(),
+  sku: z.string().optional(),
+  barcode: z.string().optional(),
+  replenishment: z.string().default("false"),
+  categoryKeys: z.string().optional(),
+  compositeOnly: z.string().default("false"),
+  supplierId: z.string().optional(),
+  type: z.enum(["all", "pos"]).default("all"),
+  includeProductNotForSale: z.string().default("false"),
+});

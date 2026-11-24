@@ -384,6 +384,7 @@ export function ProductMenuEditor({ value, onChange, disabled }: EditorProps) {
       <SwitchRow label={t('sg.onlyForSale')} value={v.onlyForSale} onChange={(b) => emit({ onlyForSale: b })} disabled={disabled} />
       <SwitchRow label={t('sg.onlyInStock')} value={v.onlyInStock} onChange={(b) => emit({ onlyInStock: b })} disabled={disabled} />
       <ImageBox label={t('sg.banner')} url={v.bannerUrl} onChange={(u) => emit({ bannerUrl: u })} disabled={disabled} />
+      {api.onPhone ? <Text style={styles.label}>{t('phone.noWebPages')}</Text> : null}
       <Text style={styles.label}>{t('sg.menuLink')}</Text>
       <Text selectable style={styles.link}>{link}</Text>
       <View style={styles.buttons}>

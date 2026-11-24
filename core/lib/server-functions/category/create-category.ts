@@ -1,0 +1,333 @@
+// @ts-nocheck
+// GENERATED from kh-pos-v2 by scripts/sync-core.mjs. Do not edit: change kh-pos-v2, then sync.
+import { Printer, PrintServer } from "../../../classes/print-server";
+import { table_product_category } from "../../../generated/tables";
+import { Formatter } from "../../formatter";
+import type { Db } from "../../../db/db";
+import { v4 } from "uuid";
+import { UserInfo } from "../get-auth-from-token";
+
+export interface CategoryInput {
+  title: string;
+  description?: string;
+  imageUrl: string | null;
+  parentId: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  printerId?: string | null;
+  sortOrder?: number;
+  excludeFeeDelivery?: boolean;
+  markExtraFee?: number;
+}
+
+export interface Category extends CategoryInput {
+  id: string;
+  printer?: Printer;
+  productCount?: number;
+  forSaleCount?: number;
+}
+
+export async function createCategory({
+  db,
+  input,
+  user,
+}: {
+  db: Db;
+  input: CategoryInput;
+  user: UserInfo;
+}) {
+  const now = Formatter.getNowDateTime();
+  const categoryId = input.title === "movies" ? "movies-category-id" : v4();
+
+  const exists: table_product_category = await db.row<table_product_category>("product_category", { id: categoryId });
+
+  if (!!exists && !!exists.delete_date) {
+    await db.update("product_category", { id: categoryId }, { delete_date: null });
+
+    return {
+      id: categoryId,
+      ...input,
+    };
+  }
+
+  await db.insert("product_category", {
+    id: categoryId,
+    title: input.title,
+    description: input.description ?? "",
+    parent_id: input.parentId,
+    created_at: now,
+    updated_at: now,
+    image_url: input.imageUrl,
+    sort_order: input.sortOrder || 0,
+    exclude_fee_delivery: input.excludeFeeDelivery ? 1 : 0,
+    mark_extra_fee: String(input.markExtraFee ?? 0),
+  });
+
+  if (input.printerId) {
+    await db.insert("warehouse_category_printer", {
+      warehouse_id: user.currentWarehouseId,
+      category_id: categoryId,
+      printer_id: input.printerId ?? null,
+    });
+  }
+
+  return {
+    id: categoryId,
+    ...input,
+  };
+}
+
+export async function updateCategory({
+  db,
+  input,
+  user,
+}: {
+  db: Db;
+  input: Partial<Category>;
+  user: UserInfo;
+}) {
+  const now = Formatter.getNowDateTime();
+
+  const updatedFields = {
+    ...(input.title !== undefined && { title: input.title }),
+    ...(input.description !== undefined && {
+      description: input.description ?? "",
+    }),
+    ...(input.parentId !== undefined && { parent_id: input.parentId }),
+    ...(input.imageUrl !== undefined && { image_url: input.imageUrl }),
+    updated_at: now,
+    sort_order: input.sortOrder ?? 0,
+    exclude_fee_delivery: (input.excludeFeeDelivery ?? false) ? 1 : 0,
+    mark_extra_fee: String(input.markExtraFee ?? 0),
+  };
+
+  await db.update("product_category", { id: input.id }, updatedFields);
+
+  if (input.printerId) {
+    const existing = await db.row("warehouse_category_printer", { AND: [{ warehouse_id: user.currentWarehouseId }, { category_id: input.id }] });
+    if (existing) {
+      await db.update("warehouse_category_printer", { AND: [{ warehouse_id: user.currentWarehouseId }, { category_id: input.id }] }, {
+          printer_id: input.printerId ?? null,
+        });
+    } else {
+      await db.insert("warehouse_category_printer", {
+        warehouse_id: user.currentWarehouseId,
+        category_id: input.id,
+        printer_id: input.printerId ?? null,
+      });
+    }
+  } else {
+    // If printerId is null, remove any existing binding
+    await db.del("warehouse_category_printer", { AND: [{ warehouse_id: user.currentWarehouseId }, { category_id: input.id }] });
+  }
+
+  return input as Category;
+}
+
+export async function getCategoryList({
+  db,
+  limit,
+  offset,
+  search,
+  id,
+  onlyBindedToPrinter = false,
+  user,
+  warehouseId,
+}: {
+  db: Db;
+  limit: number;
+  offset: number;
+  search?: string;
+  id?: string;
+  onlyBindedToPrinter?: boolean;
+  user: UserInfo;
+  warehouseId?: string;
+}) {
+  const raws = db
+    .table<table_product_category>("product_category")
+    .whereNull("product_category.delete_date")
+    .orderBy([
+      { column: "product_category.sort_order", order: "asc" },
+      { column: "product_category.title", order: "asc" },
+    ]);
+
+  if (search && search.trim() !== "") {
+    raws.where(function () {
+      this.where("product_category.title", "LIKE", `%${search}%`).orWhere(
+        "product_category.description",
+        "LIKE",
+        `%${search}%`,
+      );
+    });
+  }
+  if (id) {
+    raws.where({ id });
+  }
+  if (onlyBindedToPrinter) {
+    raws
+      .innerJoin(
+        "warehouse_category_printer",
+        "warehouse_category_printer.category_id",
+        "product_category.id",
+      )
+      .whereNotNull("warehouse_category_printer.printer_id")
+      .groupBy("product_category.id");
+
+    if (warehouseId) {
+      raws.where("warehouse_category_printer.warehouse_id", warehouseId);
+    } else {
+      raws.where(
+        "warehouse_category_printer.warehouse_id",
+        user.currentWarehouseId,
+      );
+    }
+  }
+
+  // Count the categories (the printer filter groups rows, and grouped COUNT returned one row per category / none
+  // at all, which crashed the POS category list when no category was bound to a printer).
+  const countRow = await db
+    .queryBuilder()
+    .from(raws.clone().clearOrder().clearSelect().select("product_category.id").as("c"))
+    .count("* as total")
+    .first<{ total: number }>();
+  const total = Number(countRow?.total ?? 0);
+
+  const query = raws
+    .clone()
+    .select("product_category.*")
+    .limit(limit)
+    .offset(offset);
+
+  const items = await query;
+
+  const queryProductCount = db
+    .table("product_category")
+    .select(
+      db.raw("COUNT(product_categories.id) as product_count"),
+      db.raw("SUM(CASE WHEN product.is_for_sale = 1 THEN 1 ELSE 0 END) as for_sale_count"),
+      "product_category.id",
+    )
+    .rightJoin(
+      "product_categories",
+      "product_categories.category_id",
+      "product_category.id",
+    )
+    .leftJoin("product", "product.id", "product_categories.product_id")
+    .groupBy("product_categories.category_id")
+    .where({
+      "product.deleted_at": null,
+    })
+    .whereIn(
+      "product_category.id",
+      items.map((i) => i.id),
+    );
+
+  if (user && user.warehouse?.useMainBranchVisibility) {
+    queryProductCount
+      .leftJoin(
+        "product_warehouse_visibility",
+        "product_warehouse_visibility.product_id",
+        "product.id",
+      )
+      .select(
+        db.raw("COUNT(product_categories.id) as product_count"),
+        db.raw(
+          "SUM(CASE WHEN product_warehouse_visibility.is_for_sale = 1 THEN 1 ELSE 0 END) as for_sale_count",
+        ),
+        "product_category.id",
+      );
+  } else {
+    queryProductCount.select(
+      db.raw("COUNT(product_categories.id) as product_count"),
+      db.raw("SUM(CASE WHEN product.is_for_sale = 1 THEN 1 ELSE 0 END) as for_sale_count"),
+      "product_category.id",
+    );
+  }
+
+  const itemsCount = await queryProductCount.clone();
+
+  const warehouse_printer = await db.rows("warehouse_category_printer", { warehouse_id: user.currentWarehouseId });
+  const printers = await new PrintServer(db, user).getAllPrinters();
+
+  const categories: Category[] = items.map((raw) => {
+    const printer = warehouse_printer.find((wp) => wp.category_id === raw.id);
+    const productCount =
+      itemsCount.find((ic) => ic.id === raw.id)?.product_count || 0;
+    const forSaleCount =
+      itemsCount.find((ic) => ic.id === raw.id)?.for_sale_count || 0;
+    return {
+      id: raw.id,
+      title: raw.title,
+      imageUrl: raw.image_url,
+      description: raw.description,
+      parentId: raw.parent_id,
+      createdAt: raw.created_at,
+      updatedAt: raw.updated_at,
+      printerId: printer ? printer.printer_id : null,
+      printer: printer
+        ? printers.find((p) => p.id === printer.printer_id) || undefined
+        : undefined,
+      sortOrder: raw.sort_order,
+      excludeFeeDelivery: raw.exclude_fee_delivery === 1,
+      markExtraFee: Number(raw.mark_extra_fee),
+      productCount: Number(productCount) || 0,
+      forSaleCount: Number(forSaleCount) || 0,
+    };
+  });
+
+  const rows = onlyBindedToPrinter
+    ? categories.filter((cat) => (cat.forSaleCount || 0) > 0)
+    : categories;
+
+  return { categories: rows, total: onlyBindedToPrinter ? rows.length : total };
+}
+
+export async function getCategoryById({
+  db,
+  id,
+  user,
+}: {
+  db: Db;
+  id: string;
+  user: UserInfo;
+}) {
+  const raw = await db
+    .table<table_product_category>("product_category")
+    .leftJoin(
+      "warehouse_category_printer",
+      "warehouse_category_printer.category_id",
+      "product_category.id",
+    )
+    .select(
+      "product_category.*",
+      "warehouse_category_printer.printer_id as printer",
+    )
+    .where({
+      id,
+      "warehouse_category_printer.warehouse_id": user.currentWarehouseId,
+    })
+    .first();
+
+  const printers = await new PrintServer(db, user).getAllPrinters();
+
+  const category: Category = {
+    id: raw?.id,
+    title: raw?.title,
+    description: raw?.description,
+    parentId: raw?.parent_id,
+    createdAt: raw?.created_at,
+    updatedAt: raw?.updated_at,
+    imageUrl: raw?.image_url,
+    printerId: raw?.printer,
+    printer: printers.find((p) => p.id === raw?.printer) || undefined,
+    sortOrder: raw?.sort_order,
+  };
+  return category;
+}
+
+export async function deleteCategory({ db, id }: { db: Db; id: string }) {
+  const now = Formatter.getNowDateTime();
+  await db.update("product_category", { id: id }, { delete_date: now });
+
+  return id;
+}

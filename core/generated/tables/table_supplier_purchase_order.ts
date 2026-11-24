@@ -1,0 +1,16 @@
+// @ts-nocheck
+// GENERATED from kh-pos-v2 by scripts/sync-core.mjs. Do not edit: change kh-pos-v2, then sync.
+export interface table_supplier_purchase_order {
+  created_at: string | null;
+  created_by: string;
+  expected_at: string | null;
+  id?: string;
+  note: string | null;
+  po_increment: number;
+  purchased_at: string | null;
+  status?: 'draft' | 'approved' | 'completed' | 'deleted' | 'closed';
+  supplier_id: string;
+  total: string;
+  updated_at: string | null;
+  warehouse_id: string;
+}

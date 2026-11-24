@@ -1,0 +1,66 @@
+// @ts-nocheck
+// GENERATED from kh-pos-v2 by scripts/sync-core.mjs. Do not edit: change kh-pos-v2, then sync.
+import type { Db } from "../../../../db/db";
+
+interface filterSchemaType {
+  startDate: string;
+  endDate: string;
+}
+
+export async function getBrandIntegration(db: Db, filter: filterSchemaType) {
+  const setting = await db.row("setting", { option: "BRAND_INTEGRATION" });
+
+  let brandIntegration: { name: string; url: string; token: string }[] = [];
+  try {
+    brandIntegration = setting?.value ? JSON.parse(setting.value) : [];
+  } catch {
+    brandIntegration = [];
+  }
+  const params = new URLSearchParams();
+  if (filter.startDate) {
+    params.append("startDate", filter.startDate);
+  }
+  if (filter.endDate) {
+    params.append("endDate", filter.endDate);
+  }
+  // Prevent integrated brands from recursively calling their own integrations,
+  // which can fan out / cycle and hang the request until it times out.
+  params.append("skipIntegration", "1");
+
+  if (brandIntegration.length === 0) {
+    return [];
+  }
+
+  const results = await Promise.all(
+    brandIntegration.map(async (integration) => {
+      try {
+        const myHeaders = new Headers();
+
+        myHeaders.append("Authorization", "Bearer " + integration.token);
+
+        const requestOptions: RequestInit = {
+          method: "GET",
+          headers: myHeaders,
+          redirect: "follow",
+          // Don't let a slow/hanging integration host block the whole report.
+          signal: AbortSignal.timeout(10000),
+        };
+
+        const res = await fetch(
+          `${integration.url}/api/report/warehouse/sale?${params.toString()}`,
+          requestOptions,
+        );
+
+        if (!res.ok) {
+          return { name: integration.name, data: null };
+        }
+        const json = await res.json();
+        return { name: integration.name, data: json.result.local };
+      } catch {
+        return { name: integration.name, data: null };
+      }
+    }),
+  );
+
+  return results;
+}

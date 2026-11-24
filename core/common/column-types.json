@@ -1,0 +1,2527 @@
+{
+ "account_booking": {
+  "id": {
+   "kind": "String"
+  },
+  "account_id": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "amount": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "description": {
+   "kind": "String"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "deleted_by": {
+   "kind": "String"
+  }
+ },
+ "backlog_orders": {
+  "id": {
+   "kind": "String"
+  },
+  "slot_id": {
+   "kind": "String"
+  },
+  "variant_id": {
+   "kind": "String"
+  },
+  "qty": {
+   "kind": "Int"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  }
+ },
+ "banners": {
+  "id": {
+   "kind": "Int"
+  },
+  "image_url": {
+   "kind": "String"
+  },
+  "title": {
+   "kind": "String"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "updated_by": {
+   "kind": "String"
+  },
+  "payload": {
+   "kind": "String"
+  }
+ },
+ "bind_user": {
+  "id": {
+   "kind": "Int"
+  },
+  "user_id": {
+   "kind": "String"
+  },
+  "group": {
+   "kind": "Int"
+  },
+  "is_main_user": {
+   "kind": "boolean"
+  }
+ },
+ "chart_of_account": {
+  "id": {
+   "kind": "String"
+  },
+  "account_name": {
+   "kind": "String"
+  },
+  "account_type": {
+   "kind": "enum"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "updated_by": {
+   "kind": "String"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "deleted_by": {
+   "kind": "String"
+  }
+ },
+ "cinema_hall": {
+  "hall_id": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "hall_name": {
+   "kind": "String"
+  },
+  "hall_number": {
+   "kind": "Int"
+  },
+  "total_seats": {
+   "kind": "Int"
+  },
+  "rows": {
+   "kind": "Int"
+  },
+  "columns": {
+   "kind": "Int"
+  },
+  "hall_features": {
+   "kind": "json"
+  },
+  "status": {
+   "kind": "enum"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "parts": {
+   "kind": "json"
+  }
+ },
+ "cinema_seat": {
+  "seat_id": {
+   "kind": "String"
+  },
+  "hall_id": {
+   "kind": "String"
+  },
+  "row_label": {
+   "kind": "String"
+  },
+  "seat_number": {
+   "kind": "Int"
+  },
+  "seat_type": {
+   "kind": "enum"
+  },
+  "is_available": {
+   "kind": "boolean"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "group_id": {
+   "kind": "String"
+  }
+ },
+ "cron_log": {
+  "id": {
+   "kind": "Int"
+  },
+  "job_name": {
+   "kind": "String"
+  },
+  "started_at": {
+   "kind": "datetime"
+  },
+  "finished_at": {
+   "kind": "datetime"
+  },
+  "duration_ms": {
+   "kind": "Int"
+  },
+  "status": {
+   "kind": "enum"
+  },
+  "error_message": {
+   "kind": "String"
+  },
+  "error_stack": {
+   "kind": "String"
+  },
+  "retry_count": {
+   "kind": "Int"
+  },
+  "metadata": {
+   "kind": "json"
+  },
+  "created_at": {
+   "kind": "datetime"
+  }
+ },
+ "customer": {
+  "id": {
+   "kind": "String"
+  },
+  "customer_name": {
+   "kind": "String"
+  },
+  "phone": {
+   "kind": "String"
+  },
+  "address": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "pos_warehouse_id": {
+   "kind": "String"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "is_active": {
+   "kind": "boolean"
+  },
+  "customer_type": {
+   "kind": "enum"
+  },
+  "extra_price": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "email": {
+   "kind": "String"
+  },
+  "email_key": {
+   "kind": "String"
+  },
+  "photo": {
+   "kind": "String"
+  }
+ },
+ "customer_order": {
+  "order_id": {
+   "kind": "String"
+  },
+  "customer_id": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "order_status": {
+   "kind": "enum"
+  },
+  "total_amount": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "delivery_address": {
+   "kind": "String"
+  },
+  "address_lat": {
+   "kind": "String"
+  },
+  "address_lng": {
+   "kind": "String"
+  },
+  "table_number": {
+   "kind": "String"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "paid_at": {
+   "kind": "datetime"
+  },
+  "refund_at": {
+   "kind": "datetime"
+  },
+  "invoice_no": {
+   "kind": "bigint"
+  },
+  "transfer_by": {
+   "kind": "String"
+  },
+  "transfer_at": {
+   "kind": "datetime"
+  },
+  "customer": {
+   "kind": "Int"
+  },
+  "print_time": {
+   "kind": "Int"
+  },
+  "served_type": {
+   "kind": "enum"
+  },
+  "delivery_code": {
+   "kind": "String"
+  },
+  "is_testing": {
+   "kind": "boolean"
+  },
+  "tag_no": {
+   "kind": "String"
+  }
+ },
+ "customer_order_detail": {
+  "order_detail_id": {
+   "kind": "String"
+  },
+  "order_id": {
+   "kind": "String"
+  },
+  "variant_id": {
+   "kind": "String"
+  },
+  "qty": {
+   "kind": "Int"
+  },
+  "fulfilled_qty": {
+   "kind": "Int"
+  },
+  "price": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "discount_amount": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "modifer_amount": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "total_amount": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "is_testing": {
+   "kind": "boolean"
+  }
+ },
+ "customer_order_draft": {
+  "id": {
+   "kind": "Int"
+  },
+  "content": {
+   "kind": "json"
+  },
+  "amount": {
+   "kind": "String"
+  },
+  "is_paid": {
+   "kind": "boolean"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  }
+ },
+ "customer_token": {
+  "id": {
+   "kind": "Int"
+  },
+  "customer_id": {
+   "kind": "String"
+  },
+  "device_id": {
+   "kind": "String"
+  },
+  "token": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "expires_at": {
+   "kind": "datetime"
+  },
+  "is_revoked": {
+   "kind": "boolean"
+  },
+  "metadata": {
+   "kind": "json"
+  },
+  "platform": {
+   "kind": "enum"
+  },
+  "token_type": {
+   "kind": "enum"
+  },
+  "lat": {
+   "kind": "decimal",
+   "scale": 7
+  },
+  "lng": {
+   "kind": "decimal",
+   "scale": 7
+  },
+  "table_id": {
+   "kind": "String"
+  }
+ },
+ "discount": {
+  "discount_id": {
+   "kind": "String"
+  },
+  "title": {
+   "kind": "String"
+  },
+  "description": {
+   "kind": "String"
+  },
+  "discount_type": {
+   "kind": "enum"
+  },
+  "value": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "update_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "updated_by": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "auto_id": {
+   "kind": "Int"
+  }
+ },
+ "discount_log": {
+  "id": {
+   "kind": "String"
+  },
+  "discount_id": {
+   "kind": "String"
+  },
+  "order_detail_id": {
+   "kind": "String"
+  },
+  "discount_amount": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "discount_title": {
+   "kind": "String"
+  },
+  "discount_type": {
+   "kind": "enum"
+  },
+  "value": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "is_manual_discount": {
+   "kind": "boolean"
+  },
+  "created_by": {
+   "kind": "String"
+  }
+ },
+ "fulfill_replenishment": {
+  "id": {
+   "kind": "String"
+  },
+  "replenishment_id": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  }
+ },
+ "fulfill_replenishment_detail": {
+  "id": {
+   "kind": "String"
+  },
+  "replenishment_item_id": {
+   "kind": "String"
+  },
+  "fulfill_replenishment_id": {
+   "kind": "String"
+  },
+  "transaction_id": {
+   "kind": "String"
+  }
+ },
+ "fulfilment": {
+  "id": {
+   "kind": "String"
+  },
+  "order_id": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  }
+ },
+ "fulfilment_detail": {
+  "id": {
+   "kind": "String"
+  },
+  "order_detail_id": {
+   "kind": "String"
+  },
+  "fulfilment_id": {
+   "kind": "String"
+  },
+  "transaction_id": {
+   "kind": "String"
+  }
+ },
+ "group_products": {
+  "group_id": {
+   "kind": "String"
+  },
+  "product_id": {
+   "kind": "String"
+  },
+  "product_variant_id": {
+   "kind": "String"
+  }
+ },
+ "inventory": {
+  "id": {
+   "kind": "String"
+  },
+  "slot_id": {
+   "kind": "String"
+  },
+  "variant_id": {
+   "kind": "String"
+  },
+  "expired_at": {
+   "kind": "datetime"
+  },
+  "lot_id": {
+   "kind": "String"
+  },
+  "qty": {
+   "kind": "Int"
+  }
+ },
+ "inventory_transactions": {
+  "id": {
+   "kind": "String"
+  },
+  "transaction_type": {
+   "kind": "enum"
+  },
+  "variant_id": {
+   "kind": "String"
+  },
+  "slot_id": {
+   "kind": "String"
+  },
+  "lot_id": {
+   "kind": "String"
+  },
+  "qty": {
+   "kind": "Int"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  }
+ },
+ "knex_migrations": {
+  "id": {
+   "kind": "Int"
+  },
+  "name": {
+   "kind": "String"
+  },
+  "batch": {
+   "kind": "Int"
+  },
+  "migration_time": {
+   "kind": "datetime"
+  }
+ },
+ "knex_migrations_lock": {
+  "index": {
+   "kind": "Int"
+  },
+  "is_locked": {
+   "kind": "Int"
+  }
+ },
+ "modifier": {
+  "modifier_id": {
+   "kind": "String"
+  },
+  "title": {
+   "kind": "String"
+  },
+  "description": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "update_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "updated_by": {
+   "kind": "String"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "deleted_by": {
+   "kind": "String"
+  }
+ },
+ "modifier_items": {
+  "id": {
+   "kind": "String"
+  },
+  "modifier_id": {
+   "kind": "String"
+  },
+  "name": {
+   "kind": "String"
+  },
+  "price": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "updated_by": {
+   "kind": "String"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "deleted_by": {
+   "kind": "String"
+  }
+ },
+ "movie": {
+  "movie_id": {
+   "kind": "String"
+  },
+  "duration_minutes": {
+   "kind": "Int"
+  },
+  "rating": {
+   "kind": "String"
+  },
+  "genre": {
+   "kind": "json"
+  },
+  "release_date": {
+   "kind": "date"
+  },
+  "poster_url": {
+   "kind": "String"
+  },
+  "trailer_url": {
+   "kind": "String"
+  },
+  "director": {
+   "kind": "String"
+  },
+  "cast": {
+   "kind": "json"
+  },
+  "synopsis": {
+   "kind": "String"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "email_producer": {
+   "kind": "json"
+  },
+  "producer_share": {
+   "kind": "Int"
+  },
+  "tax_rate": {
+   "kind": "Int"
+  }
+ },
+ "order_detail_modifier": {
+  "order_detail_id": {
+   "kind": "String"
+  },
+  "modifier_item_id": {
+   "kind": "String"
+  },
+  "price": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "notes": {
+   "kind": "String"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  }
+ },
+ "order_item_status": {
+  "order_item_id": {
+   "kind": "String"
+  },
+  "status": {
+   "kind": "enum"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "qty": {
+   "kind": "Int"
+  }
+ },
+ "order_payment": {
+  "payment_id": {
+   "kind": "String"
+  },
+  "payment_method": {
+   "kind": "String"
+  },
+  "currency": {
+   "kind": "enum"
+  },
+  "amount": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "order_id": {
+   "kind": "String"
+  },
+  "exchange_rate": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "amount_usd": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "updated_by": {
+   "kind": "String"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "deleted_by": {
+   "kind": "String"
+  },
+  "shift_id": {
+   "kind": "String"
+  },
+  "amount_used": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "is_testing": {
+   "kind": "boolean"
+  }
+ },
+ "order_return": {
+  "id": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "order_id": {
+   "kind": "String"
+  },
+  "order_item_id": {
+   "kind": "String"
+  },
+  "quantity": {
+   "kind": "Int"
+  },
+  "refund_amount": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "reason": {
+   "kind": "String"
+  },
+  "status": {
+   "kind": "enum"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "returned_at": {
+   "kind": "datetime"
+  },
+  "returned_by": {
+   "kind": "String"
+  },
+  "stock_in_at": {
+   "kind": "datetime"
+  },
+  "stock_in_by": {
+   "kind": "String"
+  },
+  "shift_id": {
+   "kind": "String"
+  }
+ },
+ "order_status_log": {
+  "id": {
+   "kind": "String"
+  },
+  "order_id": {
+   "kind": "String"
+  },
+  "order_status": {
+   "kind": "enum"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  }
+ },
+ "payment_method": {
+  "method_id": {
+   "kind": "String"
+  },
+  "method": {
+   "kind": "String"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "deleted_by": {
+   "kind": "String"
+  }
+ },
+ "pricing_template": {
+  "template_id": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "template_name": {
+   "kind": "String"
+  },
+  "time_slot": {
+   "kind": "enum"
+  },
+  "day_type": {
+   "kind": "enum"
+  },
+  "extra_seat_prices": {
+   "kind": "json"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  }
+ },
+ "print_kitchen_log": {
+  "id": {
+   "kind": "Int"
+  },
+  "order_id": {
+   "kind": "String"
+  },
+  "order_detail_id": {
+   "kind": "String"
+  },
+  "item_price": {
+   "kind": "String"
+  },
+  "printed_at": {
+   "kind": "datetime"
+  },
+  "content": {
+   "kind": "json"
+  },
+  "printer_info": {
+   "kind": "json"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "is_testing": {
+   "kind": "boolean"
+  },
+  "kind": {
+   "kind": "String"
+  }
+ },
+ "print_queue": {
+  "id": {
+   "kind": "Int"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "content": {
+   "kind": "json"
+  },
+  "printer_info": {
+   "kind": "json"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "order_id": {
+   "kind": "String"
+  },
+  "order_detail_id": {
+   "kind": "String"
+  },
+  "item_price": {
+   "kind": "String"
+  },
+  "kind": {
+   "kind": "String"
+  }
+ },
+ "print_resend_log": {
+  "id": {
+   "kind": "Int"
+  },
+  "order_id": {
+   "kind": "String"
+  },
+  "order_detail_id": {
+   "kind": "String"
+  },
+  "qty": {
+   "kind": "Int"
+  },
+  "resent_by_id": {
+   "kind": "String"
+  },
+  "resent_by_name": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "String"
+  }
+ },
+ "producer_settlement": {
+  "id": {
+   "kind": "String"
+  },
+  "movie_id": {
+   "kind": "String"
+  },
+  "total_amount": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "share_amount": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "settled_at": {
+   "kind": "datetime"
+  },
+  "settled_by": {
+   "kind": "String"
+  },
+  "proof_link": {
+   "kind": "String"
+  }
+ },
+ "product": {
+  "id": {
+   "kind": "String"
+  },
+  "title": {
+   "kind": "String"
+  },
+  "description": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "weight": {
+   "kind": "Int"
+  },
+  "length": {
+   "kind": "Int"
+  },
+  "height": {
+   "kind": "Int"
+  },
+  "width": {
+   "kind": "Int"
+  },
+  "is_composite": {
+   "kind": "Int"
+  },
+  "use_production": {
+   "kind": "Int"
+  },
+  "track_stock": {
+   "kind": "Int"
+  },
+  "is_for_sale": {
+   "kind": "Int"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "updated_by": {
+   "kind": "String"
+  },
+  "deleted_by": {
+   "kind": "String"
+  },
+  "supplier_id": {
+   "kind": "String"
+  }
+ },
+ "product_categories": {
+  "id": {
+   "kind": "String"
+  },
+  "product_id": {
+   "kind": "String"
+  },
+  "category_id": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  }
+ },
+ "product_category": {
+  "id": {
+   "kind": "String"
+  },
+  "title": {
+   "kind": "String"
+  },
+  "description": {
+   "kind": "String"
+  },
+  "parent_id": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "delete_date": {
+   "kind": "datetime"
+  },
+  "image_url": {
+   "kind": "String"
+  },
+  "sort_order": {
+   "kind": "Int"
+  },
+  "exclude_fee_delivery": {
+   "kind": "boolean"
+  },
+  "mark_extra_fee": {
+   "kind": "decimal",
+   "scale": 2
+  }
+ },
+ "product_discount": {
+  "product_id": {
+   "kind": "String"
+  },
+  "discount_id": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "id": {
+   "kind": "Int"
+  },
+  "is_applied_all": {
+   "kind": "boolean"
+  },
+  "category_id": {
+   "kind": "String"
+  },
+  "variant_id": {
+   "kind": "String"
+  }
+ },
+ "product_groups": {
+  "group_id": {
+   "kind": "String"
+  },
+  "group_name": {
+   "kind": "String"
+  },
+  "description": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "updated_by": {
+   "kind": "String"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "deleted_by": {
+   "kind": "String"
+  }
+ },
+ "product_images": {
+  "id": {
+   "kind": "String"
+  },
+  "product_id": {
+   "kind": "String"
+  },
+  "image_url": {
+   "kind": "String"
+  },
+  "product_variant_id": {
+   "kind": "String"
+  },
+  "image_order": {
+   "kind": "Int"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  }
+ },
+ "product_lot": {
+  "id": {
+   "kind": "String"
+  },
+  "variant_id": {
+   "kind": "String"
+  },
+  "lot_number": {
+   "kind": "String"
+  },
+  "manufacturing_date": {
+   "kind": "date"
+  },
+  "expiration_date": {
+   "kind": "date"
+  },
+  "cost_per_unit": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "created_at": {
+   "kind": "datetime"
+  }
+ },
+ "product_modifier": {
+  "product_id": {
+   "kind": "String"
+  },
+  "modifier_id": {
+   "kind": "String"
+  }
+ },
+ "product_option": {
+  "id": {
+   "kind": "String"
+  },
+  "name": {
+   "kind": "String"
+  },
+  "product_id": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  }
+ },
+ "product_option_value": {
+  "id": {
+   "kind": "String"
+  },
+  "product_option_id": {
+   "kind": "String"
+  },
+  "value": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  }
+ },
+ "product_variant": {
+  "id": {
+   "kind": "String"
+  },
+  "name": {
+   "kind": "String"
+  },
+  "product_id": {
+   "kind": "String"
+  },
+  "sku": {
+   "kind": "Int"
+  },
+  "barcode": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "price": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "available": {
+   "kind": "Int"
+  },
+  "purchased_cost": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "low_stock_qty": {
+   "kind": "Int"
+  },
+  "ideal_stock_qty": {
+   "kind": "Int"
+  },
+  "is_composite": {
+   "kind": "boolean"
+  },
+  "visible": {
+   "kind": "boolean"
+  },
+  "discount_type": {
+   "kind": "enum"
+  },
+  "discount_value": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "is_popular": {
+   "kind": "boolean"
+  },
+  "is_new": {
+   "kind": "boolean"
+  },
+  "is_most_order": {
+   "kind": "boolean"
+  }
+ },
+ "product_variant_by_warehouse": {
+  "id": {
+   "kind": "String"
+  },
+  "product_id": {
+   "kind": "String"
+  },
+  "variant_id": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "stock": {
+   "kind": "Int"
+  },
+  "price": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "low_stock": {
+   "kind": "Int"
+  },
+  "ideal_stock": {
+   "kind": "Int"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "enable": {
+   "kind": "Int"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  }
+ },
+ "product_variant_conversion": {
+  "from_variant_id": {
+   "kind": "String"
+  },
+  "to_variant_id": {
+   "kind": "String"
+  },
+  "product_id": {
+   "kind": "String"
+  },
+  "conversion_rate": {
+   "kind": "Int"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  }
+ },
+ "product_variant_options": {
+  "product_variant_id": {
+   "kind": "String"
+  },
+  "option_value_id": {
+   "kind": "String"
+  }
+ },
+ "product_warehouse_visibility": {
+  "id": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "product_id": {
+   "kind": "String"
+  },
+  "product_variant_id": {
+   "kind": "String"
+  },
+  "is_visible": {
+   "kind": "boolean"
+  },
+  "is_for_sale": {
+   "kind": "boolean"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "is_popular": {
+   "kind": "boolean"
+  },
+  "is_new": {
+   "kind": "boolean"
+  },
+  "is_most_order": {
+   "kind": "boolean"
+  }
+ },
+ "promotion_set": {
+  "id": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "title": {
+   "kind": "String"
+  },
+  "description": {
+   "kind": "String"
+  },
+  "is_active": {
+   "kind": "boolean"
+  },
+  "start_at": {
+   "kind": "datetime"
+  },
+  "end_at": {
+   "kind": "datetime"
+  },
+  "max_apply_per_order": {
+   "kind": "Int"
+  },
+  "priority": {
+   "kind": "Int"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "updated_by": {
+   "kind": "String"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "daily_start_time": {
+   "kind": "time"
+  },
+  "daily_end_time": {
+   "kind": "time"
+  }
+ },
+ "promotion_set_item": {
+  "id": {
+   "kind": "String"
+  },
+  "promotion_set_id": {
+   "kind": "String"
+  },
+  "match_type": {
+   "kind": "enum"
+  },
+  "match_id": {
+   "kind": "String"
+  },
+  "qty": {
+   "kind": "Int"
+  },
+  "discount_type": {
+   "kind": "enum"
+  },
+  "discount_value": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "sort_order": {
+   "kind": "Int"
+  }
+ },
+ "receive_po": {
+  "id": {
+   "kind": "String"
+  },
+  "po_Id": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  }
+ },
+ "receive_po_detail": {
+  "id": {
+   "kind": "String"
+  },
+  "receive_id": {
+   "kind": "String"
+  },
+  "transaction_id": {
+   "kind": "String"
+  }
+ },
+ "receive_replenishment": {
+  "id": {
+   "kind": "String"
+  },
+  "replenishment_id": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  }
+ },
+ "receive_replenishment_detail": {
+  "id": {
+   "kind": "String"
+  },
+  "receive_id": {
+   "kind": "String"
+  },
+  "transaction_id": {
+   "kind": "String"
+  }
+ },
+ "replenishment": {
+  "replenish_id": {
+   "kind": "String"
+  },
+  "from_warehouse": {
+   "kind": "String"
+  },
+  "to_warehouse": {
+   "kind": "String"
+  },
+  "status": {
+   "kind": "enum"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "approved_at": {
+   "kind": "datetime"
+  },
+  "approved_by": {
+   "kind": "String"
+  },
+  "receiving_at": {
+   "kind": "datetime"
+  },
+  "receiving_by": {
+   "kind": "String"
+  },
+  "received_at": {
+   "kind": "datetime"
+  },
+  "received_by": {
+   "kind": "String"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "deleted_by": {
+   "kind": "String"
+  },
+  "auto_id": {
+   "kind": "Int"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "updated_by": {
+   "kind": "String"
+  }
+ },
+ "replenishment_items": {
+  "replenish_items_id": {
+   "kind": "String"
+  },
+  "replenish_id": {
+   "kind": "String"
+  },
+  "product_variant_id": {
+   "kind": "String"
+  },
+  "sent_qty": {
+   "kind": "Int"
+  },
+  "cost": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "received_qty": {
+   "kind": "Int"
+  },
+  "receiving_at": {
+   "kind": "datetime"
+  },
+  "receiving_by": {
+   "kind": "String"
+  },
+  "received_at": {
+   "kind": "datetime"
+  },
+  "received_by": {
+   "kind": "String"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "deleted_by": {
+   "kind": "String"
+  },
+  "fulfilled_qty": {
+   "kind": "Int"
+  }
+ },
+ "replenishment_picking_list": {
+  "variant_id": {
+   "kind": "String"
+  },
+  "slot_id": {
+   "kind": "String"
+  },
+  "qty": {
+   "kind": "Int"
+  },
+  "replenishment_id": {
+   "kind": "String"
+  },
+  "lot_id": {
+   "kind": "String"
+  },
+  "status": {
+   "kind": "String"
+  }
+ },
+ "restaurant_tables": {
+  "id": {
+   "kind": "String"
+  },
+  "table_name": {
+   "kind": "String"
+  },
+  "setting_capacity": {
+   "kind": "Int"
+  },
+  "section": {
+   "kind": "String"
+  },
+  "table_shape": {
+   "kind": "String"
+  },
+  "location_description": {
+   "kind": "String"
+  },
+  "special_features": {
+   "kind": "String"
+  },
+  "addional_notes": {
+   "kind": "String"
+  },
+  "status": {
+   "kind": "enum"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "deleted_by": {
+   "kind": "String"
+  },
+  "position_x": {
+   "kind": "String"
+  },
+  "position_y": {
+   "kind": "String"
+  }
+ },
+ "return_stock_in_transaction": {
+  "return_id": {
+   "kind": "String"
+  },
+  "transaction_id": {
+   "kind": "String"
+  }
+ },
+ "schedule_supplier_product_prices": {
+  "id": {
+   "kind": "String"
+  },
+  "supplier_id": {
+   "kind": "String"
+  },
+  "product_variant_id": {
+   "kind": "String"
+  },
+  "product_unit_id": {
+   "kind": "String"
+  },
+  "price": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "valid_from": {
+   "kind": "datetime"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  }
+ },
+ "seat_reservation": {
+  "reservation_id": {
+   "kind": "String"
+  },
+  "showtime_id": {
+   "kind": "String"
+  },
+  "seat_id": {
+   "kind": "String"
+  },
+  "code": {
+   "kind": "String"
+  },
+  "order_detail_id": {
+   "kind": "String"
+  },
+  "reservation_status": {
+   "kind": "enum"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "confirmed_by": {
+   "kind": "String"
+  },
+  "confirmed_at": {
+   "kind": "datetime"
+  },
+  "admitted_by": {
+   "kind": "String"
+  },
+  "admitted_at": {
+   "kind": "datetime"
+  },
+  "price": {
+   "kind": "decimal",
+   "scale": 2
+  }
+ },
+ "seeds_log": {
+  "id": {
+   "kind": "Int"
+  },
+  "seed_name": {
+   "kind": "String"
+  },
+  "applied_at": {
+   "kind": "datetime"
+  }
+ },
+ "setting": {
+  "id": {
+   "kind": "Int"
+  },
+  "option": {
+   "kind": "String"
+  },
+  "value": {
+   "kind": "String"
+  },
+  "warehouse": {
+   "kind": "String"
+  }
+ },
+ "shift": {
+  "shift_id": {
+   "kind": "String"
+  },
+  "opened_at": {
+   "kind": "datetime"
+  },
+  "closed_at": {
+   "kind": "datetime"
+  },
+  "opened_cash_usd": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "closed_cash_usd": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "opened_by": {
+   "kind": "String"
+  },
+  "status": {
+   "kind": "enum"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "opened_cash_khr": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "closed_cash_khr": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "closed_by": {
+   "kind": "String"
+  },
+  "actual_cash_usd": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "actual_cash_khr": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "receipt": {
+   "kind": "json"
+  },
+  "exchange_rate": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "is_testing": {
+   "kind": "boolean"
+  }
+ },
+ "showtime": {
+  "showtime_id": {
+   "kind": "String"
+  },
+  "hall_id": {
+   "kind": "String"
+  },
+  "movie_id": {
+   "kind": "String"
+  },
+  "show_date": {
+   "kind": "date"
+  },
+  "start_time": {
+   "kind": "datetime"
+  },
+  "end_time": {
+   "kind": "datetime"
+  },
+  "pricing_template_id": {
+   "kind": "String"
+  },
+  "status": {
+   "kind": "enum"
+  },
+  "available_seats": {
+   "kind": "Int"
+  },
+  "total_seats": {
+   "kind": "Int"
+  },
+  "base_price": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "settlement_id": {
+   "kind": "String"
+  },
+  "booking_id": {
+   "kind": "String"
+  }
+ },
+ "supplier": {
+  "id": {
+   "kind": "String"
+  },
+  "name": {
+   "kind": "String"
+  },
+  "contact_name": {
+   "kind": "String"
+  },
+  "contact_phone": {
+   "kind": "String"
+  },
+  "contact_email": {
+   "kind": "String"
+  },
+  "address": {
+   "kind": "String"
+  },
+  "note": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "delete_date": {
+   "kind": "datetime"
+  },
+  "is_consignment": {
+   "kind": "boolean"
+  }
+ },
+ "supplier_po_addition_cost": {
+  "id": {
+   "kind": "String"
+  },
+  "supplier_po_id": {
+   "kind": "String"
+  },
+  "name": {
+   "kind": "String"
+  },
+  "cost": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "status": {
+   "kind": "enum"
+  }
+ },
+ "supplier_product_prices": {
+  "id": {
+   "kind": "String"
+  },
+  "supplier_id": {
+   "kind": "String"
+  },
+  "product_variant_id": {
+   "kind": "String"
+  },
+  "price": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "effect_date": {
+   "kind": "datetime"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "updated_by": {
+   "kind": "String"
+  },
+  "deleted_by": {
+   "kind": "String"
+  },
+  "scheduled_price": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "scheduled_by": {
+   "kind": "String"
+  },
+  "scheduled_at": {
+   "kind": "datetime"
+  }
+ },
+ "supplier_purchase_order": {
+  "id": {
+   "kind": "String"
+  },
+  "supplier_id": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "status": {
+   "kind": "enum"
+  },
+  "total": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "purchased_at": {
+   "kind": "datetime"
+  },
+  "expected_at": {
+   "kind": "datetime"
+  },
+  "note": {
+   "kind": "String"
+  },
+  "po_increment": {
+   "kind": "Int"
+  },
+  "created_by": {
+   "kind": "String"
+  }
+ },
+ "supplier_purchase_order_detail": {
+  "id": {
+   "kind": "String"
+  },
+  "supplier_purchase_order_id": {
+   "kind": "String"
+  },
+  "product_variant_id": {
+   "kind": "String"
+  },
+  "quantity": {
+   "kind": "Int"
+  },
+  "purchased_cost": {
+   "kind": "decimal",
+   "scale": 2
+  },
+  "status": {
+   "kind": "enum"
+  },
+  "received_qty": {
+   "kind": "Int"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  }
+ },
+ "tasks": {
+  "id": {
+   "kind": "Int"
+  },
+  "name": {
+   "kind": "String"
+  },
+  "done": {
+   "kind": "boolean"
+  }
+ },
+ "user": {
+  "id": {
+   "kind": "String"
+  },
+  "username": {
+   "kind": "String"
+  },
+  "phone_number": {
+   "kind": "String"
+  },
+  "password": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "token": {
+   "kind": "String"
+  },
+  "fullname": {
+   "kind": "String"
+  },
+  "profile": {
+   "kind": "String"
+  },
+  "is_deleted": {
+   "kind": "Int"
+  },
+  "role_id": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "is_system_admin": {
+   "kind": "boolean"
+  },
+  "is_dev": {
+   "kind": "boolean"
+  }
+ },
+ "user_activity_logs": {
+  "log_id": {
+   "kind": "String"
+  },
+  "user_id": {
+   "kind": "String"
+  },
+  "action": {
+   "kind": "String"
+  },
+  "table_name": {
+   "kind": "String"
+  },
+  "timestamp": {
+   "kind": "datetime"
+  },
+  "key": {
+   "kind": "String"
+  },
+  "content": {
+   "kind": "json"
+  },
+  "device": {
+   "kind": "String"
+  },
+  "device_id": {
+   "kind": "String"
+  },
+  "ip_address": {
+   "kind": "String"
+  },
+  "user_agent": {
+   "kind": "String"
+  }
+ },
+ "user_role": {
+  "id": {
+   "kind": "String"
+  },
+  "role": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "is_default": {
+   "kind": "Int"
+  },
+  "permissions": {
+   "kind": "json"
+  }
+ },
+ "variables": {
+  "name": {
+   "kind": "String"
+  },
+  "value": {
+   "kind": "json"
+  }
+ },
+ "variant_composite": {
+  "id": {
+   "kind": "String"
+  },
+  "variant_composite_id": {
+   "kind": "String"
+  },
+  "variant_component_id": {
+   "kind": "String"
+  },
+  "qty": {
+   "kind": "Int"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "deleted_at": {
+   "kind": "datetime"
+  },
+  "deleted_by": {
+   "kind": "String"
+  },
+  "updated_by": {
+   "kind": "String"
+  },
+  "created_by": {
+   "kind": "String"
+  }
+ },
+ "warehouse": {
+  "id": {
+   "kind": "String"
+  },
+  "name": {
+   "kind": "String"
+  },
+  "is_main": {
+   "kind": "Int"
+  },
+  "address": {
+   "kind": "String"
+  },
+  "phone": {
+   "kind": "String"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "is_deleted": {
+   "kind": "Int"
+  },
+  "owner_name": {
+   "kind": "String"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "updated_by": {
+   "kind": "String"
+  },
+  "image": {
+   "kind": "String"
+  },
+  "lat": {
+   "kind": "String"
+  },
+  "lng": {
+   "kind": "String"
+  },
+  "walkin_radius_in_meters": {
+   "kind": "Int"
+  },
+  "use_main_branch_visibility": {
+   "kind": "boolean"
+  }
+ },
+ "warehouse_category_printer": {
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "category_id": {
+   "kind": "String"
+  },
+  "printer_id": {
+   "kind": "String"
+  }
+ },
+ "warehouse_groups": {
+  "group_id": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  }
+ },
+ "warehouse_slot": {
+  "id": {
+   "kind": "String"
+  },
+  "slot_name": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "slot_capacity": {
+   "kind": "Int"
+  },
+  "slot_status": {
+   "kind": "enum"
+  },
+  "created_at": {
+   "kind": "datetime"
+  },
+  "updated_at": {
+   "kind": "datetime"
+  },
+  "is_deleted": {
+   "kind": "Int"
+  },
+  "pos_slot": {
+   "kind": "Int"
+  },
+  "created_by": {
+   "kind": "String"
+  },
+  "updated_by": {
+   "kind": "String"
+  },
+  "for_replenishment": {
+   "kind": "Int"
+  }
+ },
+ "warehouse_variant_printer": {
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "variant_id": {
+   "kind": "String"
+  },
+  "printer_id": {
+   "kind": "String"
+  }
+ },
+ "table_change_log": {
+  "id": {
+   "kind": "String"
+  },
+  "request_id": {
+   "kind": "String"
+  },
+  "warehouse_id": {
+   "kind": "String"
+  },
+  "order_id": {
+   "kind": "String"
+  },
+  "invoice_no": {
+   "kind": "bigint"
+  },
+  "tag_no": {
+   "kind": "String"
+  },
+  "from_table_id": {
+   "kind": "String"
+  },
+  "from_table_name": {
+   "kind": "String"
+  },
+  "to_table_id": {
+   "kind": "String"
+  },
+  "to_table_name": {
+   "kind": "String"
+  },
+  "changed_by": {
+   "kind": "String"
+  },
+  "changed_by_name": {
+   "kind": "String"
+  },
+  "changed_at": {
+   "kind": "String"
+  },
+  "reason": {
+   "kind": "String"
+  }
+ }
+}

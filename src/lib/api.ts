@@ -3,6 +3,7 @@
  * Response shapes are copied from the kh-pos sources; only the fields the app uses are typed.
  */
 
+import { PHONE_ORIGIN } from './config';
 import { getDeviceHeaders } from './device-headers';
 import { parseCleanEvents, type CleanEvent } from './clean-dummy';
 import type { PromotionSet, PromotionSlot } from './promotion-set';
@@ -337,6 +338,11 @@ export class KhPosApi {
     private readonly timeoutMs = 20_000,
   ) {}
 
+  /** kh-pos runs on this phone (src/local), not on a server: no web pages (QR menu, invoice preview) to link to. */
+  get onPhone(): boolean {
+    return this.baseUrl === PHONE_ORIGIN;
+  }
+
   /** The login token, for the one place that needs to hand it to a page of kh-pos itself (the invoice preview). */
   get token(): string | null {
     return this.getToken();
@@ -477,6 +483,18 @@ export class KhPosApi {
    */
   async cleanDummy(onEvent: (e: CleanEvent) => void): Promise<void> {
     if (!this.baseUrl) throw new ApiError('notConfigured', undefined, 'No server address (EXPO_PUBLIC_KHPOS_URL)');
+    if (this.onPhone) {
+      // on the phone the clean-up runs right here: its progress events come all at once at the end
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const token = this.getToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await this.fetchFn(`${this.baseUrl}/api/setting/clean`, { method: 'POST', headers, body: '{}' });
+      if (res.status === 401) throw new ApiError('unauthorized', 401);
+      if (res.status === 403) throw new ApiError('forbidden', 403);
+      if (!res.ok) throw new ApiError('server', res.status, 'Unexpected response from server');
+      for (const e of parseCleanEvents(`${await res.text()}\n\n`).events) onEvent(e);
+      return;
+    }
     const { fetch: streamFetch } = await import('expo/fetch');
     const headers: Record<string, string> = { ...getDeviceHeaders(), 'Content-Type': 'application/json' };
     const token = this.getToken();

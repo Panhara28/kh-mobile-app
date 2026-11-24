@@ -30,7 +30,7 @@ export function InvoicePreview({ value }: { value: string }) {
     return () => clearTimeout(h);
   }, [value]);
 
-  if (!state.online || !api.baseUrl) {
+  if (!state.online || !api.baseUrl || api.onPhone) {
     return <Text style={styles.note}>{t('sg.previewOffline')}</Text>;
   }
   const before = `window.__KHPOS_TOKEN__ = ${JSON.stringify(token)}; window.__INVOICE_VALUE__ = ${JSON.stringify(first)}; true;`;
