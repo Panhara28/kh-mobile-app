@@ -26,7 +26,7 @@ interface NodeDb {
 declare const require: (m: string) => { DatabaseSync: new (path: string) => NodeDb };
 
 /** node:sqlite with the same shape as the phone's expo-sqlite driver (src/local/phone.ts). */
-function nodeDriver(db: NodeDb): SqlDriver {
+export function nodeDriver(db: NodeDb): SqlDriver {
   const bind = (args: unknown[]) => args.map((a) => (a === undefined ? null : a));
   return {
     all: (sql, args) => db.prepare(sql).all(...bind(args)) as Record<string, unknown>[],

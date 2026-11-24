@@ -5,6 +5,7 @@
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SQLite from 'expo-sqlite';
+import { seedDemoRestaurant } from './demo-seed';
 import type { SqlDriver } from './driver';
 import { migrate } from './migrate';
 import { localFetch, setPhoneRoute, type LocalResponse } from './server';
@@ -21,6 +22,7 @@ g.crypto.randomUUID ??= Crypto.randomUUID;
 
 export const PHONE_DB_NAME = 'khpos-local.db';
 let db: SQLite.SQLiteDatabase | null = null;
+let driver: SqlDriver | null = null;
 
 function driverOf(d: SQLite.SQLiteDatabase): SqlDriver {
   type Bind = SQLite.SQLiteBindValue[];
@@ -39,9 +41,10 @@ export function openPhoneDatabase(): void {
   if (db) return;
   const d = SQLite.openDatabaseSync(PHONE_DB_NAME);
   d.execSync('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;');
-  const driver = driverOf(d);
-  migrate(driver, migrations as { name: string; sql: string }[]);
-  setDriver(driver);
+  const sqlDriver = driverOf(d);
+  migrate(sqlDriver, migrations as { name: string; sql: string }[]);
+  setDriver(sqlDriver);
+  driver = sqlDriver;
   db = d;
 }
 
@@ -50,6 +53,7 @@ export async function erasePhoneDatabase(): Promise<void> {
   setDriver(null);
   db?.closeSync();
   db = null;
+  driver = null;
   await SQLite.deleteDatabaseAsync(PHONE_DB_NAME).catch(() => undefined);
   await FileSystem.deleteAsync(uploadsDir(), { idempotent: true }).catch(() => undefined);
   openPhoneDatabase();
@@ -67,6 +71,12 @@ setPhoneRoute('POST', '/api/upload', async (body) => {
   await FileSystem.writeAsStringAsync(uri, fileContent, { encoding: FileSystem.EncodingType.Base64 });
   return { status: 200, json: { url: uri } };
 });
+
+/** Fills this phone's (blank) kh-pos with the demo small restaurant of the web (src/local/demo-seed.ts). */
+export async function loadDemoRestaurant(tags: boolean, onProgress: (done: number, what: string) => void): Promise<void> {
+  openPhoneDatabase();
+  await seedDemoRestaurant({ fetch: localFetch as never, sql: driver!, newId: () => Crypto.randomUUID(), onProgress, tags });
+}
 
 /** `fetch` for the API client: the phone's own kh-pos. */
 export function phoneFetch(input: string, init?: { method?: string; headers?: Record<string, string>; body?: string | null }): Promise<LocalResponse> {

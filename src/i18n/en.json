@@ -2274,5 +2274,28 @@
     "tagUsed": "This tag is already seated",
     "guestsBad": "At least 1",
     "failed": "Could not seat the group"
+  },
+  "demo": {
+    "button": "Load the demo restaurant",
+    "hint": "Just trying kh-pos? Load the demo small restaurant instead: its staff, menu, 12 tables and a week of sales.",
+    "title": "Load the demo restaurant?",
+    "ask": "This phone gets the demo small restaurant of the web: 5 staff, 19 dishes, 12 tables, a week of sales and 3 tables eating now. Which table style?",
+    "tables": "Normal tables",
+    "tags": "Table + Tag",
+    "loading": "Making the demo restaurant…",
+    "step_store": "Store and owner",
+    "step_staff": "Staff",
+    "step_menu": "Menu",
+    "step_setup": "Store setup",
+    "step_sales": "A week of sales",
+    "step_today": "Today's tables",
+    "step_done": "Done",
+    "readyTitle": "Demo restaurant ready",
+    "ready": "Sign in as any of them, password {{password}}:\n\n{{users}}",
+    "failed": "Could not load the demo",
+    "role_Owner": "Owner",
+    "role_SUPERVISOR": "Supervisor",
+    "role_Service": "Waiter",
+    "role_Cashier": "Cashier"
   }
 }
