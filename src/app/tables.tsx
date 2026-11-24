@@ -76,7 +76,23 @@ export default function TablesScreen() {
     return m;
   }, [tagMode, saved, state.commands]);
 
+  /** Like the web: a table left "cleaning" after its guests paid is tapped once it is clean, and is free again. */
+  async function markClean(table: RestaurantTable) {
+    setSaved((list) => list?.map((x) => (x.id === table.id ? { ...x, status: 'available' } : x)) ?? list);
+    try {
+      await api.setTableStatus(table.id, 'available');
+    } catch (e) {
+      Alert.alert(t('tables.cleanFailed'), e instanceof Error ? e.message : undefined);
+    }
+    await load();
+  }
+
   function openTable(table: RestaurantTable) {
+    const seated = tagMode ? (groups.get(table.id) ?? []).length > 0 : !!table.order;
+    if (table.status === 'cleaning' && !seated) {
+      void markClean(table);
+      return;
+    }
     if (!tagMode) {
       router.push({ pathname: '/table/[id]', params: { id: table.id } });
       return;
@@ -349,6 +365,8 @@ function TableCard({
             {waiting ? <Text style={[styles.badge, styles.badgeInfo]}>{t('offline.notSent')}</Text> : null}
           </View>
         </View>
+      ) : status === 'cleaning' ? (
+        <Text style={styles.cleanHint}>{t('tables.tapWhenClean')}</Text>
       ) : (
         <View style={styles.seats}>
           <Users size={16} color={colors.mutedForeground} />
@@ -369,6 +387,7 @@ function TableCard({
 }
 
 const styles = StyleSheet.create({
+  cleanHint: { fontSize: font.small, color: colors.warning, fontWeight: '600', marginTop: space.sm },
   safe: { flex: 1, backgroundColor: colors.page },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   storeIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },

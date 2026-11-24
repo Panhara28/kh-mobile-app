@@ -71,7 +71,9 @@
     "noOrderYet": "No order yet",
     "guests": "{{count}} guests",
     "newGroupTitle": "New group",
-    "tagOnSave": "The tag number is given when the first dish is saved."
+    "tagOnSave": "The tag number is given when the first dish is saved.",
+    "tapWhenClean": "Tap when the table is clean",
+    "cleanFailed": "Could not mark the table clean"
   },
   "tableStatus": {
     "available": "Free",
