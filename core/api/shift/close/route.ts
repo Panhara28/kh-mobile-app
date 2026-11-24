@@ -19,7 +19,8 @@ export const POST = withAuthApi<unknown, unknown, ResponseType<boolean>>(
       userAuth.admin!.id,
       shiftId,
       actualCashUsd,
-      actualCashKhr
+      actualCashKhr,
+      userAuth.admin!.currentWarehouseId,
     );
     return NextResponse.json({ success: true, result }, { status: 200 });
   }

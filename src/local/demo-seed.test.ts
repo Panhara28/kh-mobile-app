@@ -52,4 +52,13 @@ describe('demo small restaurant on the phone', () => {
     expect(tables.length).toBe(12);
     expect(tables.filter((t) => t.order).length).toBe(3);
   });
+  it("the owner can close the shift the cashier opened (one shift per branch, like the web)", async () => {
+    token = await api.login('panhara', DEMO_PASSWORD);
+    const open = (await api.call<{ result: { shift_id: string; opened_by: { username: string } } | null }>('GET', '/api/shift/current')).result!;
+    expect(open.opened_by.username).toBe('sreymom');
+    await api.closeShift({ shiftId: open.shift_id, actualCashUsd: 50, actualCashKhr: 100000 });
+    expect((await api.call<{ result: unknown }>('GET', '/api/shift/current')).result).toBeNull();
+    // closing it again is refused, not a silent "success"
+    await expect(api.closeShift({ shiftId: open.shift_id, actualCashUsd: 50, actualCashKhr: 100000 })).rejects.toThrow();
+  });
 });

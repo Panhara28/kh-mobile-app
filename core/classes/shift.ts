@@ -78,11 +78,17 @@ export class ShiftService {
     return shiftId;
   }
 
+  /**
+   * Closes the branch's shift. The branch has one shift, shared by everyone with the shift permission (the route
+   * checks it), so the owner or a supervisor may close the shift a cashier opened. Only a shift of the closer's own
+   * branch, though.
+   */
   async closeShift(
     userId: string,
     shiftId: string,
     actualCashUsd: number,
     actualCashKhr: number,
+    warehouseId?: string | null,
   ) {
     const existingShift = await new ShiftService(this.db).getShiftDetail(
       shiftId,
@@ -93,6 +99,14 @@ export class ShiftService {
 
     if (existingShift.status === "CLOSE") {
       throw new Error("Cannot close the closed shift");
+    }
+
+    const branchOf = async (id: string | null | undefined) =>
+      id ? (await this.db.table("user").where({ id }).first("warehouse_id"))?.warehouse_id ?? null : null;
+    const shiftRow: table_shift | undefined = await this.db.table("shift").where({ shift_id: shiftId }).first();
+    const closerBranch = warehouseId || (await branchOf(userId));
+    if (shiftRow?.opened_by !== userId && (await branchOf(shiftRow?.opened_by)) !== closerBranch) {
+      throw new Error("This shift belongs to another branch");
     }
 
     const shiftReceipt = await this.getShiftReceipt(
@@ -111,10 +125,12 @@ export class ShiftService {
       actual_cash_khr: actualCashKhr.toString(),
       receipt: JSON.stringify(shiftReceipt),
     };
-    await this.db.table<table_shift>("shift")
+    // (it used to update only a shift the closer opened: anyone else's "close" changed nothing yet said it worked)
+    const changed = await this.db.table<table_shift>("shift")
       .where("shift_id", shiftId)
-      .where("opened_by", userId)
+      .where("status", "OPEN")
       .update(shift);
+    if (!changed) throw new Error("Cannot close the closed shift");
     return true;
   }
 
