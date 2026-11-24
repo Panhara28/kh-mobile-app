@@ -196,7 +196,7 @@ export default function ProductGroupsScreen() {
           onEndReachedThreshold={0.5}
           ListHeaderComponent={<Text style={styles.muted}>{t('groups.total', { count: total })}</Text>}
           ListEmptyComponent={<EmptyState title={t('groups.empty')} />}
-          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
+          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : undefined}
           renderItem={({ item, index }) => (
             <Card style={styles.card}>
               <View style={styles.row}>

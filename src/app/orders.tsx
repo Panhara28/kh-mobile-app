@@ -286,7 +286,7 @@ export default function OrdersScreen() {
               {mayOpenTables ? <Button title={t('orders.openPos')} variant="outline" onPress={() => router.push('/tables')} /> : null}
             </View>
           }
-          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
+          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : undefined}
         />
       )}
     </SafeAreaView>

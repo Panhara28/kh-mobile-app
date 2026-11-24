@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode, type Ref } from 'react';
+import { useEffect, useState, type ReactNode, type Ref, type ComponentRef } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -125,7 +125,7 @@ export function Card({ children, style }: { children: ReactNode; style?: ViewSty
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-export function Input(props: TextInputProps & { ref?: Ref<TextInput> }) {
+export function Input(props: TextInputProps & { ref?: Ref<ComponentRef<typeof TextInput>> }) {
   return (
     <TextInput
       placeholderTextColor={colors.mutedForeground}
@@ -141,7 +141,7 @@ export function Field({
   error,
   right,
   ...input
-}: TextInputProps & { label: string; error?: string; right?: ReactNode; ref?: Ref<TextInput> }) {
+}: TextInputProps & { label: string; error?: string; right?: ReactNode; ref?: Ref<ComponentRef<typeof TextInput>> }) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>

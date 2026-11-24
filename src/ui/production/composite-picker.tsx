@@ -89,8 +89,8 @@ export function CompositePicker({ api, warehouseId, onPick, onClose, compositeOn
               if (more && !loading) void load(rows.length, text);
             }}
             onEndReachedThreshold={0.5}
-            ListEmptyComponent={loading ? null : <Text style={styles.muted}>{t('production.noComposite')}</Text>}
-            ListFooterComponent={loading ? <ActivityIndicator style={styles.spin} color={colors.primary} /> : null}
+            ListEmptyComponent={loading ? undefined : <Text style={styles.muted}>{t('production.noComposite')}</Text>}
+            ListFooterComponent={loading ? <ActivityIndicator style={styles.spin} color={colors.primary} /> : undefined}
             renderItem={({ item }) => (
               <Pressable onPress={() => onPick(item)} accessibilityRole="button" style={({ pressed }) => [pressed && styles.pressed]}>
                 <Card style={styles.card}>

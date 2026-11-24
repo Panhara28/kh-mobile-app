@@ -121,7 +121,7 @@ export default function ReplenishmentsScreen() {
           }}
           onEndReachedThreshold={0.5}
           ListEmptyComponent={<EmptyState title={t('rep.empty')} />}
-          ListFooterComponent={more ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
+          ListFooterComponent={more ? <ActivityIndicator style={styles.more} color={colors.primary} /> : undefined}
           renderItem={({ item }) => {
             const unsent = isUnsent(item, state.commands, 'replenishment', item.id);
             const actions = unsent ? [] : repActions(item.status, isMain);

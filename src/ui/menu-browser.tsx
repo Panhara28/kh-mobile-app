@@ -236,12 +236,12 @@ export function MenuBrowser({
                   <PromotionCard key={entry.promotion.id} entry={entry} labels={labels} busy={promotionBusyId === entry.promotion.id} disabled={!!promotionBusyId} onPress={() => onPromotion!(entry)} />
                 ))}
               </View>
-            ) : null
+            ) : undefined
           }
           ListEmptyComponent={
-            categoryId === PROMOTIONS_CATEGORY ? null : <EmptyState title={t('menu.empty')} description={query.trim() ? t('menu.emptySearch', { query: query.trim() }) : undefined} />
+            categoryId === PROMOTIONS_CATEGORY ? undefined : <EmptyState title={t('menu.empty')} description={query.trim() ? t('menu.emptySearch', { query: query.trim() }) : undefined} />
           }
-          ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
+          ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.more} color={colors.primary} /> : undefined}
         />
       )}
     </View>

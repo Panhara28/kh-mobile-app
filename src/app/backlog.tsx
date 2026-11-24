@@ -105,7 +105,7 @@ export default function BacklogScreen() {
           onEndReachedThreshold={0.5}
           ListHeaderComponent={<Text style={styles.muted}>{t('backlog.total', { count: total })}</Text>}
           ListEmptyComponent={<EmptyState title={t('backlog.empty')} />}
-          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
+          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : undefined}
           renderItem={({ item: r, index }) => {
             const img = backlogImage(r);
             return (

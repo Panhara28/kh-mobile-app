@@ -119,7 +119,7 @@ export default function PurchaseOrdersScreen() {
           }}
           onEndReachedThreshold={0.5}
           ListEmptyComponent={<EmptyState title={t('po.empty')} />}
-          ListFooterComponent={more ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
+          ListFooterComponent={more ? <ActivityIndicator style={styles.more} color={colors.primary} /> : undefined}
           renderItem={({ item }) => {
             const actions = isUnsent(item, state.commands, 'purchase-order', item.id) ? [] : rowActions(item.status);
             const unsent = isUnsent(item, state.commands, 'purchase-order', item.id);

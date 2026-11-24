@@ -165,7 +165,7 @@ export default function BranchesScreen() {
         error ? <ErrorState error={error} onRetry={() => void load()} /> : <LoadingState />
       ) : (
         <FlatList
-          data={listed}
+          data={listed ?? undefined}
           keyExtractor={(b, i) => b.id ?? String(i)}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}

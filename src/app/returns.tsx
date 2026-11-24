@@ -102,7 +102,7 @@ export default function ReturnsScreen() {
           onEndReachedThreshold={0.5}
           ListHeaderComponent={<Text style={styles.muted}>{t('returns.total', { count: total })}</Text>}
           ListEmptyComponent={<EmptyState title={t('returns.empty')} />}
-          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
+          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : undefined}
           renderItem={({ item: r, index }) => {
             const img = returnImage(r);
             const history = returnHistory(r);

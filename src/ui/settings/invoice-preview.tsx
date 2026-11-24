@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ComponentType, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
-import { WebView } from 'react-native-webview';
+import { WebView as RNWebView, type WebViewProps } from 'react-native-webview';
+
+/** react-native-webview 14's class typing defaults its extra-props parameter to `undefined`, which makes every prop `never`. */
+type WebViewHandle = { injectJavaScript: (script: string) => void };
+const WebView = RNWebView as unknown as ComponentType<WebViewProps & { ref?: Ref<WebViewHandle> }>;
 import { useOffline } from '@/lib/offline/provider';
 import { useSession } from '@/lib/session';
 import { colors, font, radius, space } from '@/ui/theme';
@@ -15,7 +19,7 @@ export function InvoicePreview({ value }: { value: string }) {
   const { t } = useTranslation();
   const { api } = useSession();
   const { state } = useOffline();
-  const ref = useRef<WebView>(null);
+  const ref = useRef<WebViewHandle>(null);
   const [first] = useState(value);
   const token = api.token ?? '';
 

@@ -149,7 +149,7 @@ export function SlotsView({ warehouseId }: { warehouseId: string }) {
           onEndReachedThreshold={0.5}
           ListHeaderComponent={<Text style={styles.muted}>{t('slots.total', { count: total })}</Text>}
           ListEmptyComponent={<EmptyState title={t('admin.empty')} />}
-          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
+          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : undefined}
           renderItem={({ item: s, index }) => (
             <Card style={styles.card}>
               <View style={styles.row}>

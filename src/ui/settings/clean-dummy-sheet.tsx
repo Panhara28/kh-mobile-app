@@ -41,7 +41,9 @@ export function CleanDummySheet({ onClose }: { onClose: () => void }) {
   const tone = state.status === 'completed' ? 'success' : state.status === 'failed' ? 'destructive' : 'info';
 
   return (
-    <Modal visible animationType="slide" onRequestClose={() => !running && onClose()}>
+    <Modal visible animationType="slide" onRequestClose={() => {
+      if (!running) onClose();
+    }}>
       <View style={[styles.page, { paddingTop: insets.top }]}>
         <View style={styles.head}>
           <Text style={styles.title}>{t('sg.purgeTitle')}</Text>

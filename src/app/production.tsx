@@ -107,7 +107,7 @@ export default function ProductionScreen() {
           onEndReachedThreshold={0.5}
           ListHeaderComponent={<Text style={styles.warn}>{t('production.recent', { count: total })}</Text>}
           ListEmptyComponent={<EmptyState title={t('production.empty')} />}
-          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
+          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : undefined}
           renderItem={({ item: r }) => {
             const img = rowImage(r);
             return (

@@ -95,7 +95,7 @@ export default function StockMovementsScreen() {
           onEndReachedThreshold={0.5}
           ListHeaderComponent={<Text style={styles.muted}>{t('stock.total', { count: total })}</Text>}
           ListEmptyComponent={<EmptyState title={t('stock.empty')} />}
-          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
+          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : undefined}
           renderItem={({ item }) => {
             const img = movementImage(item);
             const amount = movementAmount(item);

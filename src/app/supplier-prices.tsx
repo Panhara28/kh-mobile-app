@@ -190,7 +190,7 @@ export default function SupplierPricesScreen() {
           onEndReachedThreshold={0.5}
           ListHeaderComponent={<Text style={styles.muted}>{t('sprice.total', { count: total })}</Text>}
           ListEmptyComponent={<EmptyState title={t('sprice.empty')} />}
-          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
+          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : undefined}
           renderItem={({ item: p, index }) => {
             const img = priceImage(p);
             return (

@@ -360,7 +360,7 @@ export default function ProductsScreen() {
           onEndReachedThreshold={0.5}
           ListHeaderComponent={<Text style={styles.muted}>{t('plist.total', { count: total })}</Text>}
           ListEmptyComponent={<EmptyState title={t('products.empty')} />}
-          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : null}
+          ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : undefined}
           renderItem={({ item }) => renderProduct(item)}
         />
       )}
