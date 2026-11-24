@@ -82,6 +82,7 @@ function Navigator() {
       </Stack.Protected>
       <Stack.Protected guard={signedIn}>
         <Stack.Screen name="more" />
+        <Stack.Screen name="home" />
         <Stack.Screen name="account" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="settings-general" />

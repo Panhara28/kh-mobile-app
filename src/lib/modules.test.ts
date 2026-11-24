@@ -45,8 +45,8 @@ describe('which modules show', () => {
 
 describe('where the app opens', () => {
   it('the dashboard for the owner and anyone who may see it, otherwise the first module or More', () => {
-    expect(homeRoute(user('OWNER'))).toBe('/report/dashboard');
-    expect(homeRoute(user('Manager', { dashboard: 'read' }))).toBe('/report/dashboard');
+    expect(homeRoute(user('OWNER'))).toBe('/home');
+    expect(homeRoute(user('Manager', { dashboard: 'read' }))).toBe('/home');
     expect(homeRoute(user('Service', { restaurant: 'read', order: 'read' }))).toBe('/tables');
     expect(homeRoute(user('Supervisor', { shift: 'read' }))).toBe('/shift');
     expect(homeRoute(user('Nobody', {}))).toBe('/more');

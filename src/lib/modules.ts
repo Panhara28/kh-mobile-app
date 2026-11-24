@@ -77,7 +77,8 @@ export const GROUP_ORDER: ModuleGroup[] = ['daily', 'reports', 'stock', 'setup']
  */
 export function homeRoute(user: StaffUser | null | undefined): string {
   if (!user?.role) return '/more';
-  if (user.role.role === 'OWNER' || can(user, 'dashboard', 'read')) return '/report/dashboard';
+  // owners and managers start on Home (today's sales, tables in use, every module)
+  if (user.role.role === 'OWNER' || can(user, 'dashboard', 'read')) return '/home';
   if (user.role.role.toUpperCase() === 'BOARD MEMBER' && can(user, 'board-member-dashboard', 'read')) return '/board';
   if (can(user, 'restaurant', 'read')) return '/tables';
   const first = visibleModules(user).find((m) => m.resource !== null && !m.setting);

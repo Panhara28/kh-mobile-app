@@ -2091,5 +2091,23 @@
     "more": "… and {{count}} more",
     "moreWarnings": "… and {{count}} more warnings",
     "upload": "Upload {{count}} users"
+  },
+  "home": {
+    "searchPlaceholder": "Search tables, orders, reports…",
+    "todaySales": "Today's sales",
+    "itemsSold": "{{count}} items sold",
+    "tablesInUse": "{{count}} tables in use",
+    "viewDashboard": "View dashboard",
+    "welcome": "Welcome back",
+    "results": "{{count}} found",
+    "noResults": "Nothing matches your search.",
+    "tablesNow": "Tables now",
+    "seeAll": "See all",
+    "noTablesInUse": "No tables in use right now.",
+    "tabHome": "Home",
+    "tabTables": "Tables",
+    "tabSearch": "Search",
+    "tabOrders": "Orders",
+    "tabAccount": "Account"
   }
 }

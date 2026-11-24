@@ -2091,5 +2091,23 @@
     "more": "… និង {{count}} ទៀត",
     "moreWarnings": "… និងការព្រមាន {{count}} ទៀត",
     "upload": "ផ្ទុកឡើងអ្នកប្រើ {{count}} នាក់"
+  },
+  "home": {
+    "searchPlaceholder": "ស្វែងរកតុ ការកុម្ម៉ង់ របាយការណ៍…",
+    "todaySales": "ការលក់ថ្ងៃនេះ",
+    "itemsSold": "លក់បាន {{count}} មុខ",
+    "tablesInUse": "តុកំពុងប្រើ {{count}}",
+    "viewDashboard": "មើលផ្ទាំងគ្រប់គ្រង",
+    "welcome": "សូមស្វាគមន៍ការត្រឡប់មកវិញ",
+    "results": "រកឃើញ {{count}}",
+    "noResults": "រកមិនឃើញអ្វីដែលត្រូវនឹងការស្វែងរករបស់អ្នកទេ។",
+    "tablesNow": "តុពេលនេះ",
+    "seeAll": "មើលទាំងអស់",
+    "noTablesInUse": "មិនមានតុកំពុងប្រើពេលនេះទេ។",
+    "tabHome": "ទំព័រដើម",
+    "tabTables": "តុ",
+    "tabSearch": "ស្វែងរក",
+    "tabOrders": "ការកុម្ម៉ង់",
+    "tabAccount": "គណនី"
   }
 }
