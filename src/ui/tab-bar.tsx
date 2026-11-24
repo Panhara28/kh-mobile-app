@@ -3,7 +3,8 @@ import { Clock, House, LayoutGrid, ReceiptText, UserRound, UtensilsCrossed, type
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { homeRoute, visibleModules } from '@/lib/modules';
+import { homeRoute } from '@/lib/modules';
+import { useModules } from '@/lib/use-modules';
 import { useSession } from '@/lib/session';
 import { Text } from '@/ui/text';
 import { colors, space } from './theme';
@@ -21,7 +22,7 @@ export function TabBar({ current }: { current: TabId }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { user } = useSession();
-  const ids = new Set(visibleModules(user).map((m) => m.id));
+  const ids = new Set(useModules().map((m) => m.id));
 
   const tabs: { id: TabId; icon: LucideIcon; label: string; route: string }[] = [];
   if (homeRoute(user) === '/home') tabs.push({ id: 'home', icon: House, label: t('home.tabHome'), route: '/home' });

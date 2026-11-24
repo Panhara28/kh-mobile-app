@@ -1,20 +1,20 @@
 import { router, useFocusEffect, type Href } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { ChartColumnBig, Hand, Search, Store, UserRound, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { RestaurantTable, Setting } from '@/lib/api';
+import type { RestaurantTable } from '@/lib/api';
 import { rangeFor } from '@/lib/dates';
 import { can } from '@/lib/line';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
-import { sortByLabel, visibleModules, type AppModule, type ModuleGroup } from '@/lib/modules';
+import { sortByLabel, type AppModule, type ModuleGroup } from '@/lib/modules';
+import { useModules } from '@/lib/use-modules';
 import { applyOutbox } from '@/lib/offline/overlay';
 import { useOffline } from '@/lib/offline/provider';
 import { orderCounts } from '@/lib/order';
 import { dateQuery, totalSales, type SaleLine } from '@/lib/reports';
 import { useSession } from '@/lib/session';
-import { pickSetting } from '@/lib/settings';
 import { openGroups } from '@/lib/table-groups';
 import { useBranch } from '@/lib/use-branch';
 import { ModuleIcon } from '@/ui/module-icon';
@@ -42,22 +42,16 @@ export default function HomeScreen() {
   const { data, state } = useOffline();
   const { api } = useSession();
   const { currency, tableMode } = useBranch();
-  const warehouseId = user?.currentWarehouseId ?? '';
 
-  const [settings, setSettings] = useState<Setting[]>([]);
   const [query, setQuery] = useState('');
   const [today, setToday] = useState<{ sales: number; items: number } | null>(null);
   const [tables, setTables] = useState<RestaurantTable[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    // branch settings decide which optional modules show (saved copy when offline)
-    data.settings(warehouseId).then(({ data: s }) => setSettings(s), () => undefined);
-  }, [data, warehouseId]);
-
-  const modules = useMemo(() => visibleModules(user, (option) => pickSetting(settings, option, warehouseId)), [user, settings, warehouseId]);
+  const modules = useModules();
+  const has = (id: string) => modules.some((m) => m.id === id);
   const canSales = can(user, 'dashboard', 'read') || user?.role?.role === 'OWNER';
-  const canTables = can(user, 'restaurant', 'read');
+  const canTables = has('tables');
 
   const load = useCallback(async () => {
     const jobs: Promise<unknown>[] = [];

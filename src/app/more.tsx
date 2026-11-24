@@ -1,14 +1,10 @@
 import { router, type Href } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { GROUP_ORDER, sortByLabel, visibleModules } from '@/lib/modules';
-import { useOffline } from '@/lib/offline/provider';
-import { pickSetting } from '@/lib/settings';
-import type { Setting } from '@/lib/api';
-import { useSession } from '@/lib/session';
+import { GROUP_ORDER, sortByLabel } from '@/lib/modules';
+import { useModules } from '@/lib/use-modules';
 import { ModuleIcon } from '@/ui/module-icon';
 import { ScreenHeader } from '@/ui/screen-header';
 import { TabBar, TAB_BAR_SPACE } from '@/ui/tab-bar';
@@ -17,15 +13,7 @@ import { colors, font, radius, shadow, space } from '@/ui/theme';
 /** Everything the staff member's role can open, grouped, like the kh-pos web menu. */
 export default function MoreScreen() {
   const { t, i18n } = useTranslation();
-  const { user } = useSession();
-  const { data } = useOffline();
-  const warehouseId = user?.currentWarehouseId ?? '';
-  const [settings, setSettings] = useState<Setting[]>([]);
-  useEffect(() => {
-    // branch settings decide which optional modules show (saved copy when offline)
-    data.settings(warehouseId).then(({ data: s }) => setSettings(s), () => undefined);
-  }, [data, warehouseId]);
-  const modules = visibleModules(user, (option) => pickSetting(settings, option, warehouseId));
+  const modules = useModules();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

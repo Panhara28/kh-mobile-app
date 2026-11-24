@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '@/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { storeKind } from '@/lib/business-type';
 import { useSession } from '@/lib/session';
 import { systemType } from '@/lib/settings-general';
 import { hubTiles, type HubKey } from '@/lib/settings-hub';
@@ -24,7 +25,9 @@ export default function SettingsHub() {
   const { user } = useSession();
   const { rows, stale, error, reload } = useSettingRows();
   const isMain = (user?.warehouse as { isMain?: boolean } | null | undefined)?.isMain !== false;
-  const tiles = rows ? hubTiles(user, systemType(rows), isMain) : [];
+  // a small restaurant has no delivery companies page, like the web
+  const lite = rows ? storeKind(rows.find((r) => r.option === 'TYPE_POS')?.value).edition === 'LITE' : false;
+  const tiles = rows ? hubTiles(user, systemType(rows), isMain).filter((tile) => !(lite && tile.key === 'delivery')) : [];
 
   return (
     <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>

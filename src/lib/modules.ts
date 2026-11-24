@@ -1,4 +1,5 @@
 import type { StaffUser } from './api';
+import { isModuleForStore, storeKind } from './business-type';
 import { can } from './line';
 
 export type ModuleGroup = 'daily' | 'reports' | 'stock' | 'setup';
@@ -64,9 +65,15 @@ export const MODULES: AppModule[] = [
   { id: 'supplier-prices', route: '/supplier-prices', resource: 'supplier', icon: '🏷️', titleKey: 'more.supplierPrices', group: 'stock' },
 ];
 
-/** The modules the role may read, minus those whose branch setting is off (`enabled` gives a setting's value). */
+/**
+ * The modules the role may read, minus those whose branch setting is off and those the store's business
+ * type / edition leaves out (TYPE_POS, like the web menu). `enabled` gives a setting's value.
+ */
 export function visibleModules(user: StaffUser | null | undefined, enabled: (option: string) => string | null = () => '1'): AppModule[] {
-  return MODULES.filter((m) => (m.resource === null || can(user, m.resource, 'read')) && (!m.setting || enabled(m.setting) === '1'));
+  const kind = storeKind(enabled('TYPE_POS'));
+  return MODULES.filter(
+    (m) => (m.resource === null || can(user, m.resource, 'read')) && (!m.setting || enabled(m.setting) === '1') && isModuleForStore(m.id, kind),
+  );
 }
 
 export const GROUP_ORDER: ModuleGroup[] = ['daily', 'reports', 'stock', 'setup'];
