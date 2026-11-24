@@ -224,6 +224,11 @@ export class OfflineData {
     return this.read(this.key('shifts', userId), () => this.api.shifts({ openedBy: userId, limit: 30 }));
   }
 
+  /** The shift the user works in (theirs, otherwise the branch's), like the web's GET /api/shift/current. */
+  currentShift(userId: string): Promise<Loaded<Shift | null>> {
+    return this.read(this.key('shiftcurrent', userId), () => this.api.currentShift());
+  }
+
   paymentMethods(): Promise<Loaded<PaymentMethod[]>> {
     return this.read(this.key('paymentmethods'), () => this.api.paymentMethods());
   }

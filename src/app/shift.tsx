@@ -45,6 +45,8 @@ export default function ShiftScreen() {
   const [closing, setClosing] = useState(false);
   const [countUsd, setCountUsd] = useState('0');
   const [countKhr, setCountKhr] = useState('0');
+  /** Goes up after opening or closing, so the list of shifts below reads again at once. */
+  const [listVersion, setListVersion] = useState(0);
 
   const { syncVersion, online } = state;
   useFocusEffect(
@@ -60,6 +62,7 @@ export default function ShiftScreen() {
     const result = await submit(command('openShift', payload), async () => void (await api.openShift(payload)));
     if (result === 'queued') Alert.alert(t('shift.savedOffline'));
     await reload();
+    setListVersion((v) => v + 1);
   }
 
   function confirmClose() {
@@ -78,6 +81,7 @@ export default function ShiftScreen() {
       if (result === 'queued') Alert.alert(t('shift.savedOffline'));
     }
     await reload();
+    setListVersion((v) => v + 1);
   }
 
   const receipt = receiptOf(shift);
@@ -156,7 +160,7 @@ export default function ShiftScreen() {
               </Card>
             )}
 
-            <ShiftList reloadKey={syncVersion} />
+            <ShiftList reloadKey={syncVersion * 1000 + listVersion} />
           </ScrollView>
         </KeyboardAvoidingView>
       )}

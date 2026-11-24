@@ -2,24 +2,24 @@ import { useCallback, useMemo, useState } from 'react';
 import type { Shift } from './api';
 import { useOffline } from './offline/provider';
 import { useSession } from './session';
-import { applyShiftCommands, currentShift } from './shift';
+import { applyShiftCommands } from './shift';
 
 /**
- * The cashier's shifts: from kh-pos, or the saved copy when it can't be reached, with opening or
- * closing done offline applied. `reload` reads again (call it when a screen is shown and after
- * changes were sent).
+ * The shift the staff member works in, like the web (GET /api/shift/current): their own open shift, otherwise the
+ * branch's (one shift per branch, whoever opened it). From kh-pos, or the saved copy when it can't be reached, with
+ * opening or closing done offline applied. `reload` reads again (when a screen is shown and after changes).
  */
 export function useShift() {
   const { user } = useSession();
   const { data, state } = useOffline();
-  const [shifts, setShifts] = useState<Shift[] | null>(null);
+  const [current, setCurrent] = useState<Shift | null | undefined>(undefined);
   const [error, setError] = useState<unknown>(null);
   const uid = user?.id ?? null;
 
   const reload = useCallback(async () => {
     if (!uid) return;
     try {
-      setShifts((await data.shifts(uid)).data.data);
+      setCurrent((await data.currentShift(uid)).data);
       setError(null);
     } catch (e) {
       setError(e);
@@ -27,11 +27,9 @@ export function useShift() {
   }, [data, uid]);
 
   const shift = useMemo(
-    () => (shifts && user ? applyShiftCommands(currentShift(shifts, user.id), state.commands, user) : null),
-    [shifts, user, state.commands],
+    () => (current !== undefined && user ? applyShiftCommands(current, state.commands, user) : null),
+    [current, user, state.commands],
   );
-  /** Closed shifts, newest first. */
-  const history = useMemo(() => (shifts ?? []).filter((s) => s.status === 'CLOSE'), [shifts]);
 
-  return { shift, history, loaded: shifts !== null, error, reload };
+  return { shift, loaded: current !== undefined, error, reload };
 }

@@ -778,6 +778,12 @@ export class KhPosApi {
     return json.result ?? { total: 0, data: [] };
   }
 
+  /** The shift the signed-in user works in: their own open shift, otherwise the branch's (null when none is open). */
+  async currentShift(): Promise<Shift | null> {
+    const json = await this.request<{ result?: Shift | null }>('GET', '/api/shift/current');
+    return json.result ?? null;
+  }
+
   async openShift(input: { openedCashUsd: number; openedCashKhr: number; exchangeRate: number }): Promise<string> {
     const json = await this.request<{ result?: string }>('POST', '/api/shift/open', input);
     if (!json.result) throw new ApiError('server', undefined, 'No shift id returned');
