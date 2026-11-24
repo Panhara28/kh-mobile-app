@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { Text, TextInput } from '@/ui/text';
+import { Eye, EyeOff } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { isLanguage, type Language } from '@/i18n';
 import { useSession } from '@/lib/session';
@@ -155,7 +156,7 @@ export default function Login() {
                     hitSlop={8}
                     style={styles.eye}
                   >
-                    <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁'}</Text>
+                    {showPassword ? <EyeOff size={20} color={colors.mutedForeground} /> : <Eye size={20} color={colors.mutedForeground} />}
                   </Pressable>
                 }
               />
@@ -262,5 +263,4 @@ const styles = StyleSheet.create({
   powered: { textAlign: 'center', fontSize: font.small, color: colors.mutedForeground, marginTop: space.xs },
   poweredStrong: { fontWeight: '700', color: '#0B43C7' },
   eye: { paddingHorizontal: space.md, height: '100%', justifyContent: 'center' },
-  eyeText: { fontSize: 18 },
 });

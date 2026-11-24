@@ -16,6 +16,7 @@ import { useSession } from '@/lib/session';
 import { useShift } from '@/lib/use-shift';
 import { Button, Card, Field, Segmented } from '@/ui/components';
 import { ScreenHeader } from '@/ui/screen-header';
+import { TabBar, TAB_BAR_SPACE } from '@/ui/tab-bar';
 import { colors, font, radius, space } from '@/ui/theme';
 
 /**
@@ -222,6 +223,7 @@ export default function AccountScreen() {
           />
         </View>
       </ScrollView>
+      <TabBar current="account" />
     </SafeAreaView>
   );
 }
@@ -236,7 +238,7 @@ function Check({ ok, text }: { ok: boolean; text: string }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.page },
-  content: { padding: space.md, gap: space.md },
+  content: { padding: space.md, gap: space.md, paddingBottom: TAB_BAR_SPACE + 48 },
   card: { padding: space.md, gap: space.sm, borderRadius: radius.lg },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm, flexWrap: 'wrap' },
   checks: { gap: 2 },

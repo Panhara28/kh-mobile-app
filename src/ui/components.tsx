@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode, type Ref, type ComponentRef } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode, type Ref, type ComponentRef } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -11,7 +11,10 @@ import { Text, TextInput } from '@/ui/text';
 import { clampInt } from '@/lib/number';
 import { colors, font, radius, shadow, space } from './theme';
 
-/** shadcn Button: default (black), outline, secondary, destructive, ghost. */
+/** True inside the blue header bar: buttons there use their light look so they stay readable. */
+export const OnBrand = createContext(false);
+
+/** shadcn Button: default (BongIT blue), outline, secondary, destructive, ghost. */
 export function Button({
   title,
   onPress,
@@ -37,7 +40,7 @@ export function Button({
   testID?: string;
 }) {
   const inactive = disabled || loading;
-  const v = variants[variant];
+  const v = (useContext(OnBrand) ? brandVariants : variants)[variant];
   return (
     <Pressable
       testID={testID}
@@ -68,6 +71,15 @@ const variants = {
   secondary: { bg: colors.secondary, fg: colors.foreground, border: colors.secondary },
   destructive: { bg: colors.destructive, fg: colors.destructiveForeground, border: colors.destructive },
   ghost: { bg: 'transparent', fg: colors.foreground, border: 'transparent' },
+} as const;
+
+/** The same buttons on the blue header (see OnBrand). */
+const brandVariants = {
+  default: { bg: '#ffffff', fg: colors.brandFrom, border: '#ffffff' },
+  outline: { bg: 'rgba(255,255,255,0.16)', fg: '#ffffff', border: 'rgba(255,255,255,0.4)' },
+  secondary: { bg: 'rgba(255,255,255,0.16)', fg: '#ffffff', border: 'rgba(255,255,255,0.16)' },
+  destructive: variants.destructive,
+  ghost: { bg: 'transparent', fg: '#ffffff', border: 'transparent' },
 } as const;
 
 const sizes = StyleSheet.create({

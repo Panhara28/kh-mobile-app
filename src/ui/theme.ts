@@ -5,11 +5,16 @@
 export const colors = {
   background: '#ffffff',
   /** Page behind cards (web: bg-muted/40). */
-  page: '#fafafa',
+  page: '#f5f7fb',
   foreground: '#09090b',
   card: '#ffffff',
-  primary: '#18181b',
-  primaryForeground: '#fafafa',
+  /** BongIT blue: the web app's --primary / brand gradient start. */
+  primary: '#0B43C7',
+  primaryForeground: '#ffffff',
+  /** The brand gradient (web --brand-from / --brand-to) and a soft blue for icon tiles. */
+  brandFrom: '#0B43C7',
+  brandTo: '#1F8BFF',
+  brandSoft: '#eef3ff',
   secondary: '#f4f4f5',
   muted: '#f4f4f5',
   mutedForeground: '#71717a',

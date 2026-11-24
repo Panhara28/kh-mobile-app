@@ -9,8 +9,9 @@ import { useOffline } from '@/lib/offline/provider';
 import { pickSetting } from '@/lib/settings';
 import type { Setting } from '@/lib/api';
 import { useSession } from '@/lib/session';
-import { Button } from '@/ui/components';
-import { SyncBadge } from '@/ui/sync-status';
+import { ModuleIcon } from '@/ui/module-icon';
+import { ScreenHeader } from '@/ui/screen-header';
+import { TabBar, TAB_BAR_SPACE } from '@/ui/tab-bar';
 import { colors, font, radius, shadow, space } from '@/ui/theme';
 
 /** Everything the staff member's role can open, grouped, like the kh-pos web menu. */
@@ -28,11 +29,7 @@ export default function MoreScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <Button title={`‹ ${t('common.back')}`} variant="ghost" size="sm" onPress={() => (router.canGoBack() ? router.back() : router.replace('/account'))} />
-        <Text style={styles.title}>{t('more.title')}</Text>
-        <SyncBadge />
-      </View>
+      <ScreenHeader title={t('more.title')} />
       <ScrollView contentContainerStyle={styles.content}>
         {sortByLabel([...GROUP_ORDER], (g) => t(`more.group_${g}`), i18n.language).map((group) => {
           const items = sortByLabel(
@@ -54,7 +51,9 @@ export default function MoreScreen() {
                     onPress={() => router.push(m.route as Href)}
                     style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
                   >
-                    <Text style={styles.icon}>{m.icon}</Text>
+                    <View style={styles.icon}>
+                      <ModuleIcon id={m.id} size={24} color="#0B43C7" />
+                    </View>
                     <Text style={styles.tileText} numberOfLines={2}>
                       {t(m.titleKey)}
                     </Text>
@@ -65,6 +64,7 @@ export default function MoreScreen() {
           );
         })}
       </ScrollView>
+      <TabBar current="more" />
     </SafeAreaView>
   );
 }
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   title: { flex: 1, fontSize: font.title, fontWeight: '700', color: colors.foreground },
-  content: { padding: space.md, gap: space.lg },
+  content: { padding: space.md, gap: space.lg, paddingBottom: TAB_BAR_SPACE + 48 },
   group: { gap: space.sm },
   groupTitle: { fontSize: font.small, fontWeight: '700', color: colors.mutedForeground, textTransform: 'uppercase' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
@@ -100,6 +100,6 @@ const styles = StyleSheet.create({
     ...shadow.card,
   },
   pressed: { opacity: 0.7 },
-  icon: { fontSize: 26 },
+  icon: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#eef3ff', alignItems: 'center', justifyContent: 'center' },
   tileText: { fontSize: font.small, fontWeight: '600', color: colors.foreground, textAlign: 'center' },
 });

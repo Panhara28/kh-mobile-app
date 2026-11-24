@@ -54,6 +54,9 @@
     "locked": "Too many wrong passwords. Wait a minute and try again."
   },
   "tables": {
+    "filterAll": "All",
+    "inUse": "In use",
+    "summary": "{{busy}} in use · {{free}} free",
     "title": "Tables",
     "empty": "No tables in this branch yet.",
     "seats": "{{count}} seats",

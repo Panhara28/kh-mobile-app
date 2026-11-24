@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
@@ -16,7 +16,7 @@ import { useShift } from '@/lib/use-shift';
 import { Badge, Button, Card, Field } from '@/ui/components';
 import { ShiftList } from '@/ui/shift/shift-list';
 import { ErrorState, LoadingState } from '@/ui/states';
-import { SyncBadge } from '@/ui/sync-status';
+import { ScreenHeader } from '@/ui/screen-header';
 import { colors, font, radius, space } from '@/ui/theme';
 
 const when = (value: string | null | undefined) => {
@@ -87,11 +87,7 @@ export default function ShiftScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <Button title={`‹ ${t('common.back')}`} variant="ghost" size="sm" onPress={() => router.back()} />
-        <Text style={styles.title}>{t('shift.title')}</Text>
-        <SyncBadge />
-      </View>
+      <ScreenHeader title={t('shift.title')} />
 
       {!loaded ? (
         error ? <ErrorState error={error} onRetry={() => void reload()} /> : <LoadingState />

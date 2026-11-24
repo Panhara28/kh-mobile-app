@@ -1,7 +1,8 @@
 import { router, useFocusEffect, type Href } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { ChartColumnBig, Hand, Search, Store, UserRound, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RestaurantTable, Setting } from '@/lib/api';
 import { rangeFor } from '@/lib/dates';
@@ -16,13 +17,14 @@ import { useSession } from '@/lib/session';
 import { pickSetting } from '@/lib/settings';
 import { openGroups } from '@/lib/table-groups';
 import { useBranch } from '@/lib/use-branch';
+import { ModuleIcon } from '@/ui/module-icon';
+import { BRAND_GRADIENT } from '@/ui/screen-header';
 import { SyncBadge } from '@/ui/sync-status';
+import { TabBar, TAB_BAR_SPACE } from '@/ui/tab-bar';
 import { Text, TextInput } from '@/ui/text';
 import { colors, font, radius, shadow, space } from '@/ui/theme';
 
-/** The web app's brand gradient (globals.css --brand-from / --brand-to), as on the login screen. */
-const BRAND_FROM = '#0B43C7';
-const BRAND_TO = '#1F8BFF';
+const BRAND_FROM = colors.brandFrom;
 const REFRESH_MS = 30_000;
 
 /** Section order below the shortcuts (the daily modules are the shortcuts themselves). */
@@ -41,7 +43,6 @@ export default function HomeScreen() {
   const { api } = useSession();
   const { currency, tableMode } = useBranch();
   const warehouseId = user?.currentWarehouseId ?? '';
-  const searchRef = useRef<ComponentRef<typeof TextInput>>(null);
 
   const [settings, setSettings] = useState<Setting[]>([]);
   const [query, setQuery] = useState('');
@@ -55,7 +56,6 @@ export default function HomeScreen() {
   }, [data, warehouseId]);
 
   const modules = useMemo(() => visibleModules(user, (option) => pickSetting(settings, option, warehouseId)), [user, settings, warehouseId]);
-  const has = useCallback((id: string) => modules.some((m) => m.id === id), [modules]);
   const canSales = can(user, 'dashboard', 'read') || user?.role?.role === 'OWNER';
   const canTables = can(user, 'restaurant', 'read');
 
@@ -135,28 +135,12 @@ export default function HomeScreen() {
   const openTable = (tb: RestaurantTable) =>
     tableMode === 'TAG' ? open('/tables') : router.push({ pathname: '/table/[id]', params: { id: tb.id } });
 
-  const tabs = [
-    { id: 'home', icon: '🏠', label: t('home.tabHome'), route: null },
-    has('tables') ? { id: 'tables', icon: '🍽', label: t('home.tabTables'), route: '/tables' } : null,
-    { id: 'search', icon: '🔍', label: t('home.tabSearch'), route: null },
-    has('orders')
-      ? { id: 'orders', icon: '🧾', label: t('home.tabOrders'), route: '/orders' }
-      : has('shift')
-        ? { id: 'shift', icon: '🕒', label: t('more.shift'), route: '/shift' }
-        : null,
-    { id: 'account', icon: '👤', label: t('home.tabAccount'), route: '/account' },
-  ].filter((x): x is NonNullable<typeof x> => !!x);
-
-  function pressTab(id: string, route: string | null) {
-    if (id === 'search') searchRef.current?.focus();
-    else if (route) open(route);
-  }
 
   return (
     <View style={styles.page}>
       <ScrollView
         style={styles.flex}
-        contentContainerStyle={{ paddingBottom: 96 + insets.bottom }}
+        contentContainerStyle={{ paddingBottom: TAB_BAR_SPACE + insets.bottom + space.lg }}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor="#fff" />}
       >
@@ -164,7 +148,7 @@ export default function HomeScreen() {
         <View style={[styles.hero, { paddingTop: insets.top + space.md }]}>
           <View style={styles.topRow}>
             <View style={styles.storeIcon}>
-              <Text style={styles.storeEmoji}>🏪</Text>
+              <Store size={20} color="#fff" strokeWidth={2.2} />
             </View>
             <View style={styles.flex}>
               <Text style={styles.storeName} numberOfLines={1}>
@@ -176,14 +160,13 @@ export default function HomeScreen() {
             </View>
             <SyncBadge />
             <Pressable accessibilityRole="button" accessibilityLabel={t('home.tabAccount')} onPress={() => open('/account')} style={({ pressed }) => [styles.roundButton, pressed && styles.pressed]}>
-              <Text style={styles.roundEmoji}>👤</Text>
+              <UserRound size={20} color={BRAND_FROM} strokeWidth={2.2} />
             </Pressable>
           </View>
 
           <View style={styles.search}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <Search size={18} color={colors.mutedForeground} strokeWidth={2.2} />
             <TextInput
-              ref={searchRef}
               value={query}
               onChangeText={setQuery}
               placeholder={t('home.searchPlaceholder')}
@@ -194,7 +177,7 @@ export default function HomeScreen() {
             />
             {query ? (
               <Pressable onPress={() => setQuery('')} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('common.close')}>
-                <Text style={styles.clear}>✕</Text>
+                <X size={18} color={colors.mutedForeground} />
               </Pressable>
             ) : null}
           </View>
@@ -210,7 +193,9 @@ export default function HomeScreen() {
                 </Text>
                 {dashboard ? <Text style={styles.bannerLink}>{t('home.viewDashboard')} ›</Text> : null}
               </View>
-              <Text style={styles.bannerArt}>📊</Text>
+              <View style={styles.bannerArt}>
+                <ChartColumnBig size={44} color="#fff" strokeWidth={1.8} />
+              </View>
             </Pressable>
           ) : (
             <View style={styles.banner}>
@@ -220,7 +205,9 @@ export default function HomeScreen() {
                   {user?.fullname || user?.username}
                 </Text>
               </View>
-              <Text style={styles.bannerArt}>👋</Text>
+              <View style={styles.bannerArt}>
+                <Hand size={44} color="#fff" strokeWidth={1.8} />
+              </View>
             </View>
           )}
         </View>
@@ -234,7 +221,7 @@ export default function HomeScreen() {
               {found.map((m) => (
                 <Pressable key={m.id} onPress={() => open(m.route)} style={({ pressed }) => [styles.resultRow, pressed && styles.pressed]} accessibilityRole="button">
                   <View style={styles.resultIcon}>
-                    <Text style={styles.resultEmoji}>{m.icon}</Text>
+                    <ModuleIcon id={m.id} size={22} color={BRAND_FROM} />
                   </View>
                   <Text style={styles.resultText}>{label(m)}</Text>
                   <Text style={styles.chevron}>›</Text>
@@ -248,7 +235,7 @@ export default function HomeScreen() {
                   {shortcuts.map((m) => (
                     <Pressable key={m.id} testID={`home-${m.id}`} onPress={() => open(m.route)} style={({ pressed }) => [styles.shortcut, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel={label(m)}>
                       <View style={styles.shortcutTile}>
-                        <Text style={styles.shortcutEmoji}>{m.icon}</Text>
+                        <ModuleIcon id={m.id} size={30} color={BRAND_FROM} />
                       </View>
                       <Text style={styles.shortcutText} numberOfLines={2}>
                         {label(m)}
@@ -297,7 +284,7 @@ export default function HomeScreen() {
                       {items.map((m) => (
                         <Pressable key={m.id} onPress={() => open(m.route)} style={({ pressed }) => [styles.moduleCard, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel={label(m)}>
                           <View style={styles.moduleArt}>
-                            <Text style={styles.moduleEmoji}>{m.icon}</Text>
+                            <ModuleIcon id={m.id} size={36} color={BRAND_FROM} />
                           </View>
                           <Text style={styles.moduleText} numberOfLines={2}>
                             {label(m)}
@@ -313,20 +300,7 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      {/* tab bar */}
-      <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, space.sm) }]}>
-        {tabs.map((tab) => {
-          const active = tab.id === 'home';
-          return (
-            <Pressable key={tab.id} onPress={() => pressTab(tab.id, tab.route)} style={styles.tab} accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={tab.label}>
-              <Text style={[styles.tabIcon, !active && styles.tabIconIdle]}>{tab.icon}</Text>
-              <Text style={[styles.tabLabel, active && styles.tabLabelActive]} numberOfLines={1}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <TabBar current="home" />
     </View>
   );
 }
@@ -352,33 +326,28 @@ const styles = StyleSheet.create({
     paddingBottom: space.xl + space.lg,
     gap: space.md,
     backgroundColor: BRAND_FROM,
-    experimental_backgroundImage: `linear-gradient(160deg, ${BRAND_FROM} 0%, ${BRAND_TO} 100%)`,
+    experimental_backgroundImage: BRAND_GRADIENT,
   },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   storeIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
-  storeEmoji: { fontSize: 20 },
   storeName: { fontSize: font.title, fontWeight: '800', color: '#fff' },
   staff: { fontSize: font.small, color: 'rgba(255,255,255,0.8)', marginTop: 1 },
   roundButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.card },
-  roundEmoji: { fontSize: 18 },
 
   search: { flexDirection: 'row', alignItems: 'center', gap: space.sm, height: 48, paddingHorizontal: space.lg, borderRadius: radius.full, backgroundColor: '#fff' },
-  searchIcon: { fontSize: 16 },
   searchInput: { flex: 1, fontSize: font.body, color: colors.foreground, paddingVertical: 0 },
-  clear: { fontSize: 16, color: colors.mutedForeground },
 
   banner: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingTop: space.sm },
   bannerLabel: { fontSize: font.body, fontWeight: '700', color: 'rgba(255,255,255,0.9)' },
   bannerAmount: { fontSize: 34, fontWeight: '800', color: '#fff', marginTop: 2 },
   bannerMeta: { fontSize: font.small, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
   bannerLink: { fontSize: font.body, fontWeight: '700', color: '#fff', marginTop: space.sm },
-  bannerArt: { fontSize: 64 },
+  bannerArt: { width: 76, height: 76, borderRadius: 38, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
 
   body: { marginTop: -space.xl, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: colors.card, paddingTop: space.lg, gap: space.xl },
   shortcuts: { paddingHorizontal: space.lg, gap: space.md },
   shortcut: { width: 84, alignItems: 'center', gap: space.sm },
-  shortcutTile: { width: 76, height: 76, borderRadius: 18, borderWidth: 1, borderColor: colors.border, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...shadow.card },
-  shortcutEmoji: { fontSize: 36 },
+  shortcutTile: { width: 68, height: 68, borderRadius: 20, backgroundColor: '#eef3ff', alignItems: 'center', justifyContent: 'center', ...shadow.card },
   shortcutText: { fontSize: font.small, color: colors.foreground, textAlign: 'center' },
 
   section: { gap: space.md },
@@ -398,29 +367,11 @@ const styles = StyleSheet.create({
 
   moduleCard: { width: 120, gap: space.sm },
   moduleArt: { height: 96, borderRadius: 18, backgroundColor: '#eef3ff', alignItems: 'center', justifyContent: 'center' },
-  moduleEmoji: { fontSize: 42 },
   moduleText: { fontSize: font.small, fontWeight: '700', color: colors.foreground },
 
   resultRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginHorizontal: space.lg, paddingVertical: space.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   resultIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#eef3ff', alignItems: 'center', justifyContent: 'center' },
-  resultEmoji: { fontSize: 22 },
   resultText: { flex: 1, fontSize: font.body, fontWeight: '600', color: colors.foreground },
   chevron: { fontSize: 22, color: colors.mutedForeground },
 
-  tabBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: 'row',
-    paddingTop: space.sm,
-    backgroundColor: '#fff',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  tab: { flex: 1, alignItems: 'center', gap: 2, minHeight: 48, justifyContent: 'center' },
-  tabIcon: { fontSize: 22 },
-  tabIconIdle: { opacity: 0.55 },
-  tabLabel: { fontSize: 11, color: colors.mutedForeground },
-  tabLabelActive: { color: BRAND_FROM, fontWeight: '700' },
 });

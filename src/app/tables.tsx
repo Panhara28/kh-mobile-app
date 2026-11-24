@@ -2,9 +2,10 @@ import * as Crypto from 'expo-crypto';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { QrCode, Store, Users } from 'lucide-react-native';
 import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { Text } from '@/ui/text';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RestaurantTable } from '@/lib/api';
 import { formatMoney, type CurrencyCode } from '@/lib/money';
 import { applyOutbox } from '@/lib/offline/overlay';
@@ -14,11 +15,12 @@ import { useSession } from '@/lib/session';
 import { invoiceLink, tableMenuLink } from '@/lib/qr';
 import { groupSeat, openGroups, seatId, splitSeat, waitingSeats } from '@/lib/table-groups';
 import { useBranch } from '@/lib/use-branch';
-import { Badge, Button } from '@/ui/components';
 import { QrSheet } from '@/ui/qr-sheet';
 import { TableGroupsSheet } from '@/ui/table-groups-sheet';
 import { EmptyState, ErrorState, LoadingState } from '@/ui/states';
 import { StaleBanner, SyncBadge } from '@/ui/sync-status';
+import { HeaderBar } from '@/ui/screen-header';
+import { TabBar, TAB_BAR_SPACE } from '@/ui/tab-bar';
 import { colors, font, radius, shadow, space } from '@/ui/theme';
 
 const REFRESH_MS = 15_000;
@@ -26,7 +28,9 @@ const REFRESH_MS = 15_000;
 /** Staff home: the branch's tables with their status and open order. */
 export default function TablesScreen() {
   const { t } = useTranslation();
-  const { api, user, logout } = useSession();
+  const { api, user } = useSession();
+  const insets = useSafeAreaInsets();
+  const [filter, setFilter] = useState<'all' | 'free' | 'busy'>('all');
   const { data, state } = useOffline();
   const { currency, tableMode } = useBranch();
   const tagMode = tableMode === 'TAG';
@@ -127,37 +131,52 @@ export default function TablesScreen() {
     ]);
   }
 
-  function confirmLogout() {
-    // Logging in is checked by the KH POS server, so after logging out offline the staff member can't
-    // get back in until the server is reachable. Say so before it happens; changes waiting to be
-    // sent stay on the phone and go out after the next login.
-    const warning = [!state.online ? t('offline.logoutOffline') : null, state.pending > 0 ? t('offline.logoutPending', { count: state.pending }) : null]
-      .filter(Boolean)
-      .join('\n\n');
-    Alert.alert(t('session.logoutConfirm'), warning || undefined, [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.logout'), style: 'destructive', onPress: () => void logout() },
-    ]);
-  }
+  /** In use: has an open order (or a group), or kh-pos marks it taken. */
+  const inUse = (tb: RestaurantTable) => (tagMode ? (groups.get(tb.id) ?? []).length > 0 : !!tb.order || tb.status === 'order_taken');
+  const busyCount = tables ? tables.filter(inUse).length : 0;
+  const freeCount = tables ? tables.length - busyCount : 0;
+  const shown = tables ? tables.filter((tb) => (filter === 'all' ? true : filter === 'busy' ? inUse(tb) : !inUse(tb))) : null;
+  const filters: { id: typeof filter; label: string; count: number }[] = [
+    { id: 'all', label: t('tables.filterAll'), count: tables?.length ?? 0 },
+    { id: 'free', label: t('tableStatus.available'), count: freeCount },
+    { id: 'busy', label: t('tables.inUse'), count: busyCount },
+  ];
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text style={styles.branch} numberOfLines={1}>
-            {user?.warehouse?.name ?? t('common.appName')}
-          </Text>
-          <Text style={styles.staff} numberOfLines={1}>
-            {[user?.fullname || user?.username, user?.role?.role].filter(Boolean).join(' · ')}
-          </Text>
+      <HeaderBar>
+        <View style={styles.topRow}>
+          <View style={styles.storeIcon}>
+            <Store size={18} color="#fff" strokeWidth={2.2} />
+          </View>
+          <View style={styles.headerText}>
+            <Text style={styles.branch} numberOfLines={1}>
+              {user?.warehouse?.name ?? t('common.appName')}
+            </Text>
+            <Text style={styles.staff} numberOfLines={1}>
+              {[user?.fullname || user?.username, user?.role?.role].filter(Boolean).join(' · ')}
+            </Text>
+          </View>
+          <SyncBadge />
         </View>
-        <SyncBadge />
-        <Button title={`☰ ${t('more.title')}`} variant="outline" size="sm" onPress={() => router.push('/more')} />
-        <Button title={t('common.logout')} variant="outline" size="sm" onPress={confirmLogout} />
-      </View>
+        <Text style={styles.title}>{t('tables.title')}</Text>
+        <Text style={styles.summary}>{t('tables.summary', { busy: busyCount, free: freeCount })}</Text>
+        <View style={styles.filters}>
+          {filters.map((f) => {
+            const active = f.id === filter;
+            return (
+              <Pressable key={f.id} onPress={() => setFilter(f.id)} accessibilityRole="button" accessibilityState={{ selected: active }} style={[styles.filter, active && styles.filterActive]}>
+                <Text style={[styles.filterText, active && styles.filterTextActive]}>
+                  {f.label} · {f.count}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </HeaderBar>
       {staleAt !== false ? <StaleBanner savedAt={staleAt} /> : null}
 
-      {tables === null ? (
+      {shown === null ? (
         error ? (
           <ErrorState error={error} onRetry={() => void load()} />
         ) : (
@@ -165,12 +184,11 @@ export default function TablesScreen() {
         )
       ) : (
         <FlatList
-          data={tables}
+          data={shown}
           keyExtractor={(x) => x.id}
           numColumns={2}
           columnWrapperStyle={styles.row}
-          contentContainerStyle={tables.length ? styles.grid : styles.gridEmpty}
-          ListHeaderComponent={<Text style={styles.title}>{t('tables.title')}</Text>}
+          contentContainerStyle={[shown.length ? styles.grid : styles.gridEmpty, { paddingBottom: TAB_BAR_SPACE + insets.bottom + space.lg }]}
           renderItem={({ item }) => (
             <TableCard
               table={item}
@@ -198,11 +216,27 @@ export default function TablesScreen() {
         />
       ) : null}
       {qr ? <QrSheet title={qr.title} subtitle={qr.subtitle} link={qr.link} onClose={() => setQr(null)} /> : null}
+      <TabBar current="tables" />
     </SafeAreaView>
   );
 }
 
-const statusTone = { available: 'outline', order_taken: 'default', cleaning: 'info' } as const;
+const STATUS_TONE = {
+  available: { bg: colors.successBg, fg: colors.success },
+  order_taken: { bg: colors.brandSoft, fg: colors.brandFrom },
+  cleaning: { bg: colors.warningBg, fg: colors.warning },
+} as const;
+
+function StatusPill({ text, tone }: { text: string; tone: { bg: string; fg: string } }) {
+  return (
+    <View style={[styles.pill, { backgroundColor: tone.bg }]}>
+      <View style={[styles.dot, { backgroundColor: tone.fg }]} />
+      <Text style={[styles.pillText, { color: tone.fg }]} numberOfLines={1}>
+        {text}
+      </Text>
+    </View>
+  );
+}
 
 function TableCard({
   table,
@@ -219,115 +253,113 @@ function TableCard({
   onQr: () => void;
 }) {
   const { t } = useTranslation();
-  const counts = orderCounts(table.order);
-  const occupied = groups ? groups.length > 0 : table.status === 'order_taken';
-  if (groups && groups.length > 0) {
-    const total = groups.reduce((a, g) => a + Number(g.order?.totalAmount ?? 0), 0);
-    const all = groups.map((g) => orderCounts(g.order));
-    const portions = all.reduce((a, c) => a + c.portions, 0);
-    const pending = all.reduce((a, c) => a + c.pending, 0);
-    return (
-      <Pressable
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={`${table.table_name}, ${t('tables.groups', { count: groups.length })}`}
-        style={({ pressed }) => [styles.card, styles.cardOccupied, pressed && styles.pressed]}
-      >
-        <View style={styles.cardTop}>
-          <Text style={[styles.tableName, styles.textOnDark]} numberOfLines={1}>
-            {table.table_name}
-          </Text>
-          <Badge text={t('tables.groups', { count: groups.length })} tone="outline" />
-        </View>
-        <View style={styles.orderInfo}>
-          <Text style={[styles.amount, styles.textOnDark]}>{formatMoney(total, currency)}</Text>
-          <Text style={[styles.meta, styles.metaOnDark]} numberOfLines={1}>
-            {groups.map((g) => g.order?.tagNo ?? '…').join(' · ')} · {t('tables.items', { count: portions })}
-          </Text>
-          {pending > 0 ? <Badge tone="warning" text={t('tables.toSend', { count: pending })} /> : null}
-          {groups.some((g) => g.pendingSync) ? <Badge tone="info" text={t('offline.notSent')} /> : null}
-        </View>
-        <Pressable onPress={onQr} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('qr.button', { name: table.table_name })} style={[styles.qrButton, styles.qrButtonOnDark]}>
-          <Text style={[styles.qrText, styles.textOnDark]}>▦ {t('qr.short')}</Text>
-        </Pressable>
-      </Pressable>
-    );
-  }
-  if (groups) table = { ...table, order: null, status: table.status === 'order_taken' ? 'available' : table.status };
+  const orders = groups ? groups.map((g) => g.order).filter((o): o is NonNullable<typeof o> => !!o) : table.order ? [table.order] : [];
+  const busy = orders.length > 0 || (!groups && table.status === 'order_taken');
+  const status = groups ? (busy ? 'order_taken' : table.status === 'cleaning' ? 'cleaning' : 'available') : table.status;
+  const tone = STATUS_TONE[status] ?? STATUS_TONE.available;
+  const counts = orders.map((o) => orderCounts(o));
+  const portions = counts.reduce((a, c) => a + c.portions, 0);
+  const pending = counts.reduce((a, c) => a + c.pending, 0);
+  const total = orders.reduce((a, o) => a + Number(o.totalAmount || 0), 0);
+  const waiting = groups ? groups.some((g) => g.pendingSync) : !!table.pendingSync;
+  const statusText = groups && orders.length > 1 ? t('tables.groups', { count: orders.length }) : t(`tableStatus.${status}`);
+  const ref = groups
+    ? orders.map((o) => o.tagNo ?? '…').join(' · ')
+    : table.order
+      ? table.order.localOnly
+        ? t('offline.notOpened')
+        : `#${table.order.invoiceNo}`
+      : '';
+
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${table.table_name}, ${t(`tableStatus.${table.status}`)}`}
-      style={({ pressed }) => [styles.card, occupied && styles.cardOccupied, pressed && styles.pressed]}
+      accessibilityLabel={`${table.table_name}, ${statusText}`}
+      style={({ pressed }) => [styles.card, busy && styles.cardBusy, pressed && styles.pressed]}
     >
       <View style={styles.cardTop}>
-        <Text style={[styles.tableName, occupied && styles.textOnDark]} numberOfLines={1}>
+        <Text style={styles.tableName} numberOfLines={1}>
           {table.table_name}
         </Text>
-        <Badge text={t(`tableStatus.${table.status}`)} tone={occupied ? 'outline' : statusTone[table.status] ?? 'outline'} />
+        <StatusPill text={statusText} tone={tone} />
       </View>
-      {table.order ? (
+
+      {busy ? (
         <View style={styles.orderInfo}>
-          <Text style={[styles.amount, occupied && styles.textOnDark]}>{formatMoney(table.order.totalAmount, currency)}</Text>
-          <Text style={[styles.meta, occupied && styles.metaOnDark]}>
-            {table.order.localOnly ? t('offline.notOpened') : `#${table.order.invoiceNo}`} · {t('tables.items', { count: counts.portions })}
+          <Text style={styles.amount}>{formatMoney(total, currency)}</Text>
+          <Text style={styles.meta} numberOfLines={1}>
+            {[ref, t('tables.items', { count: portions })].filter(Boolean).join(' · ')}
           </Text>
-          {counts.pending > 0 ? <Badge tone="warning" text={t('tables.toSend', { count: counts.pending })} /> : null}
-          {table.pendingSync ? <Badge tone="info" text={t('offline.notSent')} /> : null}
+          <View style={styles.badges}>
+            {pending > 0 ? <Text style={[styles.badge, styles.badgeWarn]}>{t('tables.toSend', { count: pending })}</Text> : null}
+            {waiting ? <Text style={[styles.badge, styles.badgeInfo]}>{t('offline.notSent')}</Text> : null}
+          </View>
         </View>
       ) : (
-        <Text style={[styles.meta, occupied && styles.metaOnDark]}>
-          {table.setting_capacity ? t('tables.seats', { count: table.setting_capacity }) : ' '}
-        </Text>
+        <View style={styles.seats}>
+          <Users size={16} color={colors.mutedForeground} />
+          <Text style={styles.meta}>{table.setting_capacity ? t('tables.seats', { count: table.setting_capacity }) : '—'}</Text>
+        </View>
       )}
-      <Pressable onPress={onQr} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('qr.button', { name: table.table_name })} style={[styles.qrButton, occupied && styles.qrButtonOnDark]}>
-        <Text style={[styles.qrText, occupied && styles.textOnDark]}>▦ {t('qr.short')}</Text>
-      </Pressable>
+
+      <View style={styles.cardBottom}>
+        <Text style={styles.section} numberOfLines={1}>
+          {table.section ?? ''}
+        </Text>
+        <Pressable onPress={onQr} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('qr.button', { name: table.table_name })} style={({ pressed }) => [styles.qrButton, pressed && styles.pressed]}>
+          <QrCode size={16} color={colors.brandFrom} />
+        </Pressable>
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.page },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    paddingHorizontal: space.md,
-    paddingVertical: space.md,
-    backgroundColor: colors.card,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  storeIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
   headerText: { flex: 1, minWidth: 0 },
-  branch: { fontSize: font.title, fontWeight: '600', color: colors.foreground },
-  staff: { fontSize: font.small, color: colors.mutedForeground, marginTop: 2 },
-  title: { fontSize: font.heading, fontWeight: '700', color: colors.foreground, marginBottom: space.sm },
+  branch: { fontSize: font.body, fontWeight: '800', color: '#fff' },
+  staff: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 1 },
+  title: { fontSize: 28, fontWeight: '800', color: '#fff', marginTop: space.md },
+  summary: { fontSize: font.small, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
+  filters: { flexDirection: 'row', gap: space.sm, marginTop: space.md },
+  filter: { paddingHorizontal: space.md, paddingVertical: 7, borderRadius: radius.full, backgroundColor: 'rgba(255,255,255,0.18)' },
+  filterActive: { backgroundColor: '#fff' },
+  filterText: { fontSize: font.small, fontWeight: '600', color: '#fff' },
+  filterTextActive: { color: colors.brandFrom, fontWeight: '800' },
+
   grid: { padding: space.md, gap: space.md },
   gridEmpty: { flexGrow: 1, padding: space.md },
   row: { gap: space.md },
   card: {
     flex: 1,
-    minHeight: 120,
+    minHeight: 150,
     padding: space.md,
     gap: space.sm,
-    borderRadius: radius.lg,
+    borderRadius: 18,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     ...shadow.card,
   },
-  cardOccupied: { backgroundColor: colors.primary, borderColor: colors.primary },
+  cardBusy: { borderColor: '#c7d7ff', borderLeftWidth: 4, borderLeftColor: colors.brandFrom, backgroundColor: '#fbfcff' },
   pressed: { opacity: 0.75 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
-  tableName: { flexShrink: 1, fontSize: font.title, fontWeight: '700', color: colors.foreground },
-  textOnDark: { color: colors.primaryForeground },
-  orderInfo: { gap: 4 },
-  qrButton: { alignSelf: 'flex-start', marginTop: 'auto', paddingHorizontal: space.sm, paddingVertical: 4, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border },
-  qrButtonOnDark: { borderColor: '#a1a1aa' },
-  qrText: { fontSize: 12, fontWeight: '600', color: colors.foreground },
-  amount: { fontSize: font.heading, fontWeight: '700', color: colors.foreground },
+  tableName: { flexShrink: 1, fontSize: font.title, fontWeight: '800', color: colors.foreground },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.full, flexShrink: 1 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  pillText: { fontSize: 11, fontWeight: '700' },
+  orderInfo: { gap: 3 },
+  amount: { fontSize: font.heading, fontWeight: '800', color: colors.foreground },
   meta: { fontSize: 12, color: colors.mutedForeground },
-  metaOnDark: { color: '#a1a1aa' },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  badge: { fontSize: 11, fontWeight: '700', paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.sm, overflow: 'hidden' },
+  badgeWarn: { color: colors.warning, backgroundColor: colors.warningBg },
+  badgeInfo: { color: colors.info, backgroundColor: colors.infoBg },
+  seats: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', gap: space.sm },
+  section: { flexShrink: 1, fontSize: 11, color: colors.mutedForeground, textTransform: 'capitalize' },
+  qrButton: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.brandSoft, alignItems: 'center', justifyContent: 'center' },
 });

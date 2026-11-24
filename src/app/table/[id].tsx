@@ -3,6 +3,7 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { ShoppingCart } from 'lucide-react-native';
 import { Text } from '@/ui/text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CheckoutPayment, MenuProduct, OrderLine, PaymentMethod, PosInfo, RestaurantTable } from '@/lib/api';
@@ -36,6 +37,7 @@ import { ApiError } from '@/lib/api';
 import { ProductSheet, type ProductChoice } from '@/ui/product-sheet';
 import { errorKind, ErrorState, LoadingState } from '@/ui/states';
 import { StaleBanner, SyncBadge } from '@/ui/sync-status';
+import { BackButton, HeaderBar } from '@/ui/screen-header';
 import { colors, font, space } from '@/ui/theme';
 
 const REFRESH_MS = 15_000;
@@ -578,8 +580,9 @@ export default function TableScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <Button title={`‹ ${t('common.back')}`} variant="ghost" size="sm" onPress={() => router.back()} />
+      <HeaderBar>
+        <View style={styles.header}>
+          <BackButton onPress={() => router.back()} />
         <View style={styles.headerText}>
           <Text style={styles.tableName} numberOfLines={1}>
             {seatName}
@@ -596,14 +599,15 @@ export default function TableScreen() {
           accessibilityLabel={t('cart.open', { count: cartCount })}
           style={({ pressed }) => [styles.cartButton, pressed && styles.pressed]}
         >
-          {queuedTotal > 0 ? <ActivityIndicator size="small" color={colors.foreground} /> : <Text style={styles.cartIcon}>🛒</Text>}
+          {queuedTotal > 0 ? <ActivityIndicator size="small" color={colors.foreground} /> : <ShoppingCart size={22} color={colors.brandFrom} strokeWidth={2.2} />}
           {cartCount > 0 ? (
             <View style={styles.cartBadge}>
               <Text style={styles.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
             </View>
           ) : null}
         </Pressable>
-      </View>
+        </View>
+      </HeaderBar>
       {staleAt !== false ? <StaleBanner savedAt={staleAt} /> : null}
 
       {counts.pending > 0 ? (
@@ -726,32 +730,20 @@ export default function TableScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.page },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    paddingHorizontal: space.sm,
-    paddingVertical: space.sm,
-    backgroundColor: colors.card,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 44 },
   headerText: { flex: 1, minWidth: 0 },
-  tableName: { fontSize: font.title, fontWeight: '700', color: colors.foreground },
-  sub: { fontSize: 12, color: colors.mutedForeground },
+  tableName: { fontSize: font.title, fontWeight: '800', color: '#fff' },
+  sub: { fontSize: 12, color: 'rgba(255,255,255,0.8)' },
   cartButton: {
     width: 48,
     height: 42,
     marginRight: space.xs,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: '#fff',
   },
   pressed: { opacity: 0.6 },
-  cartIcon: { fontSize: 20 },
   cartBadge: {
     position: 'absolute',
     top: -8,

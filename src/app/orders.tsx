@@ -19,6 +19,7 @@ import { useShift } from '@/lib/use-shift';
 import { Badge, Button, Card, Chip, Input } from '@/ui/components';
 import { DateRangeBar } from '@/ui/date-range-bar';
 import { ScreenHeader } from '@/ui/screen-header';
+import { TabBar, TAB_BAR_SPACE } from '@/ui/tab-bar';
 import { EmptyState, ErrorState, LoadingState } from '@/ui/states';
 import { StaleBanner } from '@/ui/sync-status';
 import { colors, font, radius, space } from '@/ui/theme';
@@ -290,6 +291,7 @@ export default function OrdersScreen() {
           ListFooterComponent={moreLoading ? <ActivityIndicator style={styles.more} color={colors.primary} /> : undefined}
         />
       )}
+      <TabBar current="orders" />
     </SafeAreaView>
   );
 }
@@ -344,7 +346,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   filters: { backgroundColor: colors.card, padding: space.md, gap: space.sm, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   chips: { gap: 6 },
-  list: { padding: space.md, gap: space.sm },
+  list: { padding: space.md, gap: space.sm, paddingBottom: TAB_BAR_SPACE + 48 },
   summary: { gap: space.sm, marginBottom: space.xs },
   summaryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   sumCard: { flexGrow: 1, flexBasis: '45%', padding: space.md, gap: 2, borderRadius: radius.lg },
