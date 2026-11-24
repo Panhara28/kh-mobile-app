@@ -32,6 +32,9 @@ const core = path.join(__dirname, 'core') + path.sep;
 const isServerCode = (from) =>
   !!from && (from.startsWith(core) || /[\\/]node_modules[\\/](\.pnpm[\\/])?(knex|bcryptjs|dataloader|tarn|debug|getopts|interpret|rechoir|escalade|colorette|get-package-type|pg-connection-string|lodash|commander|resolve-from)[@\\/]/.test(from));
 
+// The kh-pos-v2 code has import cycles (data loaders <-> their factory) that are fine at run time; don't warn on them.
+config.resolver.requireCycleIgnorePatterns = [...(config.resolver.requireCycleIgnorePatterns ?? []), /(^|\/|\\)core(\/|\\)/];
+
 const resolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === '@noble/hashes/crypto') return { type: 'sourceFile', filePath: nobleCrypto };
