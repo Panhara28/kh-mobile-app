@@ -1,4 +1,5 @@
-import { cardSlips, durationText, hasDiscrepancy, shiftDateTime, shiftLines, shiftReceiptHtml, shiftReceiptText, variance } from './shift';
+import type { RestaurantTable } from './api';
+import { cardSlips, durationText, hasDiscrepancy, shiftDateTime, shiftLines, shiftReceiptHtml, shiftReceiptText, unpaidOrders, variance } from './shift';
 
 describe('shift page helpers', () => {
   const closed = { shift_id: 's', status: 'CLOSE' as const, opened_at: '2026-10-19 08:00:00', closed_at: '2026-10-19 12:30:00', opened_cash_usd: '10', opened_cash_khr: '40000', closed_cash_usd: '100', closed_cash_khr: '50000', actual_cash_usd: '95', actual_cash_khr: '50000', opened_by: { id: 'u', fullname: 'Dara' }, receipt: { orders: 4, sales: 120, payments: 5, openedCashUsd: 10, openedCashKhr: 40000, closedCashUsd: 100, closedCashKhr: 50000, actualCashUsd: 95, actualCashKhr: 50000, cashDiffUsd: -5, cashDiffKhr: 0, amountByMethod: { CASH: { usd: 80, khr: 0, qty: 3 }, ABA: { usd: 40, khr: 0, qty: 2 } }, amountReturned: 3, returns: 1, totalCustomer: 7, avgCustomer: 17 } };
@@ -28,5 +29,17 @@ describe('shift page helpers', () => {
     expect(text).toContain('Opened by: Dara');
     expect(text).toContain('HANDOVER');
     expect(shiftReceiptHtml('A<B', lines)).toContain('A&lt;B');
+  });
+});
+
+describe('unpaid orders when closing a shift', () => {
+  it('lists every open order on the tables, a Table + Tag group with its tag', () => {
+    const tables = [
+      { id: '1', table_name: 'T-01', order: null, orders: [{ orderId: 'a', tagNo: '001' }, { orderId: 'b', tagNo: '002' }] },
+      { id: '2', table_name: 'T-02', order: { orderId: 'c' } },
+      { id: '3', table_name: 'T-03', order: null },
+    ] as unknown as RestaurantTable[];
+    expect(unpaidOrders(tables)).toEqual(['T-01 #001', 'T-01 #002', 'T-02']);
+    expect(unpaidOrders([])).toEqual([]);
   });
 });

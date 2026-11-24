@@ -371,7 +371,10 @@
     "actualBalance": "Actual Balance",
     "handoverAmount": "Handover amount",
     "paymentMethod": "Payment Method",
-    "customers": "Customers"
+    "customers": "Customers",
+    "unpaidHint": "Closing the shift leaves them open; they are paid in the next shift.",
+    "unpaidConfirm": "Still unpaid: {{tables}}. They stay open for the next shift.",
+    "unpaidTitle": "Unpaid orders still open: {{count}}"
   },
   "more": {
     "title": "More",

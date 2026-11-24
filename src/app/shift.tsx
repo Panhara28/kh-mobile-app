@@ -9,7 +9,7 @@ import { formatMoney } from '@/lib/money';
 import { useOffline } from '@/lib/offline/provider';
 import { useRunner } from '@/lib/offline/use-runner';
 import { useSession } from '@/lib/session';
-import { cashDifference, expectedCash, hasDiscrepancy, receiptOf } from '@/lib/shift';
+import { cashDifference, expectedCash, hasDiscrepancy, receiptOf, unpaidOrders } from '@/lib/shift';
 import { clock, parseKhPosTime } from '@/lib/time';
 import { useBranch } from '@/lib/use-branch';
 import { useShift } from '@/lib/use-shift';
@@ -34,7 +34,7 @@ const num = (text: string) => Number(text.replace(/,/g, '')) || 0;
 export default function ShiftScreen() {
   const { t } = useTranslation();
   const { api } = useSession();
-  const { state } = useOffline();
+  const { state, data } = useOffline();
   const { exchangeRate } = useBranch();
   const { shift, loaded, error, reload } = useShift();
   const { command, submit, busy } = useRunner();
@@ -45,6 +45,8 @@ export default function ShiftScreen() {
   const [closing, setClosing] = useState(false);
   const [countUsd, setCountUsd] = useState('0');
   const [countKhr, setCountKhr] = useState('0');
+  /** Orders still unpaid on the tables (closing the shift leaves them open). */
+  const [unpaid, setUnpaid] = useState<string[]>([]);
   /** Goes up after opening or closing, so the list of shifts below reads again at once. */
   const [listVersion, setListVersion] = useState(0);
 
@@ -66,7 +68,7 @@ export default function ShiftScreen() {
   }
 
   function confirmClose() {
-    Alert.alert(t('shift.confirmClose'), undefined, [
+    Alert.alert(t('shift.confirmClose'), unpaid.length > 0 ? t('shift.unpaidConfirm', { count: unpaid.length, tables: unpaid.join(', ') }) : undefined, [
       { text: t('common.cancel'), style: 'cancel' },
       { text: t('shift.close'), style: 'destructive', onPress: () => void close() },
     ]);
@@ -125,6 +127,13 @@ export default function ShiftScreen() {
                     <Field label={t('shift.countedUsd')} value={countUsd} onChangeText={setCountUsd} keyboardType="decimal-pad" selectTextOnFocus />
                     <Field label={t('shift.countedKhr')} value={countKhr} onChangeText={setCountKhr} keyboardType="decimal-pad" selectTextOnFocus />
                     <Line label={t('shift.difference')} value={`${formatMoney(diff.usd, 'USD')} · ${formatMoney(diff.khr, 'KHR')}`} bold tone={diff.usd === 0 && diff.khr === 0 ? undefined : diff.usd < 0 || diff.khr < 0 ? 'bad' : 'warn'} />
+                    {unpaid.length > 0 ? (
+                      <View style={styles.warn}>
+                        <Text style={styles.warnTitle}>{t('shift.unpaidTitle', { count: unpaid.length })}</Text>
+                        <Text style={styles.warnText}>{unpaid.join(', ')}</Text>
+                        <Text style={styles.warnText}>{t('shift.unpaidHint')}</Text>
+                      </View>
+                    ) : null}
                     {discrepancy.any ? (
                       <View style={styles.warn}>
                         <Text style={styles.warnTitle}>{t('shift.discrepancy')}</Text>
@@ -145,6 +154,8 @@ export default function ShiftScreen() {
                       setCountUsd(String(expected.usd));
                       setCountKhr(String(expected.khr));
                       setClosing(true);
+                      // which tables are still eating, for the warning
+                      data.tables().then((r) => setUnpaid(unpaidOrders(r.data)), () => setUnpaid([]));
                     }}
                   />
                 )}

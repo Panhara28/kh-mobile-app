@@ -1,4 +1,5 @@
-import type { Shift, ShiftReceipt } from './api';
+import type { RestaurantTable, Shift, ShiftReceipt } from './api';
+import { openGroups } from './table-groups';
 import { parseKhPosTime, toKhPosTime } from './time';
 import type { CloseShiftPayload, OpenShiftPayload, OutboxCommand } from './offline/types';
 
@@ -178,4 +179,12 @@ export function shiftReceiptHtml(title: string, lines: ShiftLine[]): string {
     .map((x) => (x.heading ? `<tr><td colspan="2" style="padding-top:10px"><b>${esc(x.label.toUpperCase())}</b></td></tr>` : `<tr><td>${esc(x.label)}</td><td style="text-align:right">${x.bold ? '<b>' : ''}${esc(x.value)}${x.bold ? '</b>' : ''}</td></tr>`))
     .join('');
   return `<html><body style="font-family:sans-serif;font-size:14px"><h3 style="text-align:center">${esc(title)}</h3><table style="width:100%">${rows}</table></body></html>`;
+}
+
+/**
+ * The orders still unpaid on the tables ("T-01", or "T-01 #002" for a Table + Tag group): closing the shift leaves
+ * them open, so the cashier is warned before closing (paid in the next shift).
+ */
+export function unpaidOrders(tables: RestaurantTable[]): string[] {
+  return tables.flatMap((t) => openGroups(t).map((o) => (o.tagNo ? `${t.table_name} #${o.tagNo}` : t.table_name)));
 }
