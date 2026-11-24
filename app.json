@@ -58,6 +58,15 @@
             "usesCleartextTraffic": true
           }
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/brand/bongit-mark-white-icon.png",
+          "imageWidth": 120,
+          "resizeMode": "contain",
+          "backgroundColor": "#0B43C7"
+        }
       ]
     ],
     "experiments": {

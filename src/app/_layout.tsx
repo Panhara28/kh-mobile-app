@@ -15,7 +15,7 @@ import { restoreLanguage } from '@/i18n/saved-language';
 import { OfflineProvider } from '@/lib/offline/provider';
 import { SessionProvider, useSession } from '@/lib/session';
 import { Button } from '@/ui/components';
-import { LoadingState } from '@/ui/states';
+import { BrandSplash, hideLaunchScreen } from '@/ui/brand-splash';
 import { colors, font, space } from '@/ui/theme';
 
 initI18n();
@@ -27,7 +27,7 @@ LogBox.ignoreLogs(['Cannot connect to Expo CLI', 'Error happened from the WebSoc
 export default function RootLayout() {
   // Krasar for Khmer text (ui/text.tsx). Local files, so this is a moment; on an error the system font is used.
   const [fontsLoaded, fontError] = useFonts(KRASAR_FONTS);
-  if (!fontsLoaded && !fontError) return null;
+  if (!fontsLoaded && !fontError) return <BrandSplash />;
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
@@ -43,6 +43,7 @@ export default function RootLayout() {
 /** Login screen while signed out; the module menu (More) while signed in. */
 function Navigator() {
   const { status, retry, logout, user, api } = useSession();
+  useEffect(hideLaunchScreen, []);
   const { t } = useTranslation();
 
   // After signing in, open the role's home screen (the owner's dashboard, a board member's board, ...).
@@ -85,13 +86,7 @@ function Navigator() {
     if (id && !isModuleForStore(id, kind)) router.replace(homeRoute(user) as never);
   }, [status, user, pathname, kind]);
 
-  if (status === 'loading') {
-    return (
-      <SafeAreaView style={styles.fill}>
-        <LoadingState />
-      </SafeAreaView>
-    );
-  }
+  if (status === 'loading') return <BrandSplash />;
   if (status === 'unreachable') {
     return (
       <SafeAreaView style={[styles.fill, styles.center]}>
