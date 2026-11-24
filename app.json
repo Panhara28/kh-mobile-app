@@ -10,12 +10,22 @@
     "scheme": "khpos",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/brand/bongit-mark-white-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B43C7"
+    },
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.panahra28.khpos",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "splash": {
+        "image": "./assets/brand/bongit-mark-white-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#0B43C7"
       }
     },
     "android": {
@@ -31,7 +41,12 @@
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "splash": {
+        "image": "./assets/brand/bongit-mark-white-icon.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#0B43C7"
+      }
     },
     "plugins": [
       "expo-router",
