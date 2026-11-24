@@ -19,7 +19,7 @@ import { colors, font, radius, space } from '@/ui/theme';
 
 const MATCH_TYPES: MatchType[] = ['VARIANT', 'PRODUCT', 'CATEGORY'];
 
-/** Add or edit one promotion set: validity, daily hours, and the items (what to buy, what is discounted). Needs the server to save. */
+/** Add or edit one promotion set: validity, daily hours, and the items (what to buy, what is discounted). Saved on the phone first when kh-pos cannot be reached, and sent later. */
 export default function PromotionSetScreen() {
   const { t } = useTranslation();
   const { id, isNew } = useLocalSearchParams<{ id: string; isNew?: string }>();

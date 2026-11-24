@@ -58,7 +58,7 @@ function Tile({ table, at, onDragging, onMove }: { table: RestaurantTable; at: P
   );
 }
 
-/** The table floor plan like the kh-pos web "table flow": drag each table where it stands in the room, then save. Saving needs the server. */
+/** The table floor plan like the kh-pos web "table flow": drag each table where it stands in the room, then save. Saving works offline too: it is sent once kh-pos can be reached. */
 export default function TableLayoutScreen() {
   const { t } = useTranslation();
   const { user } = useSession();

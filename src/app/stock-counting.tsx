@@ -21,7 +21,7 @@ import { colors, font, radius, space } from '@/ui/theme';
 
 const EMPTY_IN: StockInForm = { qty: 0, lotNumber: '', expiredAt: '', cost: 0 };
 
-/** Count a slot, stock in, stock out, or move stock between slots for one product variant. Needs the server. */
+/** Count a slot, stock in, stock out, or move stock between slots for one product variant. Saved on the phone first when kh-pos cannot be reached, and sent later. */
 export default function StockCountingScreen() {
   const { t } = useTranslation();
   const { api, user } = useSession();
