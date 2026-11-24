@@ -19,12 +19,13 @@ import { useShift } from '@/lib/use-shift';
 import { can } from '@/lib/line';
 import { selectAll, selectedCount, type TransferBody } from '@/lib/transfer';
 import { useSession } from '@/lib/session';
-import { isGroupSeat } from '@/lib/table-groups';
+import { isGroupSeat, splitSeat } from '@/lib/table-groups';
 import { useBranch } from '@/lib/use-branch';
 import { Badge, Button } from '@/ui/components';
 import { CartDrawer } from '@/ui/cart-drawer';
 import { CheckoutSheet } from '@/ui/checkout-sheet';
 import { TransferSheet } from '@/ui/transfer-sheet';
+import { MoveGroupSheet } from '@/ui/move-group-sheet';
 import { CartDiscountSheet, type CartDiscountRow } from '@/ui/cart-discount-sheet';
 import { OrderTypeSheet } from '@/ui/order-type-sheet';
 import { orderTypeBody, servedTypeOf, type CustomerRow, type ServedType } from '@/lib/customers';
@@ -74,6 +75,8 @@ export default function TableScreen() {
   const [discountOpen, setDiscountOpen] = useState(false);
   const [orderTypeOpen, setOrderTypeOpen] = useState(false);
   const [transferTables, setTransferTables] = useState<RestaurantTable[] | null>(null);
+  /** "Table + Tag": the tables this group can move to, while the move sheet is open. */
+  const [moveTables, setMoveTables] = useState<RestaurantTable[] | null>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [products, setProducts] = useState<MenuProduct[]>([]);
   const [promoSets, setPromoSets] = useState<VisibleSet[]>([]);
@@ -382,6 +385,38 @@ export default function TableScreen() {
     }
   }
 
+  /** "Table + Tag": move this group to another table (web "Change table"). Works offline: sent once kh-pos is back. */
+  async function startMove() {
+    if (!table?.order) return;
+    if (table.order.localOnly) {
+      Alert.alert(t('transfer.syncFirst'));
+      return;
+    }
+    try {
+      setMoveTables((await data.tables()).data.map((x) => applyOutbox(x, state.commands)));
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  async function doMove(to: RestaurantTable, reason: string) {
+    const order = table?.order;
+    if (!order) return;
+    setBusy(true);
+    try {
+      const requestId = Crypto.randomUUID();
+      const body = { requestId, orderId: order.orderId, fromTableId: splitSeat(id).tableId, toTableId: to.id, ...(reason ? { reason } : {}) };
+      const how = await writer({ entity: 'table-change', op: 'action', recordId: `table-change:${order.orderId}:${requestId}`, method: 'POST', path: '/api/table-change', body, once: true, label: `${t('moveGroup.title')}: ${to.table_name}` });
+      setMoveTables(null);
+      Alert.alert(how === 'queued' ? t('transfer.savedOffline', { name: to.table_name }) : t('transfer.done', { name: to.table_name }));
+      router.back(); // the group sits at the other table now
+    } catch (e) {
+      showError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function doTransfer(body: TransferBody, destination: RestaurantTable) {
     const order = table?.order;
     if (!order) return;
@@ -592,7 +627,9 @@ export default function TableScreen() {
           </Text>
         </View>
         <SyncBadge />
-        {table.order && !groupSeat && can(user, 'restaurant', 'update') ? <Button title="⇄" variant="outline" size="sm" onPress={() => void startTransfer()} accessibilityLabel={t('transfer.button')} /> : null}
+        {table.order && can(user, 'restaurant', 'update') ? (
+          <Button title="⇄" variant="outline" size="sm" onPress={() => void (groupSeat ? startMove() : startTransfer())} accessibilityLabel={groupSeat ? t('moveGroup.title') : t('transfer.button')} />
+        ) : null}
         <Pressable
           onPress={() => setCartOpen(true)}
           accessibilityRole="button"
@@ -700,6 +737,9 @@ export default function TableScreen() {
           onClose={() => setCheckoutOpen(false)}
           onComplete={(p) => void completeCheckout(p)}
         />
+      ) : null}
+      {moveTables && table.order ? (
+        <MoveGroupSheet orderId={table.order.orderId} tagNo={table.order.tagNo} fromTableId={splitSeat(id).tableId} tables={moveTables} busy={busy} onMove={(to, reason) => void doMove(to, reason)} onClose={() => setMoveTables(null)} />
       ) : null}
       {transferTables ? <TransferSheet table={table} tables={transferTables} busy={busy} onClose={() => setTransferTables(null)} onTransfer={(b, d) => void doTransfer(b, d)} /> : null}
       <ReceiptSheet

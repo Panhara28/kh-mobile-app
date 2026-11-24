@@ -4,6 +4,7 @@ import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, St
 import { Text } from '@/ui/text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { KhPosApi } from '@/lib/api';
+import { useStoreKind } from '@/lib/use-modules';
 import { customerBody, emptyCustomer, phoneQuery, validateCustomer, type CustomerForm, type CustomerRow, type ServedType } from '@/lib/customers';
 import { useRecordWriter } from '@/lib/offline/use-record';
 import { Button, Card, Field, Segmented } from './components';
@@ -29,6 +30,7 @@ export function OrderTypeSheet({
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const lite = useStoreKind().edition === 'LITE';
   const [type, setType] = useState<ServedType>(current);
   const [phone, setPhone] = useState('');
   const [results, setResults] = useState<CustomerRow[]>([]);
@@ -96,7 +98,8 @@ export function OrderTypeSheet({
               options={[
                 { value: 'dine_in', label: t('orderType.dine_in') },
                 { value: 'take_away', label: t('orderType.take_away') },
-                { value: 'food_delivery', label: t('orderType.food_delivery') },
+                // a small restaurant has no delivery, like the web; an order already marked delivery keeps the option
+                ...(lite && current !== 'food_delivery' ? [] : [{ value: 'food_delivery', label: t('orderType.food_delivery') }]),
               ]}
               value={type}
               onChange={(v) => setType(v as ServedType)}

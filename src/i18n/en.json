@@ -2112,5 +2112,14 @@
     "tabSearch": "Search",
     "tabOrders": "Orders",
     "tabAccount": "Account"
+  },
+  "moveGroup": {
+    "title": "Move group",
+    "to": "Move to table",
+    "reason": "Reason (optional)",
+    "reasonHint": "e.g. needs a bigger table",
+    "history": "Moves so far",
+    "pick": "Choose a table",
+    "moveTo": "Move to {{name}}"
   }
 }
