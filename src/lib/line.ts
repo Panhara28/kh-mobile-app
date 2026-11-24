@@ -10,7 +10,7 @@ export type Action = 'create' | 'read' | 'update' | 'delete';
  * (src/middleware.ts), so the phone hides the module too. "view-only" counts as read.
  */
 /** Parts of the web app that have no permission of their own: anyone signed in may use them (kh-pos shows them when the branch turns them on). */
-const OPEN_RESOURCES = ['accounting'];
+export const OPEN_RESOURCES = ['accounting'];
 
 export function can(user: StaffUser | null | undefined, resource: string, action: Action): boolean {
   const role = user?.role;

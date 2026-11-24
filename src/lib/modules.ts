@@ -1,6 +1,6 @@
 import type { StaffUser } from './api';
 import { isModuleForStore, storeKind } from './business-type';
-import { can } from './line';
+import { can, OPEN_RESOURCES } from './line';
 
 export type ModuleGroup = 'daily' | 'reports' | 'stock' | 'setup';
 
@@ -89,6 +89,22 @@ const DETAIL_ROUTES: [prefix: string, moduleId: string][] = [
 export function moduleIdForPath(path: string): string | null {
   const under = (p: string) => path === p || path.startsWith(p + '/');
   return MODULES.find((m) => under(m.route))?.id ?? DETAIL_ROUTES.find(([p]) => under(p))?.[1] ?? null;
+}
+
+/**
+ * Floor staff whose only screen is the tables (a waiter, the "Service" role): they work only there, like the web,
+ * where such a role starts on the tables and has no other page to open.
+ */
+export function isTablesOnly(user: StaffUser | null | undefined): boolean {
+  if (!user?.role || user.role.role === 'OWNER') return false;
+  // screens the role itself grants (not the account, nor what every role may open)
+  const screens = visibleModules(user).filter((m) => m.resource !== null && !OPEN_RESOURCES.includes(m.resource));
+  return screens.length === 1 && screens[0]!.id === 'tables';
+}
+
+/** The screens a tables-only role may be on: the tables, a table's order, and their own account. */
+export function tablesOnlyAllows(path: string): boolean {
+  return ['/tables', '/table', '/account', '/accessibility'].some((p) => path === p || path.startsWith(p + '/'));
 }
 
 export const GROUP_ORDER: ModuleGroup[] = ['daily', 'reports', 'stock', 'setup'];

@@ -2,7 +2,7 @@ import { useFonts } from 'expo-font';
 import { Stack, router, usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { isModuleForStore } from '@/lib/business-type';
-import { homeRoute, moduleIdForPath } from '@/lib/modules';
+import { homeRoute, isTablesOnly, moduleIdForPath, tablesOnlyAllows } from '@/lib/modules';
 import { useStoreKind } from '@/lib/use-modules';
 import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
@@ -55,8 +55,10 @@ function Navigator() {
     if (landed.current || !user) return;
     landed.current = true;
     const home = homeRoute(user);
+    // a waiter has only the tables: nothing under them to go back to
+    if (isTablesOnly(user)) router.replace('/tables' as never);
     // pushed on top of More, so Back from the home screen has somewhere to go
-    if (home !== '/more') router.push(home as never);
+    else if (home !== '/more') router.push(home as never);
     // A new store: kh-pos refuses to sell until its first-time setup is finished. The owner is taken there;
     // other staff are told to ask them. Unknown offline (then the store was set up already, or nothing can be sold yet anyway).
     api.call<{ result?: { complete?: boolean } }>('GET', '/api/setup').then(
@@ -75,6 +77,10 @@ function Navigator() {
   const kind = useStoreKind();
   useEffect(() => {
     if (status !== 'signedIn' || !user) return;
+    if (isTablesOnly(user) && !tablesOnlyAllows(pathname)) {
+      router.replace('/tables' as never);
+      return;
+    }
     const id = moduleIdForPath(pathname);
     if (id && !isModuleForStore(id, kind)) router.replace(homeRoute(user) as never);
   }, [status, user, pathname, kind]);

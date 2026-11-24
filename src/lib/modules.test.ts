@@ -1,6 +1,6 @@
 import type { StaffUser } from './api';
 import { can } from './line';
-import { homeRoute, MODULES, sortByLabel, visibleModules } from './modules';
+import { homeRoute, isTablesOnly, MODULES, sortByLabel, tablesOnlyAllows, visibleModules } from './modules';
 
 const user = (role: string, permissions: Record<string, string> = {}) => ({ id: 'u', role: { role, permissions } }) as unknown as StaffUser;
 
@@ -51,6 +51,25 @@ describe('where the app opens', () => {
     expect(homeRoute(user('Supervisor', { shift: 'read' }))).toBe('/shift');
     expect(homeRoute(user('Nobody', {}))).toBe('/more');
     expect(homeRoute(null)).toBe('/more');
+  });
+});
+
+describe('a waiter (Service role) works only on the tables', () => {
+  const waiter = user('Service', { restaurant: 'read,create,update', 'order-preparation': 'read,create,update' });
+
+  it('is the role whose only screen is the tables', () => {
+    expect(isTablesOnly(waiter)).toBe(true);
+    expect(homeRoute(waiter)).toBe('/tables');
+    // a cashier also has the shift and orders, a supervisor the dashboard: they keep the menu
+    expect(isTablesOnly(user('Cashier', { restaurant: 'read', shift: 'read', order: 'read' }))).toBe(false);
+    expect(isTablesOnly(user('SUPERVISOR', { restaurant: 'read', dashboard: 'read' }))).toBe(false);
+    expect(isTablesOnly(user('OWNER'))).toBe(false);
+    expect(isTablesOnly(null)).toBe(false);
+  });
+
+  it('may be on the tables, a table and their account, nowhere else', () => {
+    for (const p of ['/tables', '/table/abc', '/account', '/accessibility']) expect(tablesOnlyAllows(p)).toBe(true);
+    for (const p of ['/more', '/home', '/orders', '/shift', '/table-setup', '/products']) expect(tablesOnlyAllows(p)).toBe(false);
   });
 });
 

@@ -3,7 +3,7 @@ import { Clock, House, LayoutGrid, ReceiptText, UserRound, UtensilsCrossed, type
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { homeRoute } from '@/lib/modules';
+import { homeRoute, isTablesOnly } from '@/lib/modules';
 import { useModules } from '@/lib/use-modules';
 import { useSession } from '@/lib/session';
 import { Text } from '@/ui/text';
@@ -29,7 +29,8 @@ export function TabBar({ current }: { current: TabId }) {
   if (ids.has('tables')) tabs.push({ id: 'tables', icon: UtensilsCrossed, label: t('home.tabTables'), route: '/tables' });
   if (ids.has('orders')) tabs.push({ id: 'orders', icon: ReceiptText, label: t('home.tabOrders'), route: '/orders' });
   else if (ids.has('shift')) tabs.push({ id: 'shift', icon: Clock, label: t('more.shift'), route: '/shift' });
-  tabs.push({ id: 'more', icon: LayoutGrid, label: t('more.title'), route: '/more' });
+  // a waiter works only on the tables (and their account)
+  if (!isTablesOnly(user)) tabs.push({ id: 'more', icon: LayoutGrid, label: t('more.title'), route: '/more' });
   tabs.push({ id: 'account', icon: UserRound, label: t('home.tabAccount'), route: '/account' });
 
   return (
