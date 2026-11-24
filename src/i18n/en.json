@@ -2149,6 +2149,7 @@
     "doneText": "The store is ready. You can open a shift and start selling.",
     "staffTitle": "Store setup not finished",
     "staffText": "Selling is locked until the owner finishes the store setup.",
+    "stepOf": "Step {{n}} of {{total}}",
     "step_store": "Store",
     "step_type": "Business",
     "step_currency": "Currency",

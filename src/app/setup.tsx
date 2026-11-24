@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { router, useFocusEffect, type Href } from 'expo-router';
 import { Check, Plus, Trash2 } from 'lucide-react-native';
-import { useCallback, useState } from 'react';
+import { Fragment, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -95,17 +95,7 @@ export default function SetupScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScreenHeader title={t('setup.title')} subtitle={t('setup.progress', { done, total: status.steps.length })} />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.steps}>
-        {[...status.steps.map((s) => ({ key: s.key as Page, done: s.done })), { key: 'finish' as Page, done: status.complete }].map((s, i) => {
-          const on = s.key === page;
-          return (
-            <Pressable key={s.key} onPress={() => setPage(s.key)} accessibilityRole="tab" accessibilityState={{ selected: on }} style={[styles.step, on && styles.stepOn]}>
-              <View style={[styles.dot, s.done && styles.dotDone, on && styles.dotOn]}>{s.done ? <Check size={12} color="#fff" strokeWidth={3} /> : <Text style={[styles.dotText, on && styles.dotTextOn]}>{i + 1}</Text>}</View>
-              <Text style={[styles.stepText, on && styles.stepTextOn]}>{t(`setup.step_${s.key}`)}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <Stepper items={[...status.steps.map((s) => ({ key: s.key as Page, done: s.done })), { key: 'finish' as Page, done: status.complete }]} page={page} onOpen={setPage} />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + space.xl }]} keyboardShouldPersistTaps="handled">
           {page === 'store' ? <StoreStep status={status} busy={busy} onSave={(b) => void save('store', b)} /> : null}
@@ -120,6 +110,40 @@ export default function SetupScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+/** Numbered circles joined by a line, across the whole width (no scrolling), and the current step's name. */
+function Stepper({ items, page, onOpen }: { items: { key: Page; done: boolean }[]; page: Page; onOpen: (p: Page) => void }) {
+  const { t } = useTranslation();
+  const at = Math.max(0, items.findIndex((s) => s.key === page));
+  return (
+    <View style={styles.stepper}>
+      <View style={styles.stepRow}>
+        {items.map((s, i) => {
+          const on = s.key === page;
+          return (
+            <Fragment key={s.key}>
+              {i > 0 ? <View style={[styles.line, items[i - 1]!.done && styles.lineDone]} /> : null}
+              <Pressable
+                onPress={() => onOpen(s.key)}
+                hitSlop={8}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={t(`setup.step_${s.key}`)}
+                style={[styles.dot, s.done && styles.dotDone, on && styles.dotOn]}
+              >
+                {s.done && !on ? <Check size={14} color="#fff" strokeWidth={3} /> : <Text style={[styles.dotText, (on || s.done) && styles.dotTextOn]}>{i + 1}</Text>}
+              </Pressable>
+            </Fragment>
+          );
+        })}
+      </View>
+      <Text style={styles.stepNow}>
+        {t('setup.stepOf', { n: at + 1, total: items.length })}
+        <Text style={styles.stepName}>{`  ·  ${t(`setup.step_${page}`)}`}</Text>
+      </Text>
+    </View>
   );
 }
 
@@ -384,16 +408,17 @@ function FinishStep({ status, busy, onFinish, onOpen }: { status: SetupStatus; b
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.page },
   flex: { flex: 1 },
-  steps: { gap: space.sm, paddingHorizontal: space.md, paddingVertical: space.md },
-  step: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: space.md, paddingVertical: 8, borderRadius: radius.full, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
-  stepOn: { borderColor: colors.primary, backgroundColor: colors.brandSoft },
-  dot: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.muted },
-  dotDone: { backgroundColor: colors.success },
-  dotOn: { backgroundColor: colors.primary },
-  dotText: { fontSize: 11, fontWeight: '700', color: colors.mutedForeground },
+  stepper: { marginHorizontal: space.md, marginTop: space.md, padding: space.md, gap: space.sm, borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  stepRow: { flexDirection: 'row', alignItems: 'center' },
+  line: { flex: 1, height: 2, marginHorizontal: 2, borderRadius: 1, backgroundColor: colors.border },
+  lineDone: { backgroundColor: colors.success },
+  dot: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.muted, borderWidth: 2, borderColor: colors.muted },
+  dotDone: { backgroundColor: colors.success, borderColor: colors.success },
+  dotOn: { backgroundColor: colors.primary, borderColor: colors.brandSoft, transform: [{ scale: 1.12 }] },
+  dotText: { fontSize: 12, fontWeight: '700', color: colors.mutedForeground },
   dotTextOn: { color: '#fff' },
-  stepText: { fontSize: font.small, color: colors.foreground },
-  stepTextOn: { fontWeight: '800', color: colors.primary },
+  stepNow: { fontSize: font.small, color: colors.mutedForeground, textAlign: 'center' },
+  stepName: { fontWeight: '800', color: colors.foreground },
   body: { padding: space.lg, gap: space.md },
   heading: { gap: 4 },
   title: { fontSize: font.heading, fontWeight: '800', color: colors.foreground },
